@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Bucket
+   uuid = "BD0E314A-9B90-47F3-BE2E-CD672FA3FCF4"
+   type = "1"
+   version = "2.0">
+   <Breakpoints>
+      <BreakpointProxy
+         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
+         <BreakpointContent
+            uuid = "BAA9286D-5970-4239-B38A-458F418F83AA"
+            shouldBeEnabled = "Yes"
+            ignoreCount = "0"
+            continueAfterRunningActions = "No"
+            filePath = "Gameboxd/ViewModels/GameStore.swift"
+            startingColumnNumber = "9223372036854775807"
+            endingColumnNumber = "9223372036854775807"
+            startingLineNumber = "485"
+            endingLineNumber = "485"
+            landmarkName = "getYearStats(for:)"
+            landmarkType = "7">
+            <Locations>
+               <Location
+                  uuid = "BAA9286D-5970-4239-B38A-458F418F83AA - 3b5a695f43322fd6"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "Gameboxd.GameStore.getYearStats(for: Swift.Int) -&gt; Gameboxd.YearStats"
+                  moduleName = "Gameboxd.debug.dylib"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/ayoubouaadoud/Desktop/Gameboxd/Gameboxd/ViewModels/GameStore.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "485"
+                  endingLineNumber = "485">
+               </Location>
+               <Location
+                  uuid = "BAA9286D-5970-4239-B38A-458F418F83AA - 958b8237aede2024"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "closure #5 (Swift.Int, Gameboxd.Game) -&gt; Swift.Int in Gameboxd.GameStore.getYearStats(for: Swift.Int) -&gt; Gameboxd.YearStats"
+                  moduleName = "Gameboxd.debug.dylib"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/ayoubouaadoud/Desktop/Gameboxd/Gameboxd/ViewModels/GameStore.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "485"
+                  endingLineNumber = "485">
+               </Location>
+            </Locations>
+         </BreakpointContent>
+      </BreakpointProxy>
+   </Breakpoints>
+</Bucket>

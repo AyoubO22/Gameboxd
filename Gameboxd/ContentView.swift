@@ -2,23 +2,27 @@
 //  ContentView.swift
 //  Gameboxd
 //
-//  Created by Ayoub Ouaadoud on 01/12/2025.
+//  Root view that switches between Auth and Main app
 //
 
 import SwiftUI
 
 struct ContentView: View {
+    @EnvironmentObject var store: GameStore
+    
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        Group {
+            if store.isLoggedIn {
+                MainTabView()
+            } else {
+                AuthView()
+            }
         }
-        .padding()
+        .animation(.easeInOut, value: store.isLoggedIn)
     }
 }
 
 #Preview {
     ContentView()
+        .environmentObject(GameStore())
 }

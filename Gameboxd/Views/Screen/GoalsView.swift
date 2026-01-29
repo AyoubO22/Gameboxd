@@ -180,7 +180,7 @@ struct GoalCard: View {
                         .frame(height: 8)
                     
                     RoundedRectangle(cornerRadius: 6)
-                        .fill(isCompleted ? Color.gbGreen : Color.gbGreen.gradient)
+                        .fill(Color.gbGreen)
                         .frame(width: geometry.size.width * progress, height: 8)
                         .animation(.spring(response: 0.5), value: progress)
                 }

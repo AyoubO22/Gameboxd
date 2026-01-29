@@ -63,6 +63,17 @@ enum GoalType: String, Codable, CaseIterable {
         case .backlogCleared: return "Termine des jeux du backlog"
         }
     }
+    
+    var unit: String {
+        switch self {
+        case .gamesCompleted: return "jeux"
+        case .hoursPlayed: return "heures"
+        case .reviewsWritten: return "critiques"
+        case .newGames: return "jeux"
+        case .platinums: return "platines"
+        case .backlogCleared: return "jeux"
+        }
+    }
 }
 
 struct GoalSuggestion {

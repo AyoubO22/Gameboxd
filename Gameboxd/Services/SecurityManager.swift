@@ -12,6 +12,8 @@ import Security
 import LocalAuthentication
 import CryptoKit
 import CommonCrypto
+import Combine
+import UIKit
 
 // MARK: - Security Manager
 /// Central security manager implementing defense-in-depth security model

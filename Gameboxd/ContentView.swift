@@ -67,11 +67,11 @@ struct AchievementToast: View {
     var color: Color {
         switch achievement.category {
         case .collection: return .blue
-        case .completionist: return .green
-        case .dedicated: return .purple
-        case .explorer: return .orange
+        case .completion: return .green
+        case .dedication: return .purple
+        case .exploration: return .orange
         case .social: return .pink
-        case .special: return .yellow
+        case .time: return .yellow
         }
     }
     

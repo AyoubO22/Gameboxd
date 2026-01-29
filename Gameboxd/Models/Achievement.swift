@@ -8,7 +8,7 @@
 import SwiftUI
 
 // MARK: - Achievement Model
-struct Achievement: Identifiable, Codable {
+struct Achievement: Identifiable, Codable, Equatable {
     let id: String
     let title: String
     let description: String
@@ -25,6 +25,10 @@ struct Achievement: Identifiable, Codable {
     
     enum CodingKeys: String, CodingKey {
         case id, title, description, icon, category, requirement, currentProgress, isUnlocked, unlockedDate
+    }
+    
+    static func == (lhs: Achievement, rhs: Achievement) -> Bool {
+        lhs.id == rhs.id && lhs.isUnlocked == rhs.isUnlocked && lhs.currentProgress == rhs.currentProgress
     }
 }
 

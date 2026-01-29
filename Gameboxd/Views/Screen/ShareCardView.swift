@@ -168,8 +168,8 @@ struct GameShareCard: View {
                 }
                 
                 // Review Preview
-                if let review = game.review, !review.isEmpty {
-                    Text("\"\(review)\"")
+                if !game.review.isEmpty {
+                    Text("\"\(game.review)\"")
                         .font(.subheadline)
                         .italic()
                         .foregroundColor(textColor.opacity(0.8))

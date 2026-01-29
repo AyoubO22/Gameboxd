@@ -40,6 +40,8 @@ enum GameStatus: String, CaseIterable, Codable {
 }
 
 // MARK: - Backlog Priority
+typealias GamePriority = BacklogPriority
+
 enum BacklogPriority: String, CaseIterable, Codable {
     case low = "Faible"
     case medium = "Moyenne"
@@ -52,6 +54,15 @@ enum BacklogPriority: String, CaseIterable, Codable {
         case .medium: return .blue
         case .high: return .orange
         case .urgent: return .red
+        }
+    }
+    
+    var icon: String {
+        switch self {
+        case .low: return "arrow.down.circle"
+        case .medium: return "minus.circle"
+        case .high: return "arrow.up.circle"
+        case .urgent: return "exclamationmark.circle"
         }
     }
     

@@ -113,41 +113,43 @@ struct PlaySessionCard: View {
     let session: PlaySession
     @EnvironmentObject var store: GameStore
     @State private var showingSpoiler = false
+    @State private var showingDetail = false
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Header
-            HStack(spacing: 12) {
-                // Game Cover
-                if let coverURL = session.gameCoverURL, let url = URL(string: coverURL) {
-                    AsyncImage(url: url) { image in
-                        image.resizable().aspectRatio(contentMode: .fill)
-                    } placeholder: {
-                        Rectangle().fill(session.gameCoverColor.gradient)
-                    }
-                    .frame(width: 50, height: 65)
-                    .cornerRadius(6)
-                } else {
-                    Rectangle()
-                        .fill(session.gameCoverColor.gradient)
+        Button(action: { showingDetail = true }) {
+            VStack(alignment: .leading, spacing: 12) {
+                // Header
+                HStack(spacing: 12) {
+                    // Game Cover
+                    if let coverURL = session.gameCoverURL, let url = URL(string: coverURL) {
+                        AsyncImage(url: url) { image in
+                            image.resizable().aspectRatio(contentMode: .fill)
+                        } placeholder: {
+                            Rectangle().fill(session.gameCoverColor.gradient)
+                        }
                         .frame(width: 50, height: 65)
                         .cornerRadius(6)
-                }
-                
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(session.gameTitle)
-                        .font(.headline)
-                        .foregroundColor(.white)
-                        .lineLimit(1)
+                    } else {
+                        Rectangle()
+                            .fill(session.gameCoverColor.gradient)
+                            .frame(width: 50, height: 65)
+                            .cornerRadius(6)
+                    }
                     
-                    HStack(spacing: 8) {
-                        // Duration
-                        Label(session.formattedDuration, systemImage: "clock")
-                            .font(.caption)
-                            .foregroundColor(.gbGreen)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(session.gameTitle)
+                            .font(.headline)
+                            .foregroundColor(.white)
+                            .lineLimit(1)
                         
-                        // Time
-                        Text(session.date, style: .time)
+                        HStack(spacing: 8) {
+                            // Duration
+                            Label(session.formattedDuration, systemImage: "clock")
+                                .font(.caption)
+                                .foregroundColor(.gbGreen)
+                            
+                            // Time
+                            Text(session.date, style: .time)
                             .font(.caption)
                             .foregroundColor(.gray)
                     }
@@ -205,6 +207,248 @@ struct PlaySessionCard: View {
         .padding()
         .background(Color.gbCard)
         .cornerRadius(12)
+        }
+        .buttonStyle(.plain)
+        .sheet(isPresented: $showingDetail) {
+            PlaySessionDetailView(session: session)
+        }
+    }
+}
+
+// MARK: - Play Session Detail View
+struct PlaySessionDetailView: View {
+    let session: PlaySession
+    @EnvironmentObject var store: GameStore
+    @Environment(\.dismiss) var dismiss
+    @State private var showingSpoiler = false
+    @State private var showingDeleteConfirmation = false
+    
+    var game: Game? {
+        store.myGames.first { $0.id == session.gameId }
+    }
+    
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 24) {
+                    // Game Header
+                    HStack(spacing: 16) {
+                        if let coverURL = session.gameCoverURL, let url = URL(string: coverURL) {
+                            AsyncImage(url: url) { image in
+                                image.resizable().aspectRatio(contentMode: .fill)
+                            } placeholder: {
+                                Rectangle().fill(session.gameCoverColor.gradient)
+                            }
+                            .frame(width: 80, height: 105)
+                            .cornerRadius(8)
+                        } else {
+                            Rectangle()
+                                .fill(session.gameCoverColor.gradient)
+                                .frame(width: 80, height: 105)
+                                .cornerRadius(8)
+                                .overlay(
+                                    Image(systemName: "gamecontroller.fill")
+                                        .foregroundColor(.white.opacity(0.5))
+                                )
+                        }
+                        
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(session.gameTitle)
+                                .font(.title2)
+                                .fontWeight(.bold)
+                                .foregroundColor(.white)
+                            
+                            if let game = game {
+                                Text(game.platform)
+                                    .font(.subheadline)
+                                    .foregroundColor(.gray)
+                            }
+                        }
+                        
+                        Spacer()
+                    }
+                    .padding()
+                    .background(Color.gbCard)
+                    .cornerRadius(12)
+                    
+                    // Session Info
+                    VStack(spacing: 16) {
+                        // Date & Time
+                        SessionDetailRow(
+                            icon: "calendar",
+                            title: "Date",
+                            value: session.date.formatted(date: .long, time: .shortened)
+                        )
+                        
+                        Divider().background(Color.gray.opacity(0.3))
+                        
+                        // Duration
+                        SessionDetailRow(
+                            icon: "clock.fill",
+                            title: "Durée",
+                            value: session.formattedDuration
+                        )
+                        
+                        // Mood
+                        if let mood = session.mood {
+                            Divider().background(Color.gray.opacity(0.3))
+                            
+                            HStack {
+                                Image(systemName: "face.smiling")
+                                    .foregroundColor(.gbGreen)
+                                    .frame(width: 24)
+                                
+                                Text("Ressenti")
+                                    .foregroundColor(.gray)
+                                
+                                Spacer()
+                                
+                                HStack(spacing: 6) {
+                                    Image(systemName: mood.icon)
+                                    Text(mood.rawValue)
+                                }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(mood.color.opacity(0.2))
+                                .foregroundColor(mood.color)
+                                .cornerRadius(20)
+                            }
+                        }
+                        
+                        // Rating
+                        if let rating = session.rating {
+                            Divider().background(Color.gray.opacity(0.3))
+                            
+                            HStack {
+                                Image(systemName: "star.fill")
+                                    .foregroundColor(.gbGreen)
+                                    .frame(width: 24)
+                                
+                                Text("Note")
+                                    .foregroundColor(.gray)
+                                
+                                Spacer()
+                                
+                                HStack(spacing: 2) {
+                                    ForEach(1...rating, id: \.self) { _ in
+                                        Image(systemName: "star.fill")
+                                            .font(.caption)
+                                    }
+                                    ForEach(rating..<5, id: \.self) { _ in
+                                        Image(systemName: "star")
+                                            .font(.caption)
+                                    }
+                                }
+                                .foregroundColor(.gbGreen)
+                            }
+                        }
+                    }
+                    .padding()
+                    .background(Color.gbCard)
+                    .cornerRadius(12)
+                    
+                    // Notes Section
+                    if !session.notes.isEmpty {
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack {
+                                Image(systemName: "note.text")
+                                    .foregroundColor(.gbGreen)
+                                Text("Notes")
+                                    .font(.headline)
+                                    .foregroundColor(.white)
+                                
+                                if session.isSpoiler {
+                                    Text("SPOILER")
+                                        .font(.caption2)
+                                        .fontWeight(.bold)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 4)
+                                        .background(Color.orange)
+                                        .foregroundColor(.white)
+                                        .cornerRadius(4)
+                                }
+                                
+                                Spacer()
+                            }
+                            
+                            if session.isSpoiler && !showingSpoiler {
+                                Button(action: { showingSpoiler = true }) {
+                                    HStack {
+                                        Image(systemName: "eye.slash.fill")
+                                        Text("Cliquer pour révéler le contenu")
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding()
+                                    .background(Color.orange.opacity(0.2))
+                                    .foregroundColor(.orange)
+                                    .cornerRadius(8)
+                                }
+                            } else {
+                                Text(session.notes)
+                                    .font(.body)
+                                    .foregroundColor(.white.opacity(0.9))
+                            }
+                        }
+                        .padding()
+                        .background(Color.gbCard)
+                        .cornerRadius(12)
+                    }
+                    
+                    // Delete Button
+                    Button(action: { showingDeleteConfirmation = true }) {
+                        HStack {
+                            Image(systemName: "trash")
+                            Text("Supprimer cette session")
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.red.opacity(0.15))
+                        .foregroundColor(.red)
+                        .cornerRadius(12)
+                    }
+                }
+                .padding()
+            }
+            .background(Color.gbDark.ignoresSafeArea())
+            .navigationTitle("Détails de la session")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Fermer") { dismiss() }
+                        .foregroundColor(.gbGreen)
+                }
+            }
+            .alert("Supprimer cette session ?", isPresented: $showingDeleteConfirmation) {
+                Button("Annuler", role: .cancel) {}
+                Button("Supprimer", role: .destructive) {
+                    store.deletePlaySession(session)
+                    dismiss()
+                }
+            }
+        }
+    }
+}
+
+struct SessionDetailRow: View {
+    let icon: String
+    let title: String
+    let value: String
+    
+    var body: some View {
+        HStack {
+            Image(systemName: icon)
+                .foregroundColor(.gbGreen)
+                .frame(width: 24)
+            
+            Text(title)
+                .foregroundColor(.gray)
+            
+            Spacer()
+            
+            Text(value)
+                .foregroundColor(.white)
+                .fontWeight(.medium)
+        }
     }
 }
 
@@ -212,23 +456,27 @@ struct PlaySessionCard: View {
 struct DiaryCalendarView: View {
     @EnvironmentObject var store: GameStore
     @Binding var selectedDate: Date
+    @State private var currentMonth = Date()
     
     var sessionsForSelectedDate: [PlaySession] {
         store.sessionsForDate(selectedDate)
     }
     
+    // Get all dates that have sessions
+    var datesWithSessions: Set<Date> {
+        let calendar = Calendar.current
+        return Set(store.playSessions.map { calendar.startOfDay(for: $0.date) })
+    }
+    
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
-                // Calendar
-                DatePicker(
-                    "Date",
-                    selection: $selectedDate,
-                    displayedComponents: .date
+                // Custom Calendar with dots
+                CustomCalendarView(
+                    selectedDate: $selectedDate,
+                    currentMonth: $currentMonth,
+                    datesWithSessions: datesWithSessions
                 )
-                .datePickerStyle(.graphical)
-                .tint(.gbGreen)
-                .frame(minWidth: 300, minHeight: 350)
                 .padding()
                 .background(Color.gbCard)
                 .cornerRadius(12)
@@ -246,16 +494,177 @@ struct DiaryCalendarView: View {
                     }
                     .frame(height: 150)
                 } else {
-                    LazyVStack(spacing: 12) {
-                        ForEach(sessionsForSelectedDate) { session in
-                            PlaySessionCard(session: session)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("\(sessionsForSelectedDate.count) session(s)")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                            .padding(.horizontal)
+                        
+                        LazyVStack(spacing: 12) {
+                            ForEach(sessionsForSelectedDate) { session in
+                                PlaySessionCard(session: session)
+                            }
                         }
+                        .padding(.horizontal)
                     }
-                    .padding(.horizontal)
                 }
             }
             .padding(.bottom)
         }
+    }
+}
+
+// MARK: - Custom Calendar with Dots
+struct CustomCalendarView: View {
+    @Binding var selectedDate: Date
+    @Binding var currentMonth: Date
+    let datesWithSessions: Set<Date>
+    
+    private let calendar = Calendar.current
+    private let daysOfWeek = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"]
+    
+    var monthTitle: String {
+        currentMonth.formatted(.dateTime.month(.wide).year())
+    }
+    
+    var daysInMonth: [Date?] {
+        var days: [Date?] = []
+        
+        let range = calendar.range(of: .day, in: .month, for: currentMonth)!
+        let firstDay = calendar.date(from: calendar.dateComponents([.year, .month], from: currentMonth))!
+        
+        // Get weekday of first day (1 = Sunday in US, adjust for Monday start)
+        var weekday = calendar.component(.weekday, from: firstDay)
+        weekday = weekday == 1 ? 7 : weekday - 1 // Convert to Monday = 1
+        
+        // Add empty days for padding
+        for _ in 1..<weekday {
+            days.append(nil)
+        }
+        
+        // Add all days of the month
+        for day in range {
+            if let date = calendar.date(byAdding: .day, value: day - 1, to: firstDay) {
+                days.append(date)
+            }
+        }
+        
+        return days
+    }
+    
+    var body: some View {
+        VStack(spacing: 16) {
+            // Month Navigation
+            HStack {
+                Button(action: previousMonth) {
+                    Image(systemName: "chevron.left")
+                        .font(.title3)
+                        .foregroundColor(.gbGreen)
+                        .frame(width: 44, height: 44)
+                }
+                
+                Spacer()
+                
+                Text(monthTitle.capitalized)
+                    .font(.headline)
+                    .foregroundColor(.white)
+                
+                Spacer()
+                
+                Button(action: nextMonth) {
+                    Image(systemName: "chevron.right")
+                        .font(.title3)
+                        .foregroundColor(.gbGreen)
+                        .frame(width: 44, height: 44)
+                }
+            }
+            
+            // Days of Week Header
+            HStack {
+                ForEach(daysOfWeek, id: \.self) { day in
+                    Text(day)
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(.gray)
+                        .frame(maxWidth: .infinity)
+                }
+            }
+            
+            // Calendar Grid
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: 8) {
+                ForEach(Array(daysInMonth.enumerated()), id: \.offset) { _, date in
+                    if let date = date {
+                        CalendarDayCell(
+                            date: date,
+                            isSelected: calendar.isDate(date, inSameDayAs: selectedDate),
+                            isToday: calendar.isDateInToday(date),
+                            hasSession: datesWithSessions.contains(calendar.startOfDay(for: date))
+                        ) {
+                            selectedDate = date
+                        }
+                    } else {
+                        Color.clear
+                            .frame(height: 44)
+                    }
+                }
+            }
+        }
+    }
+    
+    func previousMonth() {
+        if let newMonth = calendar.date(byAdding: .month, value: -1, to: currentMonth) {
+            currentMonth = newMonth
+        }
+    }
+    
+    func nextMonth() {
+        if let newMonth = calendar.date(byAdding: .month, value: 1, to: currentMonth) {
+            currentMonth = newMonth
+        }
+    }
+}
+
+// MARK: - Calendar Day Cell
+struct CalendarDayCell: View {
+    let date: Date
+    let isSelected: Bool
+    let isToday: Bool
+    let hasSession: Bool
+    let action: () -> Void
+    
+    private let calendar = Calendar.current
+    
+    var dayNumber: String {
+        "\(calendar.component(.day, from: date))"
+    }
+    
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 4) {
+                ZStack {
+                    // Selection/Today background
+                    if isSelected {
+                        Circle()
+                            .fill(Color.gbGreen)
+                            .frame(width: 36, height: 36)
+                    } else if isToday {
+                        Circle()
+                            .stroke(Color.gbGreen, lineWidth: 2)
+                            .frame(width: 36, height: 36)
+                    }
+                    
+                    Text(dayNumber)
+                        .font(.system(size: 16, weight: isSelected || isToday ? .bold : .regular))
+                        .foregroundColor(isSelected ? .gbDark : (isToday ? .gbGreen : .white))
+                }
+                
+                // Green dot indicator for sessions
+                Circle()
+                    .fill(hasSession ? Color.gbGreen : Color.clear)
+                    .frame(width: 6, height: 6)
+            }
+        }
+        .frame(height: 50)
     }
 }
 

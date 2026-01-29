@@ -14,6 +14,7 @@ struct GameDetailView: View {
     
     @State private var showingAddToList = false
     @State private var showingSpoiler = false
+    @State private var showingShareCard = false
     @State private var similarGames: [Game] = []
     @State private var isLoadingSimilar = false
     @State private var selectedTab = 0
@@ -88,6 +89,10 @@ struct GameDetailView: View {
                     Button(action: { shareGame() }) {
                         Label("Partager", systemImage: "square.and.arrow.up")
                     }
+                    
+                    Button(action: { showingShareCard = true }) {
+                        Label("Créer une carte", systemImage: "photo.artframe")
+                    }
                 } label: {
                     Image(systemName: "ellipsis.circle")
                         .foregroundColor(.gbGreen)
@@ -96,6 +101,9 @@ struct GameDetailView: View {
         }
         .sheet(isPresented: $showingAddToList) {
             AddToListSheet(game: game)
+        }
+        .sheet(isPresented: $showingShareCard) {
+            ShareCardView(game: game)
         }
         .task {
             await loadSimilarGames()
@@ -134,7 +142,8 @@ struct GameDetailHeader: View {
                         image
                             .resizable()
                             .aspectRatio(contentMode: .fill)
-                            .frame(height: 300)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 250)
                             .clipped()
                             .overlay(
                                 LinearGradient(
@@ -146,7 +155,7 @@ struct GameDetailHeader: View {
                     default:
                         Rectangle()
                             .fill(game.coverColor.gradient)
-                            .frame(height: 300)
+                            .frame(height: 250)
                             .overlay(
                                 LinearGradient(
                                     colors: [.clear, .gbDark],
@@ -156,10 +165,12 @@ struct GameDetailHeader: View {
                             )
                     }
                 }
+                .frame(height: 250)
+                .clipped()
             } else {
                 Rectangle()
                     .fill(game.coverColor.gradient)
-                    .frame(height: 300)
+                    .frame(height: 250)
                     .overlay(
                         LinearGradient(
                             colors: [.clear, .gbDark],

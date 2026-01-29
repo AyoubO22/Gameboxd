@@ -1,0 +1,413 @@
+#
+# Docker Compose for Gameboxd Infrastructure
+# Demonstrates Docker Certified Associate knowledge
+#
+# Covers: Multi-service orchestration, networks, volumes,
+# secrets, health checks, scaling, and production best practices
+#
+
+version: '3.9'
+
+# ==========================================
+# SERVICE DEFINITIONS
+# ==========================================
+services:
+  
+  # ---------- API Service ----------
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+      args:
+        ENVIRONMENT: production
+        BUILD_DATE: ${BUILD_DATE:-}
+        VCS_REF: ${VCS_REF:-}
+    image: gameboxd-api:${VERSION:-latest}
+    container_name: gameboxd-api
+    
+    # Restart policy
+    restart: unless-stopped
+    
+    # Resource constraints
+    deploy:
+      mode: replicated
+      replicas: 2
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        order: start-first
+      rollback_config:
+        parallelism: 1
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+    
+    # Port mapping
+    ports:
+      - "8080:8080"
+    
+    # Environment variables
+    environment:
+      - NODE_ENV=production
+      - PORT=8080
+      - LOG_LEVEL=info
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME:-gameboxd}
+      - REDIS_URL=redis://redis:6379
+      - AWS_REGION=${AWS_REGION:-eu-west-1}
+    
+    # Secrets (secure credential management)
+    secrets:
+      - db_password
+      - jwt_secret
+      - aws_access_key
+      - aws_secret_key
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # Networking
+    networks:
+      - gameboxd-network
+      - backend-network
+    
+    # Dependencies
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service,environment"
+        tag: "{{.Name}}/{{.ID}}"
+    
+    # Labels for service discovery
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.api.rule=Host(`api.gameboxd.app`)"
+      - "traefik.http.routers.api.tls=true"
+      - "traefik.http.services.api.loadbalancer.server.port=8080"
+
+  # ---------- PostgreSQL Database ----------
+  postgres:
+    image: postgres:15-alpine
+    container_name: gameboxd-postgres
+    restart: unless-stopped
+    
+    # Security: Don't expose ports in production
+    # ports:
+    #   - "5432:5432"
+    
+    environment:
+      POSTGRES_DB: ${DB_NAME:-gameboxd}
+      POSTGRES_USER: ${DB_USER:-gameboxd}
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+      PGDATA: /var/lib/postgresql/data/pgdata
+    
+    secrets:
+      - db_password
+    
+    # Persistent storage
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d:ro
+      - ./backups:/backups
+    
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-gameboxd} -d ${DB_NAME:-gameboxd}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    
+    networks:
+      - backend-network
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    
+    # Security options
+    security_opt:
+      - no-new-privileges:true
+
+  # ---------- Redis Cache ----------
+  redis:
+    image: redis:7-alpine
+    container_name: gameboxd-redis
+    restart: unless-stopped
+    
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --requirepass ${REDIS_PASSWORD:-}
+    
+    volumes:
+      - redis-data:/data
+    
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    
+    networks:
+      - backend-network
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+  # ---------- Nginx Reverse Proxy ----------
+  nginx:
+    image: nginx:alpine
+    container_name: gameboxd-nginx
+    restart: unless-stopped
+    
+    ports:
+      - "80:80"
+      - "443:443"
+    
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./certbot/conf:/etc/letsencrypt:ro
+      - ./certbot/www:/var/www/certbot:ro
+      - static-files:/var/www/static:ro
+    
+    depends_on:
+      - api
+    
+    networks:
+      - gameboxd-network
+    
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ---------- Prometheus Monitoring ----------
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: gameboxd-prometheus
+    restart: unless-stopped
+    
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=15d'
+      - '--web.enable-lifecycle'
+    
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alerts:/etc/prometheus/alerts:ro
+      - prometheus-data:/prometheus
+    
+    ports:
+      - "9090:9090"
+    
+    networks:
+      - backend-network
+      - monitoring-network
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  # ---------- Grafana Dashboard ----------
+  grafana:
+    image: grafana/grafana:latest
+    container_name: gameboxd-grafana
+    restart: unless-stopped
+    
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD__FILE=/run/secrets/grafana_password
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=https://monitoring.gameboxd.app
+    
+    secrets:
+      - grafana_password
+    
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    
+    ports:
+      - "3000:3000"
+    
+    depends_on:
+      - prometheus
+    
+    networks:
+      - monitoring-network
+
+  # ---------- Backup Service ----------
+  backup:
+    image: postgres:15-alpine
+    container_name: gameboxd-backup
+    
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        while true; do
+          echo "Starting backup at $$(date)"
+          PGPASSWORD=$$(cat /run/secrets/db_password) pg_dump \
+            -h postgres \
+            -U $${DB_USER:-gameboxd} \
+            -d $${DB_NAME:-gameboxd} \
+            -F c \
+            -f /backups/gameboxd_$$(date +%Y%m%d_%H%M%S).dump
+          # Keep only last 7 days of backups
+          find /backups -name "*.dump" -mtime +7 -delete
+          echo "Backup completed at $$(date)"
+          sleep 86400  # Run daily
+        done
+    
+    secrets:
+      - db_password
+    
+    volumes:
+      - ./backups:/backups
+    
+    networks:
+      - backend-network
+    
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+# ==========================================
+# NETWORKS
+# ==========================================
+networks:
+  gameboxd-network:
+    driver: bridge
+    name: gameboxd-frontend
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/16
+    driver_opts:
+      com.docker.network.bridge.enable_icc: "true"
+      com.docker.network.bridge.enable_ip_masquerade: "true"
+  
+  backend-network:
+    driver: bridge
+    name: gameboxd-backend
+    internal: true  # No external access
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16
+  
+  monitoring-network:
+    driver: bridge
+    name: gameboxd-monitoring
+
+# ==========================================
+# VOLUMES
+# ==========================================
+volumes:
+  postgres-data:
+    driver: local
+    name: gameboxd-postgres-data
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/gameboxd/data/postgres
+  
+  redis-data:
+    driver: local
+    name: gameboxd-redis-data
+  
+  prometheus-data:
+    driver: local
+    name: gameboxd-prometheus-data
+  
+  grafana-data:
+    driver: local
+    name: gameboxd-grafana-data
+  
+  static-files:
+    driver: local
+    name: gameboxd-static
+
+# ==========================================
+# SECRETS
+# ==========================================
+secrets:
+  db_password:
+    file: ./secrets/db_password.txt
+  jwt_secret:
+    file: ./secrets/jwt_secret.txt
+  aws_access_key:
+    file: ./secrets/aws_access_key.txt
+  aws_secret_key:
+    file: ./secrets/aws_secret_key.txt
+  grafana_password:
+    file: ./secrets/grafana_password.txt
+
+# ==========================================
+# USAGE:
+# ==========================================
+#
+# Development:
+#   docker-compose up -d
+#
+# Production with secrets:
+#   docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Scale API service:
+#   docker-compose up -d --scale api=3
+#
+# View logs:
+#   docker-compose logs -f api
+#
+# Backup database:
+#   docker-compose exec postgres pg_dump -U gameboxd gameboxd > backup.sql
+#
+# Health check:
+#   docker-compose ps
+#   docker-compose exec api curl localhost:8080/health
+#
+# Cleanup:
+#   docker-compose down -v --rmi all
+#
+# ==========================================

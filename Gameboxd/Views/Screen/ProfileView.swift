@@ -26,6 +26,9 @@ struct ProfileView: View {
                     // Quick Stats
                     QuickStatsGrid()
                     
+                    // Feature Navigation Cards
+                    ProfileNavigationSection()
+                    
                     // Favorite Games
                     FavoriteGamesSection()
                     
@@ -78,6 +81,14 @@ struct ProfileView: View {
             }
             .background(Color.gbDark.ignoresSafeArea())
             .navigationTitle("Profil")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    NavigationLink(destination: SettingsView()) {
+                        Image(systemName: "gearshape.fill")
+                            .foregroundColor(.gbGreen)
+                    }
+                }
+            }
             .sheet(isPresented: $showingEditProfile) {
                 EditProfileView()
             }
@@ -85,6 +96,143 @@ struct ProfileView: View {
                 ListsView()
             }
         }
+    }
+}
+
+// MARK: - Profile Navigation Section
+struct ProfileNavigationSection: View {
+    var body: some View {
+        VStack(spacing: 12) {
+            HStack(spacing: 12) {
+                // Statistics
+                NavigationLink(destination: StatisticsView()) {
+                    ProfileNavCard(
+                        icon: "chart.bar.fill",
+                        title: "Statistiques",
+                        subtitle: "Graphiques détaillés",
+                        color: .blue
+                    )
+                }
+                
+                // Achievements
+                NavigationLink(destination: AchievementsView()) {
+                    ProfileNavCard(
+                        icon: "trophy.fill",
+                        title: "Succès",
+                        subtitle: "Tes badges",
+                        color: .yellow
+                    )
+                }
+            }
+            
+            HStack(spacing: 12) {
+                // Goals
+                NavigationLink(destination: GoalsView()) {
+                    ProfileNavCard(
+                        icon: "target",
+                        title: "Objectifs",
+                        subtitle: "Défis mensuels",
+                        color: .green
+                    )
+                }
+                
+                // Backlog
+                NavigationLink(destination: BacklogView()) {
+                    ProfileNavCard(
+                        icon: "tray.full.fill",
+                        title: "Backlog",
+                        subtitle: "À quoi jouer?",
+                        color: .orange
+                    )
+                }
+            }
+            
+            HStack(spacing: 12) {
+                // Recommendations
+                NavigationLink(destination: RecommendationsView()) {
+                    ProfileNavCard(
+                        icon: "sparkles",
+                        title: "Pour toi",
+                        subtitle: "Recommandations",
+                        color: .pink
+                    )
+                }
+                
+                // Social
+                NavigationLink(destination: SocialView()) {
+                    ProfileNavCard(
+                        icon: "person.2.fill",
+                        title: "Social",
+                        subtitle: "Amis & Activité",
+                        color: .purple
+                    )
+                }
+            }
+            
+            HStack(spacing: 12) {
+                // Settings
+                NavigationLink(destination: SettingsView()) {
+                    ProfileNavCard(
+                        icon: "gearshape.fill",
+                        title: "Paramètres",
+                        subtitle: "Thèmes, Tags...",
+                        color: .gray
+                    )
+                }
+                
+                // Cloud Infrastructure (AWS, Security, Docker)
+                NavigationLink(destination: CloudInfrastructureView()) {
+                    ProfileNavCard(
+                        icon: "cloud.fill",
+                        title: "Cloud",
+                        subtitle: "AWS, Security+",
+                        color: .cyan
+                    )
+                }
+            }
+        }
+        .padding(.horizontal)
+    }
+}
+
+struct ProfileNavCard: View {
+    let icon: String
+    let title: String
+    let subtitle: String
+    let color: Color
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(color.opacity(0.2))
+                    .frame(width: 44, height: 44)
+                
+                Image(systemName: icon)
+                    .font(.title3)
+                    .foregroundColor(color)
+            }
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.white)
+                
+                Text(subtitle)
+                    .font(.caption2)
+                    .foregroundColor(.gray)
+            }
+            
+            Spacer()
+            
+            Image(systemName: "chevron.right")
+                .font(.caption)
+                .foregroundColor(.gray.opacity(0.5))
+        }
+        .padding(12)
+        .background(Color.gbCard)
+        .cornerRadius(12)
     }
 }
 

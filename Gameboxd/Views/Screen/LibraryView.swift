@@ -14,6 +14,13 @@ struct LibraryView: View {
     @State private var sortOption: SortOption = .title
     @State private var showingSortMenu = false
     @State private var viewStyle: ViewStyle = .grid
+    @State private var showingAdvancedFilters = false
+    
+    // Advanced Filters
+    @State private var selectedPlatform: String? = nil
+    @State private var selectedGenre: String? = nil
+    @State private var minimumRating: Int = 0
+    @State private var selectedYear: String? = nil
     
     enum SortOption: String, CaseIterable {
         case title = "Titre"
@@ -21,16 +28,60 @@ struct LibraryView: View {
         case recent = "Récent"
         case playtime = "Temps de jeu"
         case priority = "Priorité"
+        case year = "Année"
     }
     
     enum ViewStyle {
         case grid, list
     }
     
+    // Get unique platforms
+    var availablePlatforms: [String] {
+        Array(Set(store.myGames.map { $0.platform })).sorted()
+    }
+    
+    // Get unique genres
+    var availableGenres: [String] {
+        Array(Set(store.myGames.flatMap { $0.genres })).sorted()
+    }
+    
+    // Get unique years
+    var availableYears: [String] {
+        Array(Set(store.myGames.map { $0.releaseYear })).sorted().reversed()
+    }
+    
+    // Active filters count
+    var activeFiltersCount: Int {
+        var count = 0
+        if selectedPlatform != nil { count += 1 }
+        if selectedGenre != nil { count += 1 }
+        if minimumRating > 0 { count += 1 }
+        if selectedYear != nil { count += 1 }
+        return count
+    }
+    
     // Filtre dynamique des jeux
     var filteredGames: [Game] {
-        let filtered = store.myGames.filter { $0.status == selectedFilter }
+        var filtered = store.myGames.filter { $0.status == selectedFilter }
         
+        // Apply advanced filters
+        if let platform = selectedPlatform {
+            filtered = filtered.filter { $0.platform == platform }
+        }
+        
+        if let genre = selectedGenre {
+            filtered = filtered.filter { $0.genres.contains(genre) }
+        }
+        
+        if minimumRating > 0 {
+            filtered = filtered.filter { $0.rating >= minimumRating }
+        }
+        
+        if let year = selectedYear {
+            filtered = filtered.filter { $0.releaseYear == year }
+        }
+        
+        // Apply sorting
         switch sortOption {
         case .title:
             return filtered.sorted { $0.title < $1.title }
@@ -42,7 +93,16 @@ struct LibraryView: View {
             return filtered.sorted { $0.playTimeMinutes > $1.playTimeMinutes }
         case .priority:
             return filtered.sorted { $0.priority.sortOrder < $1.priority.sortOrder }
+        case .year:
+            return filtered.sorted { $0.releaseYear > $1.releaseYear }
         }
+    }
+    
+    func clearAllFilters() {
+        selectedPlatform = nil
+        selectedGenre = nil
+        minimumRating = 0
+        selectedYear = nil
     }
     
     var body: some View {
@@ -76,6 +136,30 @@ struct LibraryView: View {
                 
                 // Sort and View Options Bar
                 HStack {
+                    // Advanced Filters Button
+                    Button(action: { showingAdvancedFilters = true }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "line.3.horizontal.decrease.circle")
+                            Text("Filtres")
+                            if activeFiltersCount > 0 {
+                                Text("\(activeFiltersCount)")
+                                    .font(.caption2)
+                                    .fontWeight(.bold)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(Color.gbGreen)
+                                    .foregroundColor(.gbDark)
+                                    .cornerRadius(10)
+                            }
+                        }
+                        .font(.caption)
+                        .foregroundColor(activeFiltersCount > 0 ? .gbGreen : .gray)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Color.gbCard)
+                        .cornerRadius(8)
+                    }
+                    
                     // Sort Menu
                     Menu {
                         ForEach(SortOption.allCases, id: \.self) { option in
@@ -130,6 +214,35 @@ struct LibraryView: View {
                 .padding(.vertical, 8)
                 .background(Color.gbDark)
                 
+                // Active Filters Pills
+                if activeFiltersCount > 0 {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            if let platform = selectedPlatform {
+                                FilterPill(label: platform, onRemove: { selectedPlatform = nil })
+                            }
+                            if let genre = selectedGenre {
+                                FilterPill(label: genre, onRemove: { selectedGenre = nil })
+                            }
+                            if minimumRating > 0 {
+                                FilterPill(label: "★ \(minimumRating)+", onRemove: { minimumRating = 0 })
+                            }
+                            if let year = selectedYear {
+                                FilterPill(label: year, onRemove: { selectedYear = nil })
+                            }
+                            
+                            Button(action: clearAllFilters) {
+                                Text("Tout effacer")
+                                    .font(.caption)
+                                    .foregroundColor(.red)
+                            }
+                        }
+                        .padding(.horizontal)
+                        .padding(.bottom, 8)
+                    }
+                    .background(Color.gbDark)
+                }
+                
                 // Grille de contenu
                 ScrollView {
                     if filteredGames.isEmpty {
@@ -180,6 +293,180 @@ struct LibraryView: View {
                     .accessibilityLabel(showingStats ? "Masquer les statistiques" : "Afficher les statistiques")
                 }
             }
+            .sheet(isPresented: $showingAdvancedFilters) {
+                AdvancedFiltersSheet(
+                    selectedPlatform: $selectedPlatform,
+                    selectedGenre: $selectedGenre,
+                    minimumRating: $minimumRating,
+                    selectedYear: $selectedYear,
+                    availablePlatforms: availablePlatforms,
+                    availableGenres: availableGenres,
+                    availableYears: Array(availableYears)
+                )
+            }
+        }
+    }
+}
+
+// MARK: - Filter Pill
+struct FilterPill: View {
+    let label: String
+    let onRemove: () -> Void
+    
+    var body: some View {
+        HStack(spacing: 4) {
+            Text(label)
+                .font(.caption)
+            
+            Button(action: onRemove) {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.caption)
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(Color.gbGreen.opacity(0.2))
+        .foregroundColor(.gbGreen)
+        .cornerRadius(20)
+    }
+}
+
+// MARK: - Advanced Filters Sheet
+struct AdvancedFiltersSheet: View {
+    @Environment(\.dismiss) var dismiss
+    @Binding var selectedPlatform: String?
+    @Binding var selectedGenre: String?
+    @Binding var minimumRating: Int
+    @Binding var selectedYear: String?
+    
+    let availablePlatforms: [String]
+    let availableGenres: [String]
+    let availableYears: [String]
+    
+    var body: some View {
+        NavigationStack {
+            List {
+                // Platform Filter
+                Section("Plateforme") {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            FilterChip(label: "Toutes", isSelected: selectedPlatform == nil) {
+                                selectedPlatform = nil
+                            }
+                            ForEach(availablePlatforms, id: \.self) { platform in
+                                FilterChip(label: platform, isSelected: selectedPlatform == platform) {
+                                    selectedPlatform = platform
+                                }
+                            }
+                        }
+                    }
+                    .listRowBackground(Color.clear)
+                }
+                
+                // Genre Filter
+                Section("Genre") {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            FilterChip(label: "Tous", isSelected: selectedGenre == nil) {
+                                selectedGenre = nil
+                            }
+                            ForEach(availableGenres, id: \.self) { genre in
+                                FilterChip(label: genre, isSelected: selectedGenre == genre) {
+                                    selectedGenre = genre
+                                }
+                            }
+                        }
+                    }
+                    .listRowBackground(Color.clear)
+                }
+                
+                // Rating Filter
+                Section("Note minimale") {
+                    HStack {
+                        ForEach(0...5, id: \.self) { rating in
+                            Button(action: { minimumRating = rating }) {
+                                VStack(spacing: 4) {
+                                    if rating == 0 {
+                                        Image(systemName: "star.slash")
+                                            .font(.title2)
+                                    } else {
+                                        HStack(spacing: 1) {
+                                            ForEach(1...rating, id: \.self) { _ in
+                                                Image(systemName: "star.fill")
+                                                    .font(.caption2)
+                                            }
+                                        }
+                                    }
+                                    Text(rating == 0 ? "Tous" : "\(rating)+")
+                                        .font(.caption2)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 8)
+                                .background(minimumRating == rating ? Color.gbGreen : Color.gbCard)
+                                .foregroundColor(minimumRating == rating ? .gbDark : .gray)
+                                .cornerRadius(8)
+                            }
+                        }
+                    }
+                    .listRowBackground(Color.clear)
+                }
+                
+                // Year Filter
+                Section("Année de sortie") {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            FilterChip(label: "Toutes", isSelected: selectedYear == nil) {
+                                selectedYear = nil
+                            }
+                            ForEach(availableYears, id: \.self) { year in
+                                FilterChip(label: year, isSelected: selectedYear == year) {
+                                    selectedYear = year
+                                }
+                            }
+                        }
+                    }
+                    .listRowBackground(Color.clear)
+                }
+            }
+            .scrollContentBackground(.hidden)
+            .background(Color.gbDark)
+            .navigationTitle("Filtres avancés")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Réinitialiser") {
+                        selectedPlatform = nil
+                        selectedGenre = nil
+                        minimumRating = 0
+                        selectedYear = nil
+                    }
+                    .foregroundColor(.red)
+                }
+                
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Appliquer") { dismiss() }
+                        .foregroundColor(.gbGreen)
+                        .fontWeight(.semibold)
+                }
+            }
+        }
+    }
+}
+
+struct FilterChip: View {
+    let label: String
+    let isSelected: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            Text(label)
+                .font(.subheadline)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(isSelected ? Color.gbGreen : Color.gbCard)
+                .foregroundColor(isSelected ? .gbDark : .gray)
+                .cornerRadius(20)
         }
     }
 }

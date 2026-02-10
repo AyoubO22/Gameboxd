@@ -11,7 +11,7 @@ import SwiftUI
 
 // MARK: - API Configuration
 enum RAWGConfig {
-    // 🔑 PUT YOUR RAWG API KEY HERE (Get one free at https://rawg.io/apidocs)
+    // 🔑 RAWG API Key (https://rawg.io/apidocs)
     static var apiKey: String {
         if let key = Bundle.main.object(forInfoDictionaryKey: "RAWG_API_KEY") as? String,
            !key.isEmpty {
@@ -20,7 +20,7 @@ enum RAWGConfig {
         if let key = ProcessInfo.processInfo.environment["RAWG_API_KEY"], !key.isEmpty {
             return key
         }
-        return ""
+        return "07fc16efc7a54bb49f8bcdd75e54147a"
     }
     static let baseURL = "https://api.rawg.io/api"
 }

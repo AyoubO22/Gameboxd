@@ -91,7 +91,7 @@ struct RecommendationsView: View {
         }
         
         // Upcoming games in favorite genres
-        if let topGenre = store.topGenres.first {
+        if store.topGenres.first != nil {
             sections.append(RecommendationSection(
                 title: "Prochainement",
                 icon: "calendar",

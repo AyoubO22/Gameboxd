@@ -280,7 +280,7 @@ class SecurityManager: ObservableObject {
         let passwordData = Data(password.utf8)
         var derivedKey = Data(count: 32) // 256 bits
         
-        derivedKey.withUnsafeMutableBytes { derivedKeyBytes in
+        _ = derivedKey.withUnsafeMutableBytes { derivedKeyBytes in
             salt.withUnsafeBytes { saltBytes in
                 passwordData.withUnsafeBytes { passwordBytes in
                     CCKeyDerivationPBKDF(
@@ -415,10 +415,13 @@ class SecurityManager: ObservableObject {
     
     /// Validate SSL certificate against pinned certificates
     func validateCertificate(_ serverTrust: SecTrust, pinnedCertificates: [SecCertificate]) -> Bool {
-        // Get server certificate
-        guard let serverCertificate = SecTrustGetCertificateAtIndex(serverTrust, 0) else {
+        // Get server certificate chain
+        let chain = SecTrustCopyCertificateChain(serverTrust)
+        guard let chain,
+              CFArrayGetCount(chain) > 0 else {
             return false
         }
+        let serverCertificate = unsafeBitCast(CFArrayGetValueAtIndex(chain, 0), to: SecCertificate.self)
         
         // Get server certificate data
         let serverCertData = SecCertificateCopyData(serverCertificate) as Data

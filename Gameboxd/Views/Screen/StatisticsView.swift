@@ -27,6 +27,25 @@ struct StatisticsView: View {
         case byStatus = "Par statut"
     }
     
+    var filteredGames: [Game] {
+        let now = Date()
+        let calendar = Calendar.current
+        switch selectedPeriod {
+        case .month:
+            return store.myGames.filter {
+                guard let date = $0.startedDate else { return false }
+                return calendar.isDate(date, equalTo: now, toGranularity: .month)
+            }
+        case .year:
+            return store.myGames.filter {
+                guard let date = $0.startedDate else { return false }
+                return calendar.component(.year, from: date) == calendar.component(.year, from: now)
+            }
+        case .allTime:
+            return store.myGames
+        }
+    }
+    
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {

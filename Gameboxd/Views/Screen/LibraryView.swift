@@ -257,7 +257,10 @@ struct LibraryView: View {
                                         GameCard(game: game)
                                     }
                                     .contextMenu {
-                                        GameContextMenu(game: game)
+                                        GameContextMenu(game: game) { g in
+                                            gameToDelete = g
+                                            showingDeleteConfirm = true
+                                        }
                                     }
                                 }
                             }
@@ -269,7 +272,10 @@ struct LibraryView: View {
                                         GameListRow(game: game)
                                     }
                                     .contextMenu {
-                                        GameContextMenu(game: game)
+                                        GameContextMenu(game: game) { g in
+                                            gameToDelete = g
+                                            showingDeleteConfirm = true
+                                        }
                                     }
                                 }
                             }
@@ -630,6 +636,7 @@ struct GameListRow: View {
 struct GameContextMenu: View {
     let game: Game
     @EnvironmentObject var store: GameStore
+    var onDelete: ((Game) -> Void)? = nil
     
     var body: some View {
         Group {
@@ -672,8 +679,7 @@ struct GameContextMenu: View {
             
             // Delete
             Button(role: .destructive, action: {
-                gameToDelete = game
-                showingDeleteConfirm = true
+                onDelete?(game)
             }) {
                 Label("Supprimer", systemImage: "trash")
             }

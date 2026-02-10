@@ -105,20 +105,23 @@ struct BacklogView: View {
         isSpinning = true
         randomGame = nil
         
+        // Capture values for timer closure
+        let backlogGames = store.backlog
+        
         // Simulate spinning animation
         var iterations = 0
         let maxIterations = 15
         
         spinTimer?.invalidate()
-        spinTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { timer in
-            randomGame = store.backlog.randomElement()
+        spinTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [self] timer in
+            randomGame = backlogGames.randomElement()
             iterations += 1
             
             if iterations >= maxIterations {
                 timer.invalidate()
                 spinTimer = nil
                 withAnimation(.spring(response: 0.5, dampingFraction: 0.6)) {
-                    randomGame = store.randomBacklogPick()
+                    randomGame = backlogGames.randomElement()
                     isSpinning = false
                 }
             }

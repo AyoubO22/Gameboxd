@@ -177,6 +177,16 @@ struct GameDetailView: View {
         similarGames = await store.fetchSimilarGames(for: game)
         isLoadingSimilar = false
     }
+    
+    private func shareGame() {
+        let text = "🎮 \(game.title) - \(game.rating > 0 ? String(repeating: "⭐", count: game.rating) : "Non noté") sur Gameboxd"
+        let activityVC = UIActivityViewController(activityItems: [text], applicationActivities: nil)
+        
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let window = windowScene.windows.first {
+            window.rootViewController?.present(activityVC, animated: true)
+        }
+    }
 }
 
 // MARK: - Header

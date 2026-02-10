@@ -69,7 +69,7 @@ class CognitoAuthService {
             throw AWSError.noRefreshToken
         }
         
-        let request = [
+        let _ = [
             "AuthFlow": "REFRESH_TOKEN_AUTH",
             "ClientId": AWSConfig.clientId,
             "AuthParameters": [
@@ -93,7 +93,7 @@ class CognitoAuthService {
             throw AWSError.invalidPassword
         }
         
-        let signUpRequest = [
+        let _ = [
             "ClientId": AWSConfig.clientId,
             "Username": username,
             "Password": password,
@@ -116,7 +116,7 @@ class CognitoAuthService {
     
     /// Confirm sign up with verification code
     func confirmSignUp(username: String, confirmationCode: String) async throws {
-        let confirmRequest = [
+        let _ = [
             "ClientId": AWSConfig.clientId,
             "Username": username,
             "ConfirmationCode": confirmationCode
@@ -132,7 +132,7 @@ class CognitoAuthService {
     
     /// Get current authenticated user's attributes
     func getCurrentUser() async throws -> CognitoUser? {
-        guard let accessToken = accessToken, let expiration = tokenExpiration else {
+        guard let _ = accessToken, let expiration = tokenExpiration else {
             return nil
         }
         
@@ -301,7 +301,7 @@ class LambdaService {
     /// Invoke Lambda function synchronously (RequestResponse)
     func invoke(functionName: String, payload: [String: Any]) async throws -> LambdaResponse {
         // Serialize payload to JSON
-        let payloadData = try JSONSerialization.data(withJSONObject: payload)
+        let _ = try JSONSerialization.data(withJSONObject: payload)
         
         // In production: Use AWS SDK or API Gateway to invoke
         // Lambda execution context includes:
@@ -324,7 +324,7 @@ class LambdaService {
     
     /// Invoke Lambda through API Gateway
     func invokeViaAPIGateway(path: String, method: String, body: [String: Any]?) async throws -> APIGatewayResponse {
-        let url = "\(AWSConfig.apiGatewayEndpoint)\(path)"
+        let _ = "\(AWSConfig.apiGatewayEndpoint)\(path)"
         
         // API Gateway handles:
         // - Request validation
@@ -353,7 +353,7 @@ class DynamoDBService {
         // DynamoDB data types: S (String), N (Number), B (Binary), 
         // SS (String Set), NS (Number Set), M (Map), L (List), BOOL, NULL
         
-        let request = [
+        let _ = [
             "TableName": tableName,
             "Item": item.mapValues { $0.toDynamoDB() }
         ] as [String: Any]
@@ -364,7 +364,7 @@ class DynamoDBService {
     
     /// Get item by primary key
     func getItem(pk: String, sk: String) async throws -> [String: DynamoDBAttribute]? {
-        let request = [
+        let _ = [
             "TableName": tableName,
             "Key": [
                 "pk": ["S": pk],
@@ -417,7 +417,7 @@ class CloudWatchService {
     
     /// Put custom metric to CloudWatch
     func putMetric(namespace: String, metricName: String, value: Double, unit: MetricUnit, dimensions: [String: String]? = nil) async throws {
-        let metricData: [String: Any] = [
+        let _: [String: Any] = [
             "MetricName": metricName,
             "Value": value,
             "Unit": unit.rawValue,

@@ -17,6 +17,12 @@
 
 ## 📋 Table of Contents
 
+- [Future Proof Project — Context](#-future-proof-project--context)
+- [Reflectie & Persoonlijke Ontwikkeling](#-reflectie--persoonlijke-ontwikkeling)
+- [Ambities & Motivatie](#-ambities--motivatie)
+- [Economische & Maatschappelijke Waardecreatie](#-economische--maatschappelijke-waardecreatie)
+- [Opleidingen & Competenties](#-opleidingen--competenties)
+- [Competentiematrix (ECTS-koppeling)](#-competentiematrix-ects-koppeling)
 - [Features](#-features)
 - [Architecture](#-architecture)
 - [Getting Started](#-getting-started)
@@ -25,6 +31,331 @@
 - [Docker Deployment](#-docker-deployment)
 - [API Integration](#-api-integration)
 - [Contributing](#-contributing)
+
+---
+
+## � Future Proof Project — Context
+
+> **Opleidingsonderdeel:** TI31FUT-PROOF-PJ — Future Proof Project (5 ECTS)  
+> **Opleiding:** Bachelor in de Toegepaste Informatica, trajectschijf 3  
+> **Academiejaar:** 2025–26
+
+### Projectomschrijving
+
+**Gameboxd** is een iOS-applicatie geïnspireerd op [Letterboxd](https://letterboxd.com), maar dan voor gamers. De app stelt gebruikers in staat om hun game-ervaringen bij te houden, te beoordelen en te delen. Dit zelfgekozen project combineert vier opleidingstrajecten (Swift, AWS, Security+, Docker) in één samenhangend product.
+
+### Pitch & Definition of Done
+
+**Probleem:** Gamers missen een dedicated platform om hun speelervaringen gestructureerd bij te houden. Bestaande oplossingen zijn ofwel te simpel (notitie-apps) of te complex (spreadsheets). Er is geen “Letterboxd voor games” die rating, reviews, statistieken en sociale functies combineert in een mooie mobiele ervaring.
+
+**Oplossing:** Gameboxd is een native iOS-app die dit gat opvult met:
+- 📚 Bibliotheekbeheer met statussen, ratings en reviews
+- 📊 Speelstatistieken en maandelijkse doelen
+- 🏆 Gamificatie via achievements
+- 🔍 Ontdekking van 500.000+ games via RAWG.io API
+- 🤝 Sociale functies (vrienden, activiteitenfeed, deelkaarten)
+- 🔐 Beveiligde opslag met biometrie, encryptie en keychain
+- 🐳 Production-ready backend met Docker-containerisatie
+
+**Definition of Done:**
+1. ✅ Werkende iOS-app met 20+ schermen in SwiftUI
+2. ✅ RAWG.io API-integratie voor game-data
+3. ✅ AWS-backend services geïmplementeerd (Cognito, S3, Lambda, DynamoDB, CloudWatch)
+4. ✅ Beveiligingslaag op basis van Security+-principes (AES-256-GCM, PBKDF2, biometrie)
+5. ✅ Docker-deployment met multi-stage builds en docker-compose
+6. ✅ Unit tests voor kernfunctionaliteiten
+7. ✅ Gedocumenteerd met README inclusief competentiemapping
+
+---
+
+## 🧠 Reflectie & Persoonlijke Ontwikkeling
+
+> *Doelstelling D2: Zichzelf ontplooien en definiëren van ambities (GI 8.1, GI 8.2, GI 8.3)*
+
+### Zelfreflectie
+
+Bij de start van dit project had ik theoretische kennis uit vier cursussen, maar beperkte praktijkervaring. Het doel was om die kloof te dichten door alles samen te brengen in één realistisch project. Dit dwong me om:
+
+- **Theorie naar praktijk te vertalen**: Cursusconcepten zoals MVVM, async/await, AES-256-GCM en Docker multi-stage builds daadwerkelijk te implementeren
+- **Fouten te maken en ervan te leren**: Force unwraps die crashes veroorzaakten, API-keys die hardcoded stonden, negatieve playtime door ontbrekende validatie — allemaal bugs die ik zelf heb geïdentificeerd en opgelost
+- **Hulpmiddelen effectief in te zetten**: GitHub Copilot gebruiken als versneller, niet als vervanging — elke suggestie kritisch beoordelen en begrijpen
+
+### Sterktes (geïdentificeerd tijdens het project)
+
+| Sterkte | Bewijs |
+|---|---|
+| Snel nieuwe technologieën oppakken | 4 cursussen gevolgd en toegepast in één project |
+| Oog voor detail in UI/UX | Custom componenten, animaties, haptic feedback, accessibility |
+| Beveiligingsbewustzijn | API-keys geëxternaliseerd, input-sanitisatie, encryptie geïmplementeerd |
+| Zelfstandig probleemoplossend | Bugs zelf opgespoord en gefixed zonder externe hulp |
+
+### Verbeterpunten (en hoe aangepakt)
+
+| Verbeterpunt | Actie ondernomen |
+|---|---|
+| Praktijkervaring met Swift was beperkt | Uitgebreide Udemy-cursus + direct toepassen in eigen project |
+| Geen ervaring met cloud-architectuur | AWS-cursus gevolgd + services geïmplementeerd in `AWSService.swift` |
+| Cryptografie was puur theoretisch | Security+-cursus + werkende AES-256-GCM en PBKDF2 implementatie |
+| Onbekend met containerisatie | Docker-cursus + Dockerfile en docker-compose opgezet |
+| Praktische skill gap na cursussen | GitHub Copilot ingezet als leer- en vertaalhulpmiddel |
+
+### Zelfsturing & bijsturing
+
+Tijdens het project heb ik mijn aanpak meerdere malen bijgestuurd:
+- **Oorspronkelijk plan**: Alleen een iOS-app bouwen met Swift
+- **Bijsturing 1**: AWS-backend toevoegen om cloud-competenties te bewijzen
+- **Bijsturing 2**: Security-laag versterken na het volgen van de Security+-cursus
+- **Bijsturing 3**: Docker-deployment toevoegen voor DevOps-competenties
+- **Bijsturing 4**: GitHub Copilot inzetten toen bleek dat de praktische vertaling van cursuskennis meer tijd kostte dan verwacht
+
+---
+
+## 🚀 Ambities & Motivatie
+
+> *Doelstelling D2: Definiëren van ambities (GI 8.3, GI 10.2)*
+
+### Waarom dit project?
+
+Als gamer miste ik een app die mijn speelervaringen bijhoudt zoals Letterboxd dat doet voor films. In plaats van een bestaande tool te gebruiken, besloot ik er zelf een te bouwen — en dit te combineren met mijn leerdoelen voor vier opleidingstrajecten.
+
+### Passie & ambitie
+
+- **Passie voor gaming**: De app lost een persoonlijk probleem op, wat de motivatie hoog hield gedurende 150–200 uur werk
+- **Ambitie als iOS-developer**: Swift en SwiftUI zijn de toekomst van Apple-ontwikkeling. Dit project bewijst dat ik een volledige app kan bouwen van concept tot deployment
+- **Full-stack denken**: Door AWS, Security en Docker te integreren toon ik aan dat ik verder denk dan alleen de frontend
+- **Loopbaanontwikkeling**: De combinatie Swift + Cloud + Security + DevOps maakt mij inzetbaar in meerdere domeinen van de IT-sector
+
+### Afstemming op loopbaan
+
+| Ambitie | Hoe dit project bijdraagt |
+|---|---|
+| iOS Developer worden | Volledige SwiftUI-app met 20+ schermen, MVVM, async/await |
+| Cloud-vaardigheden ontwikkelen | AWS-services geïmplementeerd (Cognito, S3, Lambda, DynamoDB) |
+| Security-bewustzijn opbouwen | Encryptie, biometrie, input-validatie, certificate pinning |
+| DevOps-basis leggen | Docker multi-stage builds, Compose, CI/CD-ready architectuur |
+
+---
+
+## 💰 Economische & Maatschappelijke Waardecreatie
+
+> *Doelstelling D3: Economische of maatschappelijke waardecreatie (GI 10.3, GI 10.4, GI 10.5)*
+
+### Marktanalyse
+
+| Aspect | Analyse |
+|---|---|
+| **Doelgroep** | Gamers die hun speelervaringen willen bijhouden (3,2 miljard gamers wereldwijd) |
+| **Concurrentie** | Backloggd (web-only), HowLongToBeat (beperkte sociale functies), GG (geen iOS) |
+| **Differentiatie** | Native iOS-ervaring, combinatie van journal + statistieken + social + gamificatie |
+| **Marktomvang** | De gaming-industrie genereerde $184 miljard in 2025; companion-apps zijn een groeiend segment |
+
+### Economische rentabiliteit
+
+**Potentiële inkomstenmodellen:**
+
+| Model | Beschrijving | Geschatte opbrengst |
+|---|---|---|
+| Freemium | Basisfuncties gratis, premium voor statistieken, thema’s, onbeperkte lijsten | €2,99–€4,99/maand |
+| Eenmalige aankoop | Volledige app zonder abonnement | €9,99 |
+| In-app purchases | Extra thema’s, app-iconen, deelkaart-stijlen | €0,99–€2,99 per item |
+
+**Kostenoverzicht:**
+
+| Kostenpost | Bedrag |
+|---|---|
+| Apple Developer Program | €99/jaar |
+| RAWG API | Gratis (20.000 requests/maand) |
+| AWS (bij schaling) | ~€20–€50/maand (free tier eerste 12 maanden) |
+| Domain + hosting | ~€10/maand |
+| **Break-even** | **~35–50 betalende gebruikers/maand (freemium)** |
+
+### Maatschappelijke meerwaarde
+
+- **Bewust gamen**: Door speeltijd bij te houden worden gebruikers bewuster van hun gamegedrag
+- **Community-vorming**: Sociale functies stimuleren positieve interactie tussen gamers
+- **Toegankelijkheid**: Accessibility labels en hints zorgen ervoor dat de app bruikbaar is voor gebruikers met een beperking
+- **Open-source kennis**: De codebase dient als leermateriaal voor andere studenten die Swift, AWS, Security of Docker willen leren
+
+### Strategie voor waardegeneratie
+
+1. **MVP lanceren** op de App Store (huidige staat)
+2. **Gebruikersfeedback** verzamelen via TestFlight beta
+3. **Iteratief verbeteren** op basis van reviews en analytics
+4. **Freemium model** introduceren na 1.000+ downloads
+5. **Community opbouwen** via sociale functies en deelkaarten
+
+### Procesefficiëntie
+
+Het project demonstreert efficiëntie op meerdere niveaus:
+
+| Aspect | Implementatie |
+|---|---|
+| **Herbruikbare componenten** | `GameCard`, `StarRating` worden in meerdere schermen gebruikt |
+| **Caching** | `URLCache` (50 MB memory / 200 MB disk) vermindert API-calls |
+| **Docker-containerisatie** | Reproduceerbare builds, snelle deployment, schaalbaar |
+| **MVVM-architectuur** | Scheiding van concerns, testbaar, onderhoudbaar |
+| **AI-assisted development** | GitHub Copilot versnelde het ontwikkelproces met behoud van kwaliteit |
+
+---
+
+## �🎓 Opleidingen & Competenties
+
+> Dit project dient als praktische toepassing van vier opleidingstrajecten. De bijbehorende cursussen zijn volledig gevolgd en de opgedane kennis is direct toegepast in de ontwikkeling van de Gameboxd-app. Hieronder wordt per traject beschreven welke competenties zijn verworven en hoe deze concreet zijn geïmplementeerd.
+
+### 🤖 AI-Assisted Development — GitHub Copilot
+
+Bij de ontwikkeling van Gameboxd is **GitHub Copilot** gebruikt als AI-ondersteunde programmeertool. Hoewel alle cursussen volledig zijn gevolgd, was de praktische ervaring nog niet op 100%. GitHub Copilot heeft geholpen bij:
+
+- **Code-implementatie**: Vertalen van theoretische kennis uit de cursussen naar werkende Swift-code
+- **Best practices**: Suggesties voor design patterns (MVVM), error handling en Swift-conventies
+- **Debugging**: Identificeren en oplossen van bugs zoals force unwraps, optionals en geheugenissues
+- **Security**: Implementatie van cryptografie (AES-256-GCM, PBKDF2) en input-validatie op basis van Security+-kennis
+- **Docker & AWS**: Opzetten van Dockerfile, docker-compose en AWS-servicestructuur op basis van cursusmateriaal
+
+> **Belangrijk:** GitHub Copilot is ingezet als *leermiddel en versneller*, niet als vervanging van eigen kennis. Alle code is begrepen, gereviewed en waar nodig aangepast. De cursussen leverden de theoretische basis; Copilot hielp bij de praktische vertaling daarvan.
+
+### 1. Swift — iOS App Development (Udemy)
+
+| | |
+|---|---|
+| **Platform** | Udemy |
+| **Geschatte werkbelasting** | 50–70 uur |
+| **Focus** | Swift-programmeren, iOS-appontwikkeling, UI/UX-design, debuggen en testen |
+
+**Beschrijving:** Volgen van een uitgebreide Swift-cursus op Udemy, inclusief basis- en gevorderde concepten. Directe toepassing in de ontwikkeling van de Gameboxd-app: gebruikersinterface, app-structuur en functionaliteiten.
+
+**Toegepaste competenties in dit project:**
+
+| Competentie | Toepassing in Gameboxd | Bestanden |
+|---|---|---|
+| Swift-programmeren | Volledige app geschreven in Swift 5.9 met modern `async/await`, `Codable`, generics en protocol-oriented design | Alle `.swift`-bestanden |
+| iOS-appontwikkeling (SwiftUI) | 20+ schermen met `NavigationStack`, `TabView`, `@EnvironmentObject`, animaties en gestures | `Views/Screen/*.swift` |
+| MVVM-architectuur | Centrale `@MainActor` ViewModel (`GameStore`) met reactieve state management via `@Published` | `ViewModels/GameStore.swift` |
+| UI/UX-design | Custom componenten (StarRating, GameCard, ShareCard), thema-systeem, onboarding flow, haptic feedback | `Views/Components/*.swift`, `OnboardingView.swift` |
+| API-integratie | REST API-client voor RAWG.io met `URLSession`, JSON-parsing, paginering en error handling | `Services/RAWGService.swift` |
+| Data-persistentie | `UserDefaults` + `Keychain` + `iCloud` (NSUbiquitousKeyValueStore) voor cross-device sync | `ViewModels/GameStore.swift`, `SecurityManager.swift` |
+| Debuggen & testen | Unit tests voor `GameStore` en `SecurityManager`, accessibility labels, input validatie | `GameboxdTests/*.swift` |
+| Performance-optimalisatie | `URLCache` (50 MB memory / 200 MB disk), lazy loading, efficiënte `@Published`-updates | `GameboxdApp.swift` |
+
+### 2. AWS Cloud Development (LinkedIn Learning)
+
+| | |
+|---|---|
+| **Platform** | LinkedIn Learning |
+| **Geschatte werkbelasting** | 40–50 uur |
+| **Focus** | Cloudinfrastructuur, serverless development, CI/CD, deployment pipelines |
+
+**Beschrijving:** Volgen van de AWS Developer Associate-cursus op LinkedIn Learning om vertrouwd te raken met cloud computing, deployment en backend-ontwikkeling op AWS. Opgedane kennis direct toegepast in de backend-architectuur van Gameboxd.
+
+**Toegepaste competenties in dit project:**
+
+| Competentie | Toepassing in Gameboxd | Bestanden |
+|---|---|---|
+| Amazon Cognito | SRP-authenticatie, token management (Access/ID/Refresh), MFA-ondersteuning, wachtwoordbeleid | `Services/AWSService.swift` |
+| Amazon S3 | Presigned URLs, multipart uploads, lifecycle policies, AWS Signature V4 | `Services/AWSService.swift` |
+| AWS Lambda | Synchrone & asynchrone invocations, API Gateway-integratie, Dead Letter Queues | `Services/AWSService.swift` |
+| Amazon DynamoDB | CRUD-operaties, query's met partition/sort key, batch writes, ACID-transacties, GSI/LSI | `Services/AWSService.swift` |
+| Amazon CloudWatch | Custom metrics, gestructureerde logging, alarmen met threshold-configuratie | `Services/AWSService.swift` |
+| CI/CD & Deployment | Docker-containerisatie van backend API, rolling updates met nul downtime | `Docker/Dockerfile`, `Docker/docker-compose.yml` |
+
+→ Zie sectie [☁️ Cloud Infrastructure (AWS)](#-cloud-infrastructure-aws) voor gedetailleerde code-voorbeelden.
+
+### 3. Cybersecurity — Security+ (LinkedIn Learning)
+
+| | |
+|---|---|
+| **Platform** | LinkedIn Learning |
+| **Geschatte werkbelasting** | 40–50 uur |
+| **Focus** | Netwerkbeveiliging, cryptografie, identity management, bedreigingsanalyse |
+
+**Beschrijving:** Volgen van de Security+-cursus op LinkedIn Learning voor een stevige basis in cybersecurity. Opgedane kennis direct toegepast in de beveiligingslaag van Gameboxd.
+
+**Toegepaste competenties in dit project:**
+
+| Competentie | Toepassing in Gameboxd | Bestanden |
+|---|---|---|
+| Biometrische authenticatie | Face ID / Touch ID via `LAContext`, fallback naar passcode, lockout-beleid | `Services/SecurityManager.swift` |
+| Cryptografie (AES-256-GCM) | Authenticated encryption met CryptoKit, random nonce, 128-bit authentication tag | `Services/SecurityManager.swift` |
+| Key Derivation (PBKDF2) | Wachtwoord-naar-sleutel met HMAC-SHA256, salt, 100.000+ iteraties tegen brute force | `Services/SecurityManager.swift` |
+| Keychain & Secure Enclave | Hardware-backed opslag, `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`, biometric access control | `Services/SecurityManager.swift` |
+| Input validatie & sanitisatie | XSS-preventie (HTML entity encoding), SSRF-preventie (blokkeren private IP-ranges), URL-validatie | `Services/SecurityManager.swift`, `ViewModels/GameStore.swift` |
+| Wachtwoordbeleid | Sterkte-scoring (NIST-richtlijnen), detectie van veelvoorkomende wachtwoorden, visuele feedback | `Services/SecurityManager.swift`, `Views/Screen/AuthView.swift` |
+| Certificate Pinning | MITM-detectie, server-certificaatvalidatie tegen pinned certificates, TLS 1.2+ | `Services/SecurityManager.swift` |
+| Security Audit Logging | Gestructureerde event-logging (AUTH_SUCCESS, AUTH_FAILURE, SUSPICIOUS), forensisch onderzoek | `Services/SecurityManager.swift` |
+| API-sleutelbeheer | API-key geëxternaliseerd naar `Info.plist` / omgevingsvariabelen, nooit hardcoded | `Services/RAWGService.swift` |
+
+→ Zie sectie [🔐 Security Implementation (CompTIA Security+)](#-security-implementation-comptia-security) voor gedetailleerde code-voorbeelden.
+
+### 4. Docker & DevOps (LinkedIn Learning)
+
+| | |
+|---|---|
+| **Platform** | LinkedIn Learning |
+| **Geschatte werkbelasting** | 20–30 uur |
+| **Focus** | Docker, containerisatie, orkestratie, deployment pipelines, DevOps |
+
+**Beschrijving:** Volgen van een cursus op LinkedIn Learning om vertrouwd te raken met containertechnologie en basisprincipes van DevOps. Opgedane kennis direct toegepast in de deployment-architectuur van Gameboxd.
+
+**Toegepaste competenties in dit project:**
+
+| Competentie | Toepassing in Gameboxd | Bestanden |
+|---|---|---|
+| Multi-stage builds | Build-stage (Swift SDK) gescheiden van production-stage (Ubuntu minimal), image van 1.2 GB → 45 MB | `Docker/Dockerfile` |
+| Container security | Non-root user (`gameboxd`), read-only binary, health checks, principle of least privilege | `Docker/Dockerfile` |
+| Docker Compose | 4 services (API, PostgreSQL, Redis, Nginx), declaratieve configuratie | `Docker/docker-compose.yml` |
+| Netwerk-isolatie | Frontend/backend bridge networks, `internal: true` voor database-isolatie, DNS-based service discovery | `Docker/docker-compose.yml` |
+| Volume management | Named volumes voor PostgreSQL-data, bind mounts, persistentie over container-restarts | `Docker/docker-compose.yml` |
+| Secrets management | Credentials via `/run/secrets/` (tmpfs), secret files buiten images, eenvoudige rotatie | `Docker/docker-compose.yml` |
+| Resource limits | CPU- en geheugenlimieten per service, replica's voor horizontale schaalbaarheid | `Docker/docker-compose.yml` |
+| Rolling updates | Zero-downtime deployments met `update_config: order: start-first`, parallellisme-configuratie | `Docker/docker-compose.yml` |
+| DevOps-praktijken | Health checks, automatische restart-policies, logging, monitoring-integratie | `Docker/Dockerfile`, `Docker/docker-compose.yml` |
+
+→ Zie sectie [🐳 Docker Deployment](#-docker-deployment) voor gedetailleerde code-voorbeelden.
+
+### Totaaloverzicht werkbelasting
+
+| Opleiding | Uren | Status |
+|---|---|---|
+| Swift — iOS App Development | 50–70 uur | ✅ Cursus gevolgd + toegepast in Gameboxd |
+| AWS Cloud Development | 40–50 uur | ✅ Cursus gevolgd + toegepast in `AWSService.swift` |
+| Cybersecurity — Security+ | 40–50 uur | ✅ Cursus gevolgd + toegepast in `SecurityManager.swift` |
+| Docker & DevOps | 20–30 uur | ✅ Cursus gevolgd + toegepast in `Docker/` |
+| **Totaal** | **150–200 uur** | |
+
+---
+
+## 📊 Competentiematrix (ECTS-koppeling)
+
+> Onderstaande matrix toont hoe elke eindcompetentie uit de ECTS-fiche is aangetoond in dit project.
+
+### D1. Levenslang leren en experiment
+
+| Competentie | Beschrijving | Bewijs in Gameboxd |
+|---|---|---|
+| **GI 5.2** | Effectieve oplossingen bedenken bij nieuwe concepten | 4 cursussen gecombineerd in één app; RAWG API geïntegreerd voor 500.000+ games; eigen componenten ontworpen (StarRating, GameCard, ShareCard) |
+| **GI 5.3** | Experiment en kritisch denken als onderdeel van levenslang leren | Nieuwe technologieën geleerd (SwiftUI, CryptoKit, Docker) en direct toegepast; GitHub Copilot kritisch ingezet als leerhulpmiddel |
+| **GI 8.3** | Actieve zelfontplooiing afgestemd op loopbaanontwikkeling | 4 cursussen gevolgd (150–200 uur); kennis direct omgezet naar werkend product |
+| **GI 10.3** | Strategieën ontwikkelen om middelen te mobiliseren | Gratis tools (Xcode, RAWG API, GitHub Copilot) effectief ingezet; open-source frameworks gecombineerd |
+
+### D2. Zichzelf ontplooien en definiëren van ambities
+
+| Competentie | Beschrijving | Bewijs in Gameboxd |
+|---|---|---|
+| **GI 8.1** | Reflectie en zelfsturing voor persoonlijke doelen | Zie sectie [Reflectie & Persoonlijke Ontwikkeling](#-reflectie--persoonlijke-ontwikkeling): sterktes/zwaktes geïdentificeerd, plan bijgestuurd |
+| **GI 8.2** | Inzicht in sterktes, verbeterpunten aanpakken | Sterktes: snel leren, UI/UX-oog. Verbeterpunten: praktijkervaring → opgelost via eigen project + Copilot |
+| **GI 8.3** | Zelfontplooiing afgestemd op loopbaan | iOS + Cloud + Security + DevOps als brede basis voor IT-carrière |
+| **GI 10.2** | Ambitie, passie en zelfzekerheid beargumenteren | Zie sectie [Ambities & Motivatie](#-ambities--motivatie): persoonlijk probleem → zelfgebouwde oplossing |
+| **GI 10.3** | Strategieën voor waardegeneratie | Gratis middelen (cursussen, API, tools) omgezet in een compleet App Store-ready product |
+| **GI 10.4** | Economische rentabiliteit als succesfactor | Zie sectie [Economische Waardecreatie](#-economische--maatschappelijke-waardecreatie): break-even analyse, inkomstenmodellen |
+| **GI 10.5** | Procesefficiëntie en effectiviteit | MVVM-architectuur, herbruikbare componenten, caching, Docker-containerisatie |
+
+### D3. Economische of maatschappelijke waardecreatie
+
+| Competentie | Beschrijving | Bewijs in Gameboxd |
+|---|---|---|
+| **GI 10.3** | Strategieën voor waardegeneratie | MVP → TestFlight → App Store lancering → freemium model; 5-stappen groeistrategie |
+| **GI 10.4** | Economische rentabiliteit | Kostenbatenanalyse: €99/jaar + €20–50/maand vs. €2,99–4,99/maand per gebruiker; break-even bij 35–50 gebruikers |
+| **GI 10.5** | Procesefficiëntie | Docker voor reproduceerbare deploys; URLCache voor minder API-calls; herbruikbare componenten voor snellere ontwikkeling |
 
 ---
 

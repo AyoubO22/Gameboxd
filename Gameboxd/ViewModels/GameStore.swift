@@ -107,6 +107,7 @@ class GameStore: ObservableObject {
         if let themeRaw = UserDefaults.standard.string(forKey: StorageKeys.currentTheme),
            let theme = AppTheme(rawValue: themeRaw) {
             currentTheme = theme
+            ThemeManager.shared.currentTheme = theme
         }
     }
     
@@ -118,7 +119,9 @@ class GameStore: ObservableObject {
     
     func setTheme(_ theme: AppTheme) {
         currentTheme = theme
+        ThemeManager.shared.currentTheme = theme
         UserDefaults.standard.set(theme.rawValue, forKey: StorageKeys.currentTheme)
+        objectWillChange.send()
     }
     
     // MARK: - Persistence
@@ -338,6 +341,10 @@ class GameStore: ObservableObject {
             }
             myGames.append(newGame)
         }
+        
+        // Sync favorite state with userProfile
+        syncFavoriteIds(for: sanitizedGame)
+        
         saveGames()
     }
     
@@ -354,7 +361,32 @@ class GameStore: ObservableObject {
     func toggleFavorite(_ game: Game) {
         if let index = myGames.firstIndex(where: { $0.id == game.id }) {
             myGames[index].isFavorite.toggle()
+            
+            // Sync with userProfile.favoriteGameIds
+            if myGames[index].isFavorite {
+                if !userProfile.favoriteGameIds.contains(game.id) && userProfile.favoriteGameIds.count < 4 {
+                    userProfile.favoriteGameIds.append(game.id)
+                }
+            } else {
+                userProfile.favoriteGameIds.removeAll { $0 == game.id }
+            }
+            
             saveGames()
+            saveUserProfile()
+        }
+    }
+    
+    private func syncFavoriteIds(for game: Game) {
+        if game.isFavorite {
+            if !userProfile.favoriteGameIds.contains(game.id) && userProfile.favoriteGameIds.count < 4 {
+                userProfile.favoriteGameIds.append(game.id)
+                saveUserProfile()
+            }
+        } else {
+            if userProfile.favoriteGameIds.contains(game.id) {
+                userProfile.favoriteGameIds.removeAll { $0 == game.id }
+                saveUserProfile()
+            }
         }
     }
     
@@ -483,9 +515,14 @@ class GameStore: ObservableObject {
     }
     
     func favoriteGames() -> [Game] {
-        userProfile.favoriteGameIds.compactMap { id in
+        // First try userProfile favorites (pinned order)
+        let pinned = userProfile.favoriteGameIds.compactMap { id in
             myGames.first { $0.id == id }
         }
+        if !pinned.isEmpty { return pinned }
+        
+        // Fallback: games with isFavorite flag
+        return Array(myGames.filter { $0.isFavorite }.prefix(4))
     }
     
     // MARK: - Statistics

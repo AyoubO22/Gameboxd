@@ -177,18 +177,6 @@ struct ProfileNavigationSection: View {
                     )
                 }
             }
-            
-            HStack(spacing: 12) {
-                // Settings
-                NavigationLink(destination: SettingsView()) {
-                    ProfileNavCard(
-                        icon: "gearshape.fill",
-                        title: "Paramètres",
-                        subtitle: "Thèmes, Tags...",
-                        color: .gray
-                    )
-                }
-            }
         }
         .padding(.horizontal)
     }
@@ -201,7 +189,7 @@ struct ProfileNavCard: View {
     let color: Color
     
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 10) {
             ZStack {
                 RoundedRectangle(cornerRadius: 10)
                     .fill(color.opacity(0.2))
@@ -217,19 +205,24 @@ struct ProfileNavCard: View {
                     .font(.subheadline)
                     .fontWeight(.semibold)
                     .foregroundColor(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
                 
                 Text(subtitle)
                     .font(.caption2)
                     .foregroundColor(.gray)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             }
             
-            Spacer()
+            Spacer(minLength: 0)
             
             Image(systemName: "chevron.right")
                 .font(.caption)
                 .foregroundColor(.gray.opacity(0.5))
         }
         .padding(12)
+        .frame(maxWidth: .infinity, minHeight: 68)
         .background(Color.gbCard)
         .cornerRadius(12)
     }
@@ -578,87 +571,6 @@ struct ListPreviewCard: View {
         .padding()
         .background(Color.gbCard)
         .cornerRadius(12)
-    }
-}
-
-// MARK: - Edit Profile View
-struct EditProfileView: View {
-    @EnvironmentObject var store: GameStore
-    @Environment(\.dismiss) var dismiss
-    
-    @State private var username: String = ""
-    @State private var bio: String = ""
-    @State private var avatarEmoji: String = ""
-    @State private var yearlyGoal: Int = 12
-    
-    let avatarOptions = ["🎮", "👾", "🕹️", "🎯", "🏆", "⭐", "🔥", "💜", "🌟", "🎲"]
-    
-    var body: some View {
-        NavigationStack {
-            Form {
-                // Avatar
-                Section("Avatar") {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 12) {
-                            ForEach(avatarOptions, id: \.self) { emoji in
-                                Button(action: { avatarEmoji = emoji }) {
-                                    Text(emoji)
-                                        .font(.system(size: 40))
-                                        .padding(8)
-                                        .background(avatarEmoji == emoji ? Color.gbGreen.opacity(0.3) : Color.clear)
-                                        .cornerRadius(12)
-                                }
-                            }
-                        }
-                    }
-                    .listRowBackground(Color.gbCard)
-                }
-                
-                // Info
-                Section("Informations") {
-                    TextField("Pseudo", text: $username)
-                    TextField("Bio", text: $bio, axis: .vertical)
-                        .lineLimit(2...4)
-                }
-                
-                // Goal
-                Section("Objectif annuel") {
-                    Stepper("\(yearlyGoal) jeux à terminer", value: $yearlyGoal, in: 1...100)
-                }
-            }
-            .scrollContentBackground(.hidden)
-            .background(Color.gbDark)
-            .navigationTitle("Modifier le profil")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Annuler") { dismiss() }
-                        .foregroundColor(.gray)
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Sauvegarder") {
-                        saveProfile()
-                    }
-                    .foregroundColor(.gbGreen)
-                }
-            }
-            .onAppear {
-                username = store.userProfile.username
-                bio = store.userProfile.bio
-                avatarEmoji = store.userProfile.avatarEmoji
-                yearlyGoal = store.userProfile.yearlyGoal
-            }
-        }
-    }
-    
-    private func saveProfile() {
-        var profile = store.userProfile
-        profile.username = username
-        profile.bio = bio
-        profile.avatarEmoji = avatarEmoji
-        profile.yearlyGoal = yearlyGoal
-        store.updateProfile(profile)
-        dismiss()
     }
 }
 

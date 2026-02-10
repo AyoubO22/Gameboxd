@@ -1,14 +1,23 @@
 import SwiftUI
 
+// MARK: - Theme Manager
+final class ThemeManager {
+    static let shared = ThemeManager()
+    var currentTheme: AppTheme = .default
+    
+    private init() {
+        if let raw = UserDefaults.standard.string(forKey: "gameboxd_theme"),
+           let theme = AppTheme(rawValue: raw) {
+            currentTheme = theme
+        }
+    }
+}
+
 extension Color {
-    // Vert "Gameboy" rétro pour les accents
-    static let gbGreen = Color(red: 0.55, green: 0.76, blue: 0.29)
-    
-    // Fond sombre principal (presque noir)
-    static let gbDark = Color(red: 0.1, green: 0.1, blue: 0.12)
-    
-    // Couleur des cartes et éléments de fond secondaires
-    static let gbCard = Color(red: 0.15, green: 0.15, blue: 0.18)
+    // Dynamic theme colors
+    static var gbGreen: Color { ThemeManager.shared.currentTheme.accentColor }
+    static var gbDark: Color { ThemeManager.shared.currentTheme.darkColor }
+    static var gbCard: Color { ThemeManager.shared.currentTheme.cardColor }
     
     // Couleur pour le texte secondaire
     static let gbTextSecondary = Color.gray

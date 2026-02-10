@@ -7,6 +7,7 @@
 
 import SwiftUI
 import UniformTypeIdentifiers
+import UserNotifications
 
 struct SettingsView: View {
     @EnvironmentObject var store: GameStore
@@ -16,6 +17,7 @@ struct SettingsView: View {
     @State private var exportedFileURL: URL?
     @State private var showingImportError = false
     @State private var importErrorMessage = ""
+    @State private var showingExportError = false
     
     var body: some View {
         List {
@@ -67,7 +69,7 @@ struct SettingsView: View {
             
             // Account Section
             Section {
-                NavigationLink(destination: Text("Modifier le profil")) {
+                NavigationLink(destination: EditProfileView()) {
                     SettingsRow(icon: "person.fill", title: "Profil", color: .blue)
                 }
                 
@@ -122,6 +124,7 @@ struct SettingsView: View {
         .sheet(isPresented: $showingExportSheet) {
             if let url = exportedFileURL {
                 ShareSheet(items: [url])
+                    .presentationDetents([.medium, .large])
             }
         }
         .fileImporter(
@@ -144,12 +147,22 @@ struct SettingsView: View {
         } message: {
             Text(importErrorMessage)
         }
+        .alert("Échec de l'export", isPresented: $showingExportError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Impossible d'exporter les données. Réessaie plus tard.")
+        }
     }
     
     func exportData() {
         if let url = store.exportData() {
             exportedFileURL = url
-            showingExportSheet = true
+            // Small delay to ensure the URL is set before presenting the sheet
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                showingExportSheet = true
+            }
+        } else {
+            showingExportError = true
         }
     }
     
@@ -308,6 +321,9 @@ struct NotificationsSettingsView: View {
     @State private var backlogReminders = true
     @State private var reminderDays = 1
     @State private var backlogReminderDays = 7
+    @State private var notificationStatus: UNAuthorizationStatus = .notDetermined
+    @State private var showingPermissionAlert = false
+    @State private var permissionAlertMessage = ""
     
     var body: some View {
         List {
@@ -356,15 +372,35 @@ struct NotificationsSettingsView: View {
             .listRowBackground(Color.gbCard)
             
             Section {
-                Button("Demander l'autorisation") {
-                    requestNotificationPermission()
+                HStack {
+                    Text("Statut")
+                        .foregroundColor(.white)
+                    Spacer()
+                    Text(notificationStatusText)
+                        .foregroundColor(notificationStatusColor)
+                        .fontWeight(.medium)
                 }
-                .foregroundColor(.gbGreen)
                 
-                Button("Tester les notifications") {
-                    sendTestNotification()
+                if notificationStatus == .denied {
+                    Button("Ouvrir les réglages") {
+                        if let url = URL(string: UIApplication.openSettingsURLString) {
+                            UIApplication.shared.open(url)
+                        }
+                    }
+                    .foregroundColor(.gbGreen)
+                } else if notificationStatus == .notDetermined {
+                    Button("Demander l'autorisation") {
+                        requestNotificationPermission()
+                    }
+                    .foregroundColor(.gbGreen)
                 }
-                .foregroundColor(.orange)
+                
+                if notificationStatus == .authorized {
+                    Button("Tester les notifications") {
+                        sendTestNotification()
+                    }
+                    .foregroundColor(.orange)
+                }
             } header: {
                 Text("Permissions")
             }
@@ -381,24 +417,89 @@ struct NotificationsSettingsView: View {
                 cancelBacklogReminders()
             }
         }
+        .onAppear {
+            checkNotificationStatus()
+        }
+        .alert("Notifications", isPresented: $showingPermissionAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(permissionAlertMessage)
+        }
+    }
+    
+    var notificationStatusText: String {
+        switch notificationStatus {
+        case .authorized: return "Autorisées ✓"
+        case .denied: return "Refusées"
+        case .notDetermined: return "Non configuré"
+        case .provisional: return "Provisoire"
+        case .ephemeral: return "Éphémère"
+        @unknown default: return "Inconnu"
+        }
+    }
+    
+    var notificationStatusColor: Color {
+        switch notificationStatus {
+        case .authorized, .provisional, .ephemeral: return .green
+        case .denied: return .red
+        case .notDetermined: return .orange
+        @unknown default: return .gray
+        }
+    }
+    
+    func checkNotificationStatus() {
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            DispatchQueue.main.async {
+                notificationStatus = settings.authorizationStatus
+            }
+        }
     }
     
     func requestNotificationPermission() {
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, _ in
-            print("Notification permission: \(granted)")
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, error in
+            DispatchQueue.main.async {
+                checkNotificationStatus()
+                if granted {
+                    permissionAlertMessage = "Notifications activées avec succès !"
+                } else if let error = error {
+                    permissionAlertMessage = "Erreur : \(error.localizedDescription)"
+                } else {
+                    permissionAlertMessage = "Les notifications ont été refusées. Tu peux les activer dans Réglages > Gameboxd."
+                }
+                showingPermissionAlert = true
+            }
         }
     }
     
     func sendTestNotification() {
-        let content = UNMutableNotificationContent()
-        content.title = "🎮 Gameboxd"
-        content.body = "Les notifications fonctionnent ! Tu seras rappelé de jouer."
-        content.sound = .default
-        
-        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 3, repeats: false)
-        let request = UNNotificationRequest(identifier: "test_notification", content: content, trigger: trigger)
-        
-        UNUserNotificationCenter.current().add(request)
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            guard settings.authorizationStatus == .authorized else {
+                DispatchQueue.main.async {
+                    permissionAlertMessage = "Les notifications ne sont pas autorisées. Active-les d'abord."
+                    showingPermissionAlert = true
+                }
+                return
+            }
+            
+            let content = UNMutableNotificationContent()
+            content.title = "🎮 Gameboxd"
+            content.body = "Les notifications fonctionnent ! Tu seras rappelé de jouer."
+            content.sound = .default
+            
+            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+            let request = UNNotificationRequest(identifier: "test_notification_\(Date().timeIntervalSince1970)", content: content, trigger: trigger)
+            
+            UNUserNotificationCenter.current().add(request) { error in
+                DispatchQueue.main.async {
+                    if let error = error {
+                        permissionAlertMessage = "Erreur : \(error.localizedDescription)"
+                    } else {
+                        permissionAlertMessage = "Notification envoyée ! Elle apparaîtra dans 1 seconde."
+                    }
+                    showingPermissionAlert = true
+                }
+            }
+        }
     }
     
     func scheduleBacklogReminders() {

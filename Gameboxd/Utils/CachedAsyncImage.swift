@@ -93,27 +93,32 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
     }
     
     var body: some View {
-        Group {
-            if let image = loadedImage {
-                content(Image(uiImage: image))
-            } else {
-                placeholder()
-                    .onAppear {
-                        if !isLoading {
-                            loadImage()
-                        }
-                    }
+        // Use placeholder as layout anchor, overlay content on top.
+        // This ensures the layout size is always determined by the placeholder
+        // (which has proper sizing constraints), while the loaded image
+        // is clipped to fit within those bounds — matching AsyncImage behavior.
+        placeholder()
+            .opacity(loadedImage == nil ? 1 : 0)
+            .overlay {
+                if let image = loadedImage {
+                    content(Image(uiImage: image))
+                }
             }
-        }
-        .onChange(of: url) { oldURL, newURL in
-            if newURL != oldURL {
-                loadedImage = nil
-                retryCount = 0
-                hasFailed = false
-                isLoading = false
-                loadImage()
+            .clipped()
+            .onAppear {
+                if !isLoading && loadedImage == nil {
+                    loadImage()
+                }
             }
-        }
+            .onChange(of: url) { oldURL, newURL in
+                if newURL != oldURL {
+                    loadedImage = nil
+                    retryCount = 0
+                    hasFailed = false
+                    isLoading = false
+                    loadImage()
+                }
+            }
     }
     
     private func loadImage() {

@@ -22,6 +22,7 @@ struct ContentView: View {
                     AuthView()
                 }
             }
+            .id(store.currentTheme)
             .animation(.easeInOut, value: store.isLoggedIn)
             
             // Achievement Toast Overlay

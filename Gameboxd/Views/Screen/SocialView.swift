@@ -142,7 +142,7 @@ struct ActivityCard: View {
             HStack(spacing: 12) {
                 // Cover
                 if let coverURL = activity.gameCoverURL, let url = URL(string: coverURL) {
-                    AsyncImage(url: url) { image in
+                    CachedAsyncImage(url: url) { image in
                         image.resizable().aspectRatio(contentMode: .fill)
                     } placeholder: {
                         Rectangle().fill(Color.gbCard)

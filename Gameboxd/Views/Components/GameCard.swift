@@ -17,36 +17,23 @@ struct GameCard: View {
             // Cover Image or Color
             ZStack(alignment: .topTrailing) {
                 if let imageURL = game.coverImageURL, let url = URL(string: imageURL) {
-                    AsyncImage(url: url) { phase in
-                        switch phase {
-                        case .empty:
-                            Rectangle()
-                                .fill(game.coverColor.gradient)
-                                .aspectRatio(3/4, contentMode: .fit)
-                                .cornerRadius(8)
-                                .overlay(
-                                    ProgressView()
-                                        .tint(.white.opacity(0.7))
-                                )
-                        case .success(let image):
-                            image
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                                .frame(minWidth: 0, maxWidth: .infinity)
-                                .aspectRatio(3/4, contentMode: .fit)
-                                .clipped()
-                                .cornerRadius(8)
-                        case .failure:
-                            Rectangle()
-                                .fill(game.coverColor.gradient)
-                                .aspectRatio(3/4, contentMode: .fit)
-                                .cornerRadius(8)
-                        @unknown default:
-                            Rectangle()
-                                .fill(game.coverColor.gradient)
-                                .aspectRatio(3/4, contentMode: .fit)
-                                .cornerRadius(8)
-                        }
+                    CachedAsyncImage(url: url) { image in
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(minWidth: 0, maxWidth: .infinity)
+                            .aspectRatio(3/4, contentMode: .fit)
+                            .clipped()
+                            .cornerRadius(8)
+                    } placeholder: {
+                        Rectangle()
+                            .fill(game.coverColor.gradient)
+                            .aspectRatio(3/4, contentMode: .fit)
+                            .cornerRadius(8)
+                            .overlay(
+                                ProgressView()
+                                    .tint(.white.opacity(0.7))
+                            )
                     }
                     .overlay(
                         RoundedRectangle(cornerRadius: 8)
@@ -158,7 +145,7 @@ struct CompactGameCard: View {
         HStack(spacing: 12) {
             // Thumbnail
             if let imageURL = game.coverImageURL, let url = URL(string: imageURL) {
-                AsyncImage(url: url) { image in
+                CachedAsyncImage(url: url) { image in
                     image.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: {
                     Rectangle().fill(game.coverColor.gradient)

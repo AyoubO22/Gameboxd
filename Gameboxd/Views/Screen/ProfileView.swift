@@ -456,7 +456,7 @@ struct FavoriteGameCard: View {
     var body: some View {
         VStack(spacing: 8) {
             if let coverURL = game.coverImageURL, let url = URL(string: coverURL) {
-                AsyncImage(url: url) { image in
+                CachedAsyncImage(url: url) { image in
                     image.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: {
                     Rectangle().fill(game.coverColor.gradient)

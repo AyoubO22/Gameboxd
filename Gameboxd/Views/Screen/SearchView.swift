@@ -187,23 +187,14 @@ struct SearchResultRow: View {
         HStack(spacing: 12) {
             // Cover
             if let imageURL = game.coverImageURL, let url = URL(string: imageURL) {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .empty:
-                        Rectangle()
-                            .fill(game.coverColor.gradient)
-                            .overlay(ProgressView().tint(.white))
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                    case .failure:
-                        Rectangle()
-                            .fill(game.coverColor.gradient)
-                    @unknown default:
-                        Rectangle()
-                            .fill(game.coverColor.gradient)
-                    }
+                CachedAsyncImage(url: url) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    Rectangle()
+                        .fill(game.coverColor.gradient)
+                        .overlay(ProgressView().tint(.white))
                 }
                 .frame(width: 70, height: 90)
                 .cornerRadius(8)

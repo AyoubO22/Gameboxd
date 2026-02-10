@@ -197,34 +197,31 @@ struct GameDetailHeader: View {
         ZStack(alignment: .bottomLeading) {
             // Background Image/Color
             if let imageURL = game.coverImageURL, let url = URL(string: imageURL) {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 250)
-                            .clipped()
-                            .overlay(
-                                LinearGradient(
-                                    colors: [.clear, .gbDark],
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                )
+                CachedAsyncImage(url: url) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 250)
+                        .clipped()
+                        .overlay(
+                            LinearGradient(
+                                colors: [.clear, .gbDark],
+                                startPoint: .top,
+                                endPoint: .bottom
                             )
-                    default:
-                        Rectangle()
-                            .fill(game.coverColor.gradient)
-                            .frame(height: 250)
-                            .overlay(
-                                LinearGradient(
-                                    colors: [.clear, .gbDark],
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                )
+                        )
+                } placeholder: {
+                    Rectangle()
+                        .fill(game.coverColor.gradient)
+                        .frame(height: 250)
+                        .overlay(
+                            LinearGradient(
+                                colors: [.clear, .gbDark],
+                                startPoint: .top,
+                                endPoint: .bottom
                             )
-                    }
+                        )
                 }
                 .frame(height: 250)
                 .clipped()
@@ -434,7 +431,7 @@ struct GameInfoSection: View {
                         HStack(spacing: 12) {
                             ForEach(game.screenshotURLs, id: \.self) { urlString in
                                 if let url = URL(string: urlString) {
-                                    AsyncImage(url: url) { image in
+                                    CachedAsyncImage(url: url) { image in
                                         image
                                             .resizable()
                                             .aspectRatio(contentMode: .fill)
@@ -536,7 +533,7 @@ struct SimilarGameCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             if let imageURL = game.coverImageURL, let url = URL(string: imageURL) {
-                AsyncImage(url: url) { image in
+                CachedAsyncImage(url: url) { image in
                     image.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: {
                     Rectangle().fill(game.coverColor.gradient)

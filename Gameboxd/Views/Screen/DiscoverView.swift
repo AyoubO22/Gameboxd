@@ -159,27 +159,14 @@ struct DiscoverGameCard: View {
             // Cover Image
             ZStack(alignment: .topTrailing) {
                 if let imageURL = game.coverImageURL, let url = URL(string: imageURL) {
-                    AsyncImage(url: url) { phase in
-                        switch phase {
-                        case .empty:
-                            Rectangle()
-                                .fill(game.coverColor.gradient)
-                                .overlay(ProgressView().tint(.white))
-                        case .success(let image):
-                            image
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                        case .failure:
-                            Rectangle()
-                                .fill(game.coverColor.gradient)
-                                .overlay(
-                                    Image(systemName: "gamecontroller.fill")
-                                        .foregroundColor(.white.opacity(0.5))
-                                )
-                        @unknown default:
-                            Rectangle()
-                                .fill(game.coverColor.gradient)
-                        }
+                    CachedAsyncImage(url: url) { image in
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                    } placeholder: {
+                        Rectangle()
+                            .fill(game.coverColor.gradient)
+                            .overlay(ProgressView().tint(.white))
                     }
                 } else {
                     Rectangle()
@@ -318,7 +305,7 @@ struct RandomPickSection: View {
                 HStack(spacing: 16) {
                     // Cover
                     if let imageURL = game.coverImageURL, let url = URL(string: imageURL) {
-                        AsyncImage(url: url) { image in
+                        CachedAsyncImage(url: url) { image in
                             image.resizable().aspectRatio(contentMode: .fill)
                         } placeholder: {
                             Rectangle().fill(game.coverColor.gradient)

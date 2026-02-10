@@ -116,7 +116,7 @@ struct ListRowView: View {
             HStack(spacing: -15) {
                 ForEach(games.prefix(3)) { game in
                     if let coverURL = game.coverImageURL, let url = URL(string: coverURL) {
-                        AsyncImage(url: url) { image in
+                        CachedAsyncImage(url: url) { image in
                             image.resizable().aspectRatio(contentMode: .fill)
                         } placeholder: {
                             Rectangle().fill(game.coverColor.gradient)
@@ -397,7 +397,7 @@ struct AddGameToListView: View {
                 }) {
                     HStack {
                         if let coverURL = game.coverImageURL, let url = URL(string: coverURL) {
-                            AsyncImage(url: url) { image in
+                            CachedAsyncImage(url: url) { image in
                                 image.resizable().aspectRatio(contentMode: .fill)
                             } placeholder: {
                                 Rectangle().fill(game.coverColor.gradient)

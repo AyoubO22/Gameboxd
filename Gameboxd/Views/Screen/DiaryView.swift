@@ -122,7 +122,7 @@ struct PlaySessionCard: View {
                 HStack(spacing: 12) {
                     // Game Cover
                     if let coverURL = session.gameCoverURL, let url = URL(string: coverURL) {
-                        AsyncImage(url: url) { image in
+                        CachedAsyncImage(url: url) { image in
                             image.resizable().aspectRatio(contentMode: .fill)
                         } placeholder: {
                             Rectangle().fill(session.gameCoverColor.gradient)
@@ -234,7 +234,7 @@ struct PlaySessionDetailView: View {
                     // Game Header
                     HStack(spacing: 16) {
                         if let coverURL = session.gameCoverURL, let url = URL(string: coverURL) {
-                            AsyncImage(url: url) { image in
+                            CachedAsyncImage(url: url) { image in
                                 image.resizable().aspectRatio(contentMode: .fill)
                             } placeholder: {
                                 Rectangle().fill(session.gameCoverColor.gradient)
@@ -725,7 +725,7 @@ struct AddPlaySessionView: View {
                     if let game = selectedGame {
                         HStack {
                             if let coverURL = game.coverImageURL, let url = URL(string: coverURL) {
-                                AsyncImage(url: url) { image in
+                                CachedAsyncImage(url: url) { image in
                                     image.resizable().aspectRatio(contentMode: .fill)
                                 } placeholder: {
                                     Rectangle().fill(game.coverColor.gradient)
@@ -908,7 +908,7 @@ struct GamePickerView: View {
                 }) {
                     HStack {
                         if let coverURL = game.coverImageURL, let url = URL(string: coverURL) {
-                            AsyncImage(url: url) { image in
+                            CachedAsyncImage(url: url) { image in
                                 image.resizable().aspectRatio(contentMode: .fill)
                             } placeholder: {
                                 Rectangle().fill(game.coverColor.gradient)

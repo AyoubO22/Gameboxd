@@ -6,6 +6,12 @@ struct GameboxdApp: App {
     @StateObject private var store = GameStore()
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     
+    init() {
+        let memoryCapacity = 50 * 1024 * 1024
+        let diskCapacity = 200 * 1024 * 1024
+        URLCache.shared = URLCache(memoryCapacity: memoryCapacity, diskCapacity: diskCapacity)
+    }
+    
     var body: some Scene {
         WindowGroup {
             if hasCompletedOnboarding {

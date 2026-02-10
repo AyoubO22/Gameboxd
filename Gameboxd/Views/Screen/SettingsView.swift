@@ -87,8 +87,10 @@ struct SettingsView: View {
                     SettingsRow(icon: "info.circle.fill", title: "À propos", color: .gray)
                 }
                 
-                Link(destination: URL(string: "https://rawg.io")!) {
-                    SettingsRow(icon: "globe", title: "Données fournies par RAWG", color: .gbGreen)
+                if let url = URL(string: "https://rawg.io") {
+                    Link(destination: url) {
+                        SettingsRow(icon: "globe", title: "Données fournies par RAWG", color: .gbGreen)
+                    }
                 }
             } header: {
                 Text("Informations")

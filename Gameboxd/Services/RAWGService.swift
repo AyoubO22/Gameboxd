@@ -12,7 +12,16 @@ import SwiftUI
 // MARK: - API Configuration
 enum RAWGConfig {
     // 🔑 PUT YOUR RAWG API KEY HERE (Get one free at https://rawg.io/apidocs)
-    static let apiKey = "07fc16efc7a54bb49f8bcdd75e54147a"
+    static var apiKey: String {
+        if let key = Bundle.main.object(forInfoDictionaryKey: "RAWG_API_KEY") as? String,
+           !key.isEmpty {
+            return key
+        }
+        if let key = ProcessInfo.processInfo.environment["RAWG_API_KEY"], !key.isEmpty {
+            return key
+        }
+        return ""
+    }
     static let baseURL = "https://api.rawg.io/api"
 }
 
@@ -145,7 +154,7 @@ class RAWGService: ObservableObject {
     }()
     
     var hasValidAPIKey: Bool {
-        RAWGConfig.apiKey != "YOUR_API_KEY_HERE" && !RAWGConfig.apiKey.isEmpty
+        !RAWGConfig.apiKey.isEmpty
     }
     
     // MARK: - Search Games
@@ -198,7 +207,8 @@ class RAWGService: ObservableObject {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd"
         let endDate = dateFormatter.string(from: Date())
-        let startDate = dateFormatter.string(from: Calendar.current.date(byAdding: .month, value: -1, to: Date())!)
+        guard let start = Calendar.current.date(byAdding: .month, value: -1, to: Date()) else { return [] }
+        let startDate = dateFormatter.string(from: start)
         
         let urlString = "\(RAWGConfig.baseURL)/games?key=\(RAWGConfig.apiKey)&dates=\(startDate),\(endDate)&ordering=-added&page=\(page)&page_size=10"
         guard let url = URL(string: urlString) else {
@@ -217,7 +227,8 @@ class RAWGService: ObservableObject {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd"
         let today = dateFormatter.string(from: Date())
-        let pastDate = dateFormatter.string(from: Calendar.current.date(byAdding: .month, value: -2, to: Date())!)
+        guard let past = Calendar.current.date(byAdding: .month, value: -2, to: Date()) else { return [] }
+        let pastDate = dateFormatter.string(from: past)
         
         let urlString = "\(RAWGConfig.baseURL)/games?key=\(RAWGConfig.apiKey)&dates=\(pastDate),\(today)&ordering=-released&page=\(page)&page_size=10"
         guard let url = URL(string: urlString) else {
@@ -250,7 +261,8 @@ class RAWGService: ObservableObject {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd"
         let today = dateFormatter.string(from: Date())
-        let futureDate = dateFormatter.string(from: Calendar.current.date(byAdding: .year, value: 1, to: Date())!)
+        guard let future = Calendar.current.date(byAdding: .year, value: 1, to: Date()) else { return [] }
+        let futureDate = dateFormatter.string(from: future)
         
         let urlString = "\(RAWGConfig.baseURL)/games?key=\(RAWGConfig.apiKey)&dates=\(today),\(futureDate)&ordering=released&page=\(page)&page_size=10"
         guard let url = URL(string: urlString) else {

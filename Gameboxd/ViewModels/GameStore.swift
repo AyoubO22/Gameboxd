@@ -52,6 +52,7 @@ class GameStore: ObservableObject {
     
     // Services
     private let rawgService = RAWGService.shared
+    private let securityManager = SecurityManager.shared
     
     // Storage Keys
     private enum StorageKeys {
@@ -295,10 +296,13 @@ class GameStore: ObservableObject {
     // MARK: - Game CRUD
     
     func updateGame(_ game: Game) {
+        var sanitizedGame = game
+        sanitizedGame.review = securityManager.sanitizeInput(game.review)
+        sanitizedGame.notes = securityManager.sanitizeInput(game.notes)
         if let index = myGames.firstIndex(where: { $0.id == game.id }) {
-            myGames[index] = game
+            myGames[index] = sanitizedGame
         } else {
-            var newGame = game
+            var newGame = sanitizedGame
             if newGame.status == .none {
                 newGame = Game(
                     id: newGame.id,
@@ -357,11 +361,23 @@ class GameStore: ObservableObject {
     // MARK: - Library Helpers
     
     func isInLibrary(_ game: Game) -> Bool {
-        myGames.contains { $0.title == game.title && $0.developer == game.developer }
+        if let rawgId = game.rawgId {
+            return myGames.contains { $0.rawgId == rawgId }
+        }
+        return myGames.contains {
+            $0.id == game.id ||
+            ($0.title == game.title && $0.developer == game.developer && $0.platform == game.platform)
+        }
     }
     
     func libraryGame(for game: Game) -> Game? {
-        myGames.first { $0.title == game.title && $0.developer == game.developer }
+        if let rawgId = game.rawgId {
+            return myGames.first { $0.rawgId == rawgId }
+        }
+        return myGames.first {
+            $0.id == game.id ||
+            ($0.title == game.title && $0.developer == game.developer && $0.platform == game.platform)
+        }
     }
     
     func gamesCount(for status: GameStatus) -> Int {
@@ -384,7 +400,7 @@ class GameStore: ObservableObject {
     
     func deletePlaySession(_ session: PlaySession) {
         if let index = myGames.firstIndex(where: { $0.id == session.gameId }) {
-            myGames[index].playTimeMinutes -= session.duration
+            myGames[index].playTimeMinutes = max(0, myGames[index].playTimeMinutes - session.duration)
         }
         playSessions.removeAll { $0.id == session.id }
         savePlaySessions()
@@ -644,7 +660,7 @@ class GameStore: ObservableObject {
                 let uniquePlatforms = Set(myGames.map { $0.platform })
                 achievements[i].currentProgress = min(uniquePlatforms.count, 3)
             case "reviews_10":
-                let reviews = myGames.filter { !($0.review ?? "").isEmpty }.count
+                let reviews = myGames.filter { !$0.review.isEmpty }.count
                 achievements[i].currentProgress = min(reviews, 10)
             case "streak_7":
                 achievements[i].currentProgress = min(calculatePlayStreak(), 7)
@@ -810,8 +826,10 @@ class GameStore: ObservableObject {
                 continue
             }
             
-            let monthStart = calendar.date(from: DateComponents(year: currentYear, month: currentMonth, day: 1))!
-            let monthEnd = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: monthStart)!
+                        guard let monthStart = calendar.date(from: DateComponents(year: currentYear, month: currentMonth, day: 1)),
+                                    let monthEnd = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: monthStart) else {
+                                continue
+                        }
             
             switch monthlyGoals[i].type {
             case .gamesCompleted:
@@ -829,7 +847,7 @@ class GameStore: ObservableObject {
                 
             case .reviewsWritten:
                 let reviews = myGames.filter { game in
-                    guard let reviewed = game.startedDate, !(game.review ?? "").isEmpty else { return false }
+                    guard let reviewed = game.startedDate, !game.review.isEmpty else { return false }
                     return reviewed >= monthStart && reviewed <= monthEnd
                 }.count
                 monthlyGoals[i].current = reviews

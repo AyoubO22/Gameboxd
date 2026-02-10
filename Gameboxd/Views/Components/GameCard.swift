@@ -146,6 +146,7 @@ struct GameCard: View {
         .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(game.title), \(game.rating > 0 ? "\(game.rating) étoiles" : "non noté"), \(game.status.rawValue)")
+        .accessibilityHint("Ouvre la fiche du jeu")
     }
 }
 

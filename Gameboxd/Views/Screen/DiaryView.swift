@@ -530,8 +530,10 @@ struct CustomCalendarView: View {
     var daysInMonth: [Date?] {
         var days: [Date?] = []
         
-        let range = calendar.range(of: .day, in: .month, for: currentMonth)!
-        let firstDay = calendar.date(from: calendar.dateComponents([.year, .month], from: currentMonth))!
+        guard let range = calendar.range(of: .day, in: .month, for: currentMonth),
+              let firstDay = calendar.date(from: calendar.dateComponents([.year, .month], from: currentMonth)) else {
+            return []
+        }
         
         // Get weekday of first day (1 = Sunday in US, adjust for Monday start)
         var weekday = calendar.component(.weekday, from: firstDay)

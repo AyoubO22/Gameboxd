@@ -133,8 +133,7 @@ Gameboxd/
 │       ├── SocialView.swift        # Social features
 │       ├── ShareCardView.swift     # Shareable cards
 │       ├── RecommendationsView.swift # Recommendations
-│       ├── OnboardingView.swift    # First-time tutorial
-│       └── CloudInfrastructureView.swift # AWS/Security demo
+│       └── OnboardingView.swift    # First-time tutorial
 │
 ├── Services/
 │   ├── RAWGService.swift      # RAWG API client

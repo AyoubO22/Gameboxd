@@ -85,9 +85,11 @@ struct APIKeyWarningView: View {
                 .foregroundColor(.gray)
                 .multilineTextAlignment(.center)
             
-            Link("Obtenir une clé gratuite", destination: URL(string: "https://rawg.io/apidocs")!)
-                .font(.caption)
-                .foregroundColor(.gbGreen)
+            if let url = URL(string: "https://rawg.io/apidocs") {
+                Link("Obtenir une clé gratuite", destination: url)
+                    .font(.caption)
+                    .foregroundColor(.gbGreen)
+            }
         }
         .padding()
         .frame(maxWidth: .infinity)
@@ -237,6 +239,9 @@ struct DiscoverGameCard: View {
             }
         }
         .frame(width: 140)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(game.title), \(game.platform)")
+        .accessibilityHint("Ouvre la fiche du jeu")
     }
     
     func metacriticColor(_ score: Int) -> Color {

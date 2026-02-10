@@ -179,16 +179,6 @@ struct ProfileNavigationSection: View {
                         color: .gray
                     )
                 }
-                
-                // Cloud Infrastructure (AWS, Security, Docker)
-                NavigationLink(destination: CloudInfrastructureView()) {
-                    ProfileNavCard(
-                        icon: "cloud.fill",
-                        title: "Cloud",
-                        subtitle: "AWS, Security+",
-                        color: .cyan
-                    )
-                }
             }
         }
         .padding(.horizontal)

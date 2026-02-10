@@ -9,6 +9,7 @@ import SwiftUI
 
 struct AuthView: View {
     @EnvironmentObject var store: GameStore
+    private let securityManager = SecurityManager.shared
     @State private var isLogin = true
     @State private var email = ""
     @State private var password = ""
@@ -172,12 +173,17 @@ struct AuthView: View {
     }
     
     var isFormValid: Bool {
+        let trimmedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        let isEmailValid = securityManager.isValidEmail(trimmedEmail)
+        let passwordStrength = securityManager.validatePasswordStrength(password)
+        let isPasswordStrongEnough = passwordStrength == .medium || passwordStrength == .strong || passwordStrength == .veryStrong
         if isLogin {
-            return !email.isEmpty && !password.isEmpty
+            return !trimmedEmail.isEmpty && isEmailValid && !password.isEmpty
         } else {
-            return !email.isEmpty && !password.isEmpty && 
-                   !username.isEmpty && password == confirmPassword &&
-                   password.count >= 6
+            let trimmedUsername = username.trimmingCharacters(in: .whitespacesAndNewlines)
+            return !trimmedEmail.isEmpty && isEmailValid && !password.isEmpty && 
+                   !trimmedUsername.isEmpty && password == confirmPassword &&
+                   isPasswordStrongEnough
         }
     }
     
@@ -217,6 +223,8 @@ struct AuthView: View {
     
     func skipLogin() {
         store.setLoggedIn(true)
+        let sanitizedEmail = securityManager.sanitizeInput(email.trimmingCharacters(in: .whitespacesAndNewlines))
+        let sanitizedUsername = securityManager.sanitizeInput(username.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 }
 
@@ -224,24 +232,34 @@ struct AuthView: View {
 struct AuthTextField: View {
     let icon: String
     let placeholder: String
-    @Binding var text: String
+                if sanitizedEmail.isEmpty || password.isEmpty {
     var keyboardType: UIKeyboardType = .default
     
+                } else if !securityManager.isValidEmail(sanitizedEmail) {
+                    errorMessage = "Email invalide"
+                    showingError = true
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: icon)
+                    store.userProfile.username = sanitizedEmail.components(separatedBy: "@").first ?? "Joueur"
                 .foregroundColor(.gray)
                 .frame(width: 24)
             
             TextField(placeholder, text: $text)
-                .keyboardType(keyboardType)
+                if !securityManager.isValidEmail(sanitizedEmail) {
+                    errorMessage = "Email invalide"
+                    showingError = true
+                } else if password != confirmPassword {
                 .autocapitalization(.none)
                 .foregroundColor(.white)
-        }
-        .padding()
+                } else if securityManager.validatePasswordStrength(password) == .weak {
+                    errorMessage = "Le mot de passe est trop faible"
+                    showingError = true
+                } else if sanitizedUsername.isEmpty {
+                    errorMessage = "Veuillez saisir un nom d'utilisateur"
+                    showingError = true
         .background(Color.gbCard)
         .cornerRadius(12)
-    }
+                    store.userProfile.username = sanitizedUsername
 }
 
 // MARK: - Auth Secure Field

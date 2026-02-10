@@ -15,9 +15,15 @@ struct GameDetailView: View {
     @State private var showingAddToList = false
     @State private var showingSpoiler = false
     @State private var showingShareCard = false
+    @State private var showingDeleteConfirm = false
+    @State private var showingAddSession = false
+    @State private var showingUnsavedChanges = false
     @State private var similarGames: [Game] = []
     @State private var isLoadingSimilar = false
     @State private var selectedTab = 0
+    
+    /// The original game state to detect unsaved changes
+    @State private var originalGame: Game? = nil
     
     var isInLibrary: Bool {
         store.myGames.contains { $0.id == game.id }
@@ -30,7 +36,7 @@ struct GameDetailView: View {
                 GameDetailHeader(game: game)
                 
                 // Quick Actions Bar
-                QuickActionsBar(game: $game, showingAddToList: $showingAddToList)
+                QuickActionsBar(game: $game, showingAddToList: $showingAddToList, showingAddSession: $showingAddSession)
                 
                 // Tab Selector
                 Picker("Section", selection: $selectedTab) {
@@ -79,8 +85,7 @@ struct GameDetailView: View {
                         Divider()
                         
                         Button(role: .destructive, action: {
-                            store.deleteGame(game)
-                            dismiss()
+                            showingDeleteConfirm = true
                         }) {
                             Label("Supprimer", systemImage: "trash")
                         }
@@ -105,9 +110,65 @@ struct GameDetailView: View {
         .sheet(isPresented: $showingShareCard) {
             ShareCardView(game: game)
         }
+        .sheet(isPresented: $showingAddSession) {
+            AddPlaySessionView(preselectedGame: game)
+        }
+        .alert("Supprimer ce jeu ?", isPresented: $showingDeleteConfirm) {
+            Button("Annuler", role: .cancel) {}
+            Button("Supprimer", role: .destructive) {
+                store.deleteGame(game)
+                dismiss()
+            }
+        } message: {
+            Text("\(game.title) sera définitivement supprimé de ta bibliothèque, y compris les sessions et notes associées.")
+        }
         .task {
             await loadSimilarGames()
         }
+        .onAppear {
+            if originalGame == nil {
+                originalGame = game
+            }
+        }
+        .alert("Modifications non sauvegardées", isPresented: $showingUnsavedChanges) {
+            Button("Quitter sans sauvegarder", role: .destructive) {
+                dismiss()
+            }
+            Button("Sauvegarder et quitter") {
+                store.updateGame(game)
+                dismiss()
+            }
+            Button("Annuler", role: .cancel) {}
+        } message: {
+            Text("Tu as des modifications non sauvegardées. Que souhaites-tu faire ?")
+        }
+        .navigationBarBackButtonHidden(hasUnsavedChanges)
+        .toolbar {
+            if hasUnsavedChanges {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button(action: { showingUnsavedChanges = true }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "chevron.left")
+                            Text("Retour")
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    private var hasUnsavedChanges: Bool {
+        guard let original = originalGame else { return false }
+        return game.rating != original.rating ||
+               game.status != original.status ||
+               game.review != original.review ||
+               game.notes != original.notes ||
+               game.isFavorite != original.isFavorite ||
+               game.isSpoiler != original.isSpoiler ||
+               game.completionPercentage != original.completionPercentage ||
+               game.difficulty != original.difficulty ||
+               game.moodTags != original.moodTags ||
+               game.priority != original.priority
     }
     
     private func loadSimilarGames() async {
@@ -115,16 +176,6 @@ struct GameDetailView: View {
         isLoadingSimilar = true
         similarGames = await store.fetchSimilarGames(for: game)
         isLoadingSimilar = false
-    }
-    
-    private func shareGame() {
-        let text = "🎮 \(game.title) - \(game.rating > 0 ? String(repeating: "⭐", count: game.rating) : "Non noté") sur Gameboxd"
-        let activityVC = UIActivityViewController(activityItems: [text], applicationActivities: nil)
-        
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let window = windowScene.windows.first {
-            window.rootViewController?.present(activityVC, animated: true)
-        }
     }
 }
 
@@ -260,6 +311,7 @@ struct GameDetailHeader: View {
 struct QuickActionsBar: View {
     @Binding var game: Game
     @Binding var showingAddToList: Bool
+    @Binding var showingAddSession: Bool
     @EnvironmentObject var store: GameStore
     
     var body: some View {
@@ -288,7 +340,7 @@ struct QuickActionsBar: View {
                 label: "Journal",
                 color: .orange
             ) {
-                // Would open diary entry creation
+                showingAddSession = true
             }
             
             // Share
@@ -297,11 +349,21 @@ struct QuickActionsBar: View {
                 label: "Partager",
                 color: .gbGreen
             ) {
-                // Share action
+                shareGame()
             }
         }
         .padding()
         .background(Color.gbCard)
+    }
+    
+    private func shareGame() {
+        let text = "🎮 \(game.title) - \(game.rating > 0 ? String(repeating: "⭐", count: game.rating) : "Non noté") sur Gameboxd"
+        let activityVC = UIActivityViewController(activityItems: [text], applicationActivities: nil)
+        
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let window = windowScene.windows.first {
+            window.rootViewController?.present(activityVC, animated: true)
+        }
     }
 }
 

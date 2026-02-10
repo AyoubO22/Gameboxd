@@ -17,7 +17,9 @@ struct SearchView: View {
             VStack {
                 if store.searchResults.isEmpty && !store.isSearching {
                     // Empty state or suggestions
-                    SearchEmptyStateView(searchText: searchText)
+                    SearchEmptyStateView(searchText: searchText, onSuggestionTap: { suggestion in
+                        searchText = suggestion
+                    })
                 } else if store.isSearching {
                     // Loading state
                     VStack(spacing: 20) {
@@ -66,6 +68,7 @@ struct SearchView: View {
 // Vue pour l'état vide de recherche
 struct SearchEmptyStateView: View {
     let searchText: String
+    var onSuggestionTap: ((String) -> Void)? = nil
     
     var body: some View {
         VStack(spacing: 20) {
@@ -94,6 +97,7 @@ struct SearchEmptyStateView: View {
                     
                     FlowLayout(spacing: 8) {
                         ForEach(["Zelda", "Elden Ring", "Hades", "Mario", "God of War"], id: \.self) { suggestion in
+                            Button(action: { onSuggestionTap?(suggestion) }) {
                             Text(suggestion)
                                 .font(.subheadline)
                                 .padding(.horizontal, 16)
@@ -101,6 +105,7 @@ struct SearchEmptyStateView: View {
                                 .background(Color.gbCard)
                                 .foregroundColor(.gbGreen)
                                 .cornerRadius(20)
+                            }
                         }
                     }
                     .padding(.horizontal, 40)

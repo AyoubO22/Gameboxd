@@ -223,8 +223,6 @@ struct AuthView: View {
     
     func skipLogin() {
         store.setLoggedIn(true)
-        let sanitizedEmail = securityManager.sanitizeInput(email.trimmingCharacters(in: .whitespacesAndNewlines))
-        let sanitizedUsername = securityManager.sanitizeInput(username.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 }
 
@@ -232,34 +230,24 @@ struct AuthView: View {
 struct AuthTextField: View {
     let icon: String
     let placeholder: String
-                if sanitizedEmail.isEmpty || password.isEmpty {
+    @Binding var text: String
     var keyboardType: UIKeyboardType = .default
     
-                } else if !securityManager.isValidEmail(sanitizedEmail) {
-                    errorMessage = "Email invalide"
-                    showingError = true
     var body: some View {
         HStack(spacing: 12) {
-                    store.userProfile.username = sanitizedEmail.components(separatedBy: "@").first ?? "Joueur"
+            Image(systemName: icon)
                 .foregroundColor(.gray)
                 .frame(width: 24)
             
             TextField(placeholder, text: $text)
-                if !securityManager.isValidEmail(sanitizedEmail) {
-                    errorMessage = "Email invalide"
-                    showingError = true
-                } else if password != confirmPassword {
+                .keyboardType(keyboardType)
                 .autocapitalization(.none)
                 .foregroundColor(.white)
-                } else if securityManager.validatePasswordStrength(password) == .weak {
-                    errorMessage = "Le mot de passe est trop faible"
-                    showingError = true
-                } else if sanitizedUsername.isEmpty {
-                    errorMessage = "Veuillez saisir un nom d'utilisateur"
-                    showingError = true
+        }
+        .padding()
         .background(Color.gbCard)
         .cornerRadius(12)
-                    store.userProfile.username = sanitizedUsername
+    }
 }
 
 // MARK: - Auth Secure Field

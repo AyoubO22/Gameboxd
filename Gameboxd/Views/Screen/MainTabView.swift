@@ -10,17 +10,6 @@ import SwiftUI
 struct MainTabView: View {
     @State private var selectedTab = 0
     
-    init() {
-        // Personnalisation de la TabBar
-        let appearance = UITabBarAppearance()
-        appearance.configureWithOpaqueBackground()
-        appearance.backgroundColor = UIColor(Color.gbCard)
-        
-        UITabBar.appearance().standardAppearance = appearance
-        UITabBar.appearance().scrollEdgeAppearance = appearance
-        UITabBar.appearance().unselectedItemTintColor = UIColor.gray
-    }
-    
     var body: some View {
         TabView(selection: $selectedTab) {
             LibraryView()
@@ -54,5 +43,7 @@ struct MainTabView: View {
                 .tag(4)
         }
         .tint(.gbGreen)
+        .toolbarBackground(Color.gbCard, for: .tabBar)
+        .toolbarBackground(.visible, for: .tabBar)
     }
 }

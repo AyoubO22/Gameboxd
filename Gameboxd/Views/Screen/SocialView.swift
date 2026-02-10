@@ -367,7 +367,7 @@ struct FindFriendsView: View {
                         .font(.headline)
                         .foregroundColor(.white)
                     
-                    Text("GBOXD-\(store.userProfile.username.prefix(4).uppercased())-\(Int.random(in: 1000...9999))")
+                    Text("GBOXD-\(store.userProfile.username.prefix(4).uppercased())-\(abs(store.userProfile.username.hashValue) % 10000)")
                         .font(.system(.title3, design: .monospaced))
                         .fontWeight(.bold)
                         .foregroundColor(.gbGreen)

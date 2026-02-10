@@ -14,6 +14,8 @@ struct SettingsView: View {
     @State private var showingImportPicker = false
     @State private var showingDeleteConfirmation = false
     @State private var exportedFileURL: URL?
+    @State private var showingImportError = false
+    @State private var importErrorMessage = ""
     
     var body: some View {
         List {
@@ -137,6 +139,11 @@ struct SettingsView: View {
         } message: {
             Text("Cette action est irréversible. Toutes tes données seront perdues.")
         }
+        .alert("Échec de l'import", isPresented: $showingImportError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(importErrorMessage)
+        }
     }
     
     func exportData() {
@@ -150,10 +157,15 @@ struct SettingsView: View {
         switch result {
         case .success(let urls):
             if let url = urls.first {
-                _ = store.importData(from: url)
+                let success = store.importData(from: url)
+                if !success {
+                    importErrorMessage = "Le fichier sélectionné n'a pas pu être lu. Vérifie qu'il s'agit d'un export Gameboxd valide."
+                    showingImportError = true
+                }
             }
         case .failure(let error):
-            print("Import error: \(error)")
+            importErrorMessage = "Impossible d'accéder au fichier : \(error.localizedDescription)"
+            showingImportError = true
         }
     }
 }

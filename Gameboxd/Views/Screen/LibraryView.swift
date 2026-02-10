@@ -15,6 +15,8 @@ struct LibraryView: View {
     @State private var showingSortMenu = false
     @State private var viewStyle: ViewStyle = .grid
     @State private var showingAdvancedFilters = false
+    @State private var gameToDelete: Game? = nil
+    @State private var showingDeleteConfirm = false
     
     // Advanced Filters
     @State private var selectedPlatform: String? = nil
@@ -303,6 +305,17 @@ struct LibraryView: View {
                     availableGenres: availableGenres,
                     availableYears: Array(availableYears)
                 )
+            }
+            .alert("Supprimer ce jeu ?", isPresented: $showingDeleteConfirm) {
+                Button("Annuler", role: .cancel) { gameToDelete = nil }
+                Button("Supprimer", role: .destructive) {
+                    if let game = gameToDelete {
+                        store.deleteGame(game)
+                    }
+                    gameToDelete = nil
+                }
+            } message: {
+                Text("\(gameToDelete?.title ?? "Ce jeu") sera définitivement supprimé de ta bibliothèque.")
             }
         }
     }
@@ -659,7 +672,8 @@ struct GameContextMenu: View {
             
             // Delete
             Button(role: .destructive, action: {
-                store.deleteGame(game)
+                gameToDelete = game
+                showingDeleteConfirm = true
             }) {
                 Label("Supprimer", systemImage: "trash")
             }

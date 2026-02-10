@@ -13,6 +13,7 @@ struct BacklogView: View {
     @State private var showingRandomPicker = false
     @State private var randomGame: Game? = nil
     @State private var isSpinning = false
+    @State private var spinTimer: Timer? = nil
     
     var filteredBacklog: [Game] {
         if let priority = selectedPriority {
@@ -91,6 +92,10 @@ struct BacklogView: View {
             .background(Color.gbDark.ignoresSafeArea())
             .navigationTitle("Backlog")
             .navigationBarTitleDisplayMode(.large)
+            .onDisappear {
+                spinTimer?.invalidate()
+                spinTimer = nil
+            }
         }
     }
     
@@ -104,12 +109,14 @@ struct BacklogView: View {
         var iterations = 0
         let maxIterations = 15
         
-        Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { timer in
+        spinTimer?.invalidate()
+        spinTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { timer in
             randomGame = store.backlog.randomElement()
             iterations += 1
             
             if iterations >= maxIterations {
                 timer.invalidate()
+                spinTimer = nil
                 withAnimation(.spring(response: 0.5, dampingFraction: 0.6)) {
                     randomGame = store.randomBacklogPick()
                     isSpinning = false

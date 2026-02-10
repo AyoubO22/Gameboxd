@@ -9,6 +9,7 @@ import SwiftUI
 
 struct ProfileView: View {
     @EnvironmentObject var store: GameStore
+    @State private var showingLogoutConfirm = false
     @State private var showingEditProfile = false
     @State private var showingStats = false
     @State private var showingLists = false
@@ -62,7 +63,7 @@ struct ProfileView: View {
                     .padding(.horizontal)
                     
                     // Logout Button
-                    Button(action: { store.logout() }) {
+                    Button(action: { showingLogoutConfirm = true }) {
                         HStack {
                             Image(systemName: "rectangle.portrait.and.arrow.right")
                                 .font(.title3)
@@ -94,6 +95,14 @@ struct ProfileView: View {
             }
             .sheet(isPresented: $showingLists) {
                 ListsView()
+            }
+            .alert("Déconnexion", isPresented: $showingLogoutConfirm) {
+                Button("Annuler", role: .cancel) {}
+                Button("Se déconnecter", role: .destructive) {
+                    store.logout()
+                }
+            } message: {
+                Text("És-tu sûr de vouloir te déconnecter ?")
             }
         }
     }
@@ -737,12 +746,14 @@ struct YearInReviewView: View {
                                     .font(.headline)
                                     .foregroundColor(.white)
                                 
+                                if favorite.rating > 0 {
                                 HStack {
                                     ForEach(1...favorite.rating, id: \.self) { _ in
                                         Image(systemName: "star.fill")
                                             .font(.caption)
                                             .foregroundColor(.gbGreen)
                                     }
+                                }
                                 }
                             }
                             

@@ -42,10 +42,12 @@ extension Color {
     
     /// Convertit la couleur en code hex
     func toHex() -> String {
-        guard let components = UIColor(self).cgColor.components else { return "808080" }
-        let r = components.count > 0 ? components[0] : 0
-        let g = components.count > 1 ? components[1] : 0
-        let b = components.count > 2 ? components[2] : 0
+        let uiColor = UIColor(self)
+        var r: CGFloat = 0
+        var g: CGFloat = 0
+        var b: CGFloat = 0
+        var a: CGFloat = 0
+        uiColor.getRed(&r, green: &g, blue: &b, alpha: &a)
         return String(format: "%02X%02X%02X", Int(r * 255), Int(g * 255), Int(b * 255))
     }
 }

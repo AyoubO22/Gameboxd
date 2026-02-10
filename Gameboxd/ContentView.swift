@@ -11,6 +11,7 @@ struct ContentView: View {
     @EnvironmentObject var store: GameStore
     @State private var showingAchievementToast = false
     @State private var toastAchievement: Achievement?
+    @State private var achievementQueue: [Achievement] = []
     
     var body: some View {
         ZStack {
@@ -37,23 +38,31 @@ struct ContentView: View {
             }
         }
         .onChange(of: store.recentlyUnlockedAchievements) { _, newAchievements in
-            if let achievement = newAchievements.first {
-                showAchievementToast(achievement)
+            if !newAchievements.isEmpty {
+                achievementQueue.append(contentsOf: newAchievements)
+                store.recentlyUnlockedAchievements.removeAll()
+                if !showingAchievementToast {
+                    showNextAchievement()
+                }
             }
         }
     }
     
-    func showAchievementToast(_ achievement: Achievement) {
+    func showNextAchievement() {
+        guard !achievementQueue.isEmpty else { return }
+        let achievement = achievementQueue.removeFirst()
         toastAchievement = achievement
         withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
             showingAchievementToast = true
         }
         
-        // Auto hide after 4 seconds
-        DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
             withAnimation(.spring()) {
                 showingAchievementToast = false
-                store.recentlyUnlockedAchievements.removeAll()
+            }
+            // Show next achievement after a short delay
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                showNextAchievement()
             }
         }
     }

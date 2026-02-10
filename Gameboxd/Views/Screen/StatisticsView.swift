@@ -40,7 +40,7 @@ struct StatisticsView: View {
                 .padding(.horizontal)
                 
                 // Summary Cards
-                SummaryCardsView()
+                SummaryCardsView(games: filteredGames)
                 
                 // Chart Type Selector
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -53,10 +53,10 @@ struct StatisticsView: View {
                 }
                 
                 // Main Chart
-                ChartContainer(chartType: selectedChart, period: selectedPeriod)
+                ChartContainer(chartType: selectedChart, period: selectedPeriod, games: filteredGames)
                 
                 // Additional Stats
-                AdditionalStatsView()
+                AdditionalStatsView(games: filteredGames)
                 
                 // Gaming Habits
                 GamingHabitsView()
@@ -71,34 +71,44 @@ struct StatisticsView: View {
 
 // MARK: - Summary Cards
 struct SummaryCardsView: View {
+    let games: [Game]
     @EnvironmentObject var store: GameStore
     
     var body: some View {
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
             SummaryCard(
                 title: "Total jeux",
-                value: "\(store.myGames.count)",
+                value: "\(games.count)",
                 icon: "gamecontroller.fill",
                 color: .blue
             )
             
             SummaryCard(
                 title: "Terminés",
-                value: "\(store.gamesCount(for: .completed))",
+                value: "\(games.filter { $0.status == .completed || $0.status == .platinum }.count)",
                 icon: "checkmark.circle.fill",
                 color: .green
             )
             
             SummaryCard(
                 title: "Heures jouées",
-                value: store.totalPlayTimeFormatted,
+                value: {
+                    let totalMin = games.reduce(0) { $0 + $1.playTimeMinutes }
+                    let h = totalMin / 60
+                    return h > 0 ? "\(h)h" : "0h"
+                }(),
                 icon: "clock.fill",
                 color: .orange
             )
             
             SummaryCard(
                 title: "Note moyenne",
-                value: String(format: "%.1f", store.averageRating),
+                value: {
+                    let rated = games.filter { $0.rating > 0 }
+                    guard !rated.isEmpty else { return "—" }
+                    let avg = Double(rated.reduce(0) { $0 + $1.rating }) / Double(rated.count)
+                    return String(format: "%.1f", avg)
+                }(),
                 icon: "star.fill",
                 color: .yellow
             )
@@ -158,6 +168,7 @@ struct ChartTypeButton: View {
 struct ChartContainer: View {
     let chartType: StatisticsView.ChartType
     let period: StatisticsView.StatPeriod
+    let games: [Game]
     @EnvironmentObject var store: GameStore
     
     var body: some View {
@@ -166,17 +177,30 @@ struct ChartContainer: View {
                 .font(.headline)
                 .foregroundColor(.white)
             
+            if games.isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: "chart.bar")
+                        .font(.system(size: 40))
+                        .foregroundColor(.gray.opacity(0.3))
+                    Text("Pas encore de données pour cette période")
+                        .font(.subheadline)
+                        .foregroundColor(.gray)
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: 150)
+            } else {
             switch chartType {
             case .gamesPerMonth:
-                GamesPerMonthChart(games: store.myGames)
+                GamesPerMonthChart(games: games)
             case .byGenre:
-                GenreChart(games: store.myGames)
+                GenreChart(games: games)
             case .byPlatform:
-                PlatformChart(games: store.myGames)
+                PlatformChart(games: games)
             case .byRating:
-                RatingChart(games: store.myGames)
+                RatingChart(games: games)
             case .byStatus:
-                StatusChart(games: store.myGames)
+                StatusChart(games: games)
+            }
             }
         }
         .padding()
@@ -453,28 +477,28 @@ struct StatusChart: View {
 
 // MARK: - Additional Stats
 struct AdditionalStatsView: View {
+    let games: [Game]
     @EnvironmentObject var store: GameStore
     
     var completionRate: Double {
-        guard !store.myGames.isEmpty else { return 0 }
-        let completed = store.gamesCount(for: .completed) + store.gamesCount(for: .platinum)
-        return Double(completed) / Double(store.myGames.count) * 100
+        guard !games.isEmpty else { return 0 }
+        let completed = games.filter { $0.status == .completed || $0.status == .platinum }.count
+        return Double(completed) / Double(games.count) * 100
     }
     
     var averagePlaytime: String {
-        let totalMinutes = store.myGames.reduce(0) { $0 + parsePlaytimeToMinutes($1.playTime) }
-        guard !store.myGames.isEmpty else { return "0h" }
-        let avgMinutes = totalMinutes / store.myGames.count
-        return "\(avgMinutes / 60)h"
-    }
-    
-    func parsePlaytimeToMinutes(_ time: String) -> Int {
-        // Parse "45h" or "2h30" format
-        let cleaned = time.replacingOccurrences(of: "h", with: "").replacingOccurrences(of: "m", with: "")
-        if let hours = Int(cleaned) {
-            return hours * 60
+        let totalMinutes = games.reduce(0) { $0 + $1.playTimeMinutes }
+        guard !games.isEmpty else { return "0h" }
+        let avgMinutes = totalMinutes / games.count
+        let hours = avgMinutes / 60
+        let mins = avgMinutes % 60
+        if hours > 0 && mins > 0 {
+            return "\(hours)h\(mins)m"
+        } else if hours > 0 {
+            return "\(hours)h"
+        } else {
+            return "\(mins)m"
         }
-        return 0
     }
     
     var body: some View {

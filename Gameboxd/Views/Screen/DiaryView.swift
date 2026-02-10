@@ -172,7 +172,7 @@ struct PlaySessionCard: View {
                 Spacer()
                 
                 // Rating if any
-                if let rating = session.rating {
+                if let rating = session.rating, rating > 0 {
                     VStack {
                         HStack(spacing: 2) {
                             ForEach(1...rating, id: \.self) { _ in
@@ -316,7 +316,7 @@ struct PlaySessionDetailView: View {
                         }
                         
                         // Rating
-                        if let rating = session.rating {
+                        if let rating = session.rating, rating > 0 {
                             Divider().background(Color.gray.opacity(0.3))
                             
                             HStack {
@@ -334,9 +334,11 @@ struct PlaySessionDetailView: View {
                                         Image(systemName: "star.fill")
                                             .font(.caption)
                                     }
+                                    if rating < 5 {
                                     ForEach(rating..<5, id: \.self) { _ in
                                         Image(systemName: "star")
                                             .font(.caption)
+                                    }
                                     }
                                 }
                                 .foregroundColor(.gbGreen)
@@ -699,6 +701,8 @@ struct AddPlaySessionView: View {
     @EnvironmentObject var store: GameStore
     @Environment(\.dismiss) var dismiss
     
+    var preselectedGame: Game? = nil
+    
     @State private var selectedGame: Game?
     @State private var date = Date()
     @State private var hours = 0
@@ -850,6 +854,11 @@ struct AddPlaySessionView: View {
             }
             .sheet(isPresented: $showingGamePicker) {
                 GamePickerView(selectedGame: $selectedGame)
+            }
+            .onAppear {
+                if selectedGame == nil, let preselected = preselectedGame {
+                    selectedGame = preselected
+                }
             }
         }
     }

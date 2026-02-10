@@ -7,12 +7,6 @@
 ![SwiftUI](https://img.shields.io/badge/SwiftUI-4.0-purple.svg)
 ![License](https://img.shields.io/badge/License-MIT-green.svg)
 
-<p align="center">
-  <img src="Assets/screenshot1.png" width="200" />
-  <img src="Assets/screenshot2.png" width="200" />
-  <img src="Assets/screenshot3.png" width="200" />
-</p>
-
 ---
 
 ## 📋 Table of Contents

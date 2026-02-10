@@ -1143,13 +1143,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-## 📞 Contact
-
-- GitHub: [@yourusername](https://github.com/yourusername)
-- Email: your.email@example.com
-
----
-
 <p align="center">
   Made with ❤️ and SwiftUI
 </p>

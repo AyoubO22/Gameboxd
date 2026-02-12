@@ -60,3 +60,10 @@ extension Color {
         return String(format: "%02X%02X%02X", Int(r * 255), Int(g * 255), Int(b * 255))
     }
 }
+
+// MARK: - Metacritic Color Helper (global)
+func metacriticColor(_ score: Int) -> Color {
+    if score >= 75 { return .green }
+    if score >= 50 { return .yellow }
+    return .red
+}

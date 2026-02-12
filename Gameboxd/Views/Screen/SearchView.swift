@@ -278,12 +278,6 @@ struct SearchResultRow: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(game.title) par \(game.developer), \(game.platform), \(game.releaseYear)\(isInLibrary ? ", dans ta collection" : "")")
     }
-    
-    func metacriticColor(_ score: Int) -> Color {
-        if score >= 75 { return .green }
-        if score >= 50 { return .yellow }
-        return .red
-    }
 }
 
 // MARK: - Preview

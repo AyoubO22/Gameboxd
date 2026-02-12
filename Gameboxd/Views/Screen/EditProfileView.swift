@@ -186,9 +186,7 @@ struct EditProfileView: View {
         store.userProfile.preferredPlatforms = Array(selectedPlatforms)
         
         // Persist
-        if let encoded = try? JSONEncoder().encode(store.userProfile) {
-            UserDefaults.standard.set(encoded, forKey: "gameboxd_user_profile")
-        }
+        store.saveUserProfile()
         
         withAnimation {
             showingSaved = true

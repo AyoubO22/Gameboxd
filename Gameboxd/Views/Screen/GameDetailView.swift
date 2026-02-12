@@ -306,12 +306,6 @@ struct GameDetailHeader: View {
             .padding()
         }
     }
-    
-    func metacriticColor(_ score: Int) -> Color {
-        if score >= 75 { return .green }
-        if score >= 50 { return .yellow }
-        return .red
-    }
 }
 
 // MARK: - Quick Actions Bar

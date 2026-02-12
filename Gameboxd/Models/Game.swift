@@ -368,6 +368,13 @@ struct UserProfile: Codable {
     var joinedDate: Date
     var preferredPlatforms: [String]
     
+    // Social Auth fields
+    var email: String
+    var authProvider: String       // "email", "apple", "google"
+    var authProviderUserId: String // Provider-specific unique user ID
+    var avatarURL: String?         // Profile picture URL (Google, etc.)
+    var needsUsernameSetup: Bool   // Show username setup after first social login
+    
     init(
         username: String = "Gamer",
         bio: String = "",
@@ -375,7 +382,12 @@ struct UserProfile: Codable {
         favoriteGameIds: [UUID] = [],
         yearlyGoal: Int = 12,
         joinedDate: Date = Date(),
-        preferredPlatforms: [String] = []
+        preferredPlatforms: [String] = [],
+        email: String = "",
+        authProvider: String = "email",
+        authProviderUserId: String = "",
+        avatarURL: String? = nil,
+        needsUsernameSetup: Bool = false
     ) {
         self.username = username
         self.bio = bio
@@ -384,6 +396,28 @@ struct UserProfile: Codable {
         self.yearlyGoal = yearlyGoal
         self.joinedDate = joinedDate
         self.preferredPlatforms = preferredPlatforms
+        self.email = email
+        self.authProvider = authProvider
+        self.authProviderUserId = authProviderUserId
+        self.avatarURL = avatarURL
+        self.needsUsernameSetup = needsUsernameSetup
+    }
+    
+    // Custom Decodable init so existing persisted profiles (without new fields) still load
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        username = try container.decode(String.self, forKey: .username)
+        bio = try container.decode(String.self, forKey: .bio)
+        avatarEmoji = try container.decode(String.self, forKey: .avatarEmoji)
+        favoriteGameIds = try container.decode([UUID].self, forKey: .favoriteGameIds)
+        yearlyGoal = try container.decode(Int.self, forKey: .yearlyGoal)
+        joinedDate = try container.decode(Date.self, forKey: .joinedDate)
+        preferredPlatforms = try container.decode([String].self, forKey: .preferredPlatforms)
+        email = try container.decodeIfPresent(String.self, forKey: .email) ?? ""
+        authProvider = try container.decodeIfPresent(String.self, forKey: .authProvider) ?? "email"
+        authProviderUserId = try container.decodeIfPresent(String.self, forKey: .authProviderUserId) ?? ""
+        avatarURL = try container.decodeIfPresent(String.self, forKey: .avatarURL)
+        needsUsernameSetup = try container.decodeIfPresent(Bool.self, forKey: .needsUsernameSetup) ?? false
     }
 }
 

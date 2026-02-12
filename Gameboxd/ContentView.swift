@@ -12,6 +12,7 @@ struct ContentView: View {
     @State private var showingAchievementToast = false
     @State private var toastAchievement: Achievement?
     @State private var achievementQueue: [Achievement] = []
+    @State private var showingUsernameSetup = false
     
     var body: some View {
         ZStack {
@@ -46,6 +47,15 @@ struct ContentView: View {
                     showNextAchievement()
                 }
             }
+        }
+        .onChange(of: store.isLoggedIn) { _, isLoggedIn in
+            if isLoggedIn && store.userProfile.needsUsernameSetup {
+                showingUsernameSetup = true
+            }
+        }
+        .sheet(isPresented: $showingUsernameSetup) {
+            UsernameSetupView()
+                .environmentObject(store)
         }
     }
     

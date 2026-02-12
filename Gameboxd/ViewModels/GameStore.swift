@@ -50,9 +50,15 @@ class GameStore: ObservableObject {
     @Published var weeklyDigest: Bool = false
     @Published var achievementAlerts: Bool = true
     
+    // Linked Gaming Accounts
+    @Published var linkedAccounts: [LinkedAccount] = []
+    @Published var importedGames: [ImportedGame] = []
+    
     // Services
     private let rawgService = RAWGService.shared
     private let securityManager = SecurityManager.shared
+    private let steamService = SteamService.shared
+    private let psnService = PlayStationService.shared
     
     // Storage Keys
     private enum StorageKeys {
@@ -70,6 +76,8 @@ class GameStore: ObservableObject {
         static let achievementAlerts = "gameboxd_achievement_alerts"
         static let monthlyGoals = "gameboxd_monthly_goals"
         static let completedGoals = "gameboxd_completed_goals"
+        static let linkedAccounts = "gameboxd_linked_accounts"
+        static let importedGames = "gameboxd_imported_games"
     }
     
     // MARK: - Initialization
@@ -93,6 +101,15 @@ class GameStore: ObservableObject {
     }
     
     func logout() {
+        // Sign out from social providers if needed
+        if userProfile.authProvider == "google" {
+            GoogleSignInService.shared.signOut()
+        }
+        
+        // Reset auth state
+        userProfile.authProvider = "email"
+        userProfile.authProviderUserId = ""
+        userProfile.avatarURL = nil
         isLoggedIn = false
         UserDefaults.standard.set(false, forKey: StorageKeys.isLoggedIn)
     }
@@ -135,6 +152,8 @@ class GameStore: ObservableObject {
         loadCustomTags()
         loadFriends()
         loadMonthlyGoals()
+        loadLinkedAccounts()
+        loadImportedGames()
     }
     
     private func loadGames() {
@@ -193,9 +212,157 @@ class GameStore: ObservableObject {
         }
     }
     
-    private func saveUserProfile() {
+    func saveUserProfile() {
         if let encoded = try? JSONEncoder().encode(userProfile) {
             UserDefaults.standard.set(encoded, forKey: StorageKeys.userProfile)
+        }
+    }
+    
+    // MARK: - Linked Accounts
+    
+    private func loadLinkedAccounts() {
+        if let data = UserDefaults.standard.data(forKey: StorageKeys.linkedAccounts),
+           let decoded = try? JSONDecoder().decode([LinkedAccount].self, from: data) {
+            linkedAccounts = decoded
+        }
+    }
+    
+    private func saveLinkedAccounts() {
+        if let encoded = try? JSONEncoder().encode(linkedAccounts) {
+            UserDefaults.standard.set(encoded, forKey: StorageKeys.linkedAccounts)
+        }
+    }
+    
+    private func loadImportedGames() {
+        if let data = UserDefaults.standard.data(forKey: StorageKeys.importedGames),
+           let decoded = try? JSONDecoder().decode([ImportedGame].self, from: data) {
+            importedGames = decoded
+        }
+    }
+    
+    private func saveImportedGames() {
+        if let encoded = try? JSONEncoder().encode(importedGames) {
+            UserDefaults.standard.set(encoded, forKey: StorageKeys.importedGames)
+        }
+    }
+    
+    /// Link a new gaming platform account
+    func linkPlatformAccount(platform: GamingPlatform, platformId: String) async throws {
+        switch platform {
+        case .steam:
+            let steamId = try await steamService.parseSteamId(input: platformId)
+            let (games, profile) = try await steamService.syncLibrary(steamId: steamId)
+            
+            let account = LinkedAccount(
+                platform: .steam,
+                platformUserId: steamId,
+                platformUsername: profile.personaname,
+                avatarURL: profile.avatarfull,
+                lastSyncDate: Date(),
+                importedGameCount: games.count
+            )
+            
+            linkedAccounts.append(account)
+            importedGames.append(contentsOf: games)
+            saveLinkedAccounts()
+            saveImportedGames()
+            
+        case .playstation:
+            let (games, profile) = try await psnService.syncLibrary(psnId: platformId)
+            
+            let account = LinkedAccount(
+                platform: .playstation,
+                platformUserId: platformId,
+                platformUsername: profile.onlineId,
+                avatarURL: profile.avatarUrl,
+                lastSyncDate: Date(),
+                importedGameCount: games.count,
+                trophyCount: profile.trophySummary?.earnedTrophies.total,
+                level: profile.trophySummary?.level
+            )
+            
+            linkedAccounts.append(account)
+            importedGames.append(contentsOf: games)
+            saveLinkedAccounts()
+            saveImportedGames()
+        }
+    }
+    
+    /// Sync an existing linked account to fetch new games
+    func syncLinkedAccount(_ account: LinkedAccount) async throws -> PlatformSyncResult {
+        var newGames: [ImportedGame] = []
+        let existingIds = Set(importedGames.filter { $0.platform == account.platform }.map { $0.platformGameId })
+        
+        switch account.platform {
+        case .steam:
+            let (games, _) = try await steamService.syncLibrary(steamId: account.platformUserId)
+            newGames = games.filter { !existingIds.contains($0.platformGameId) }
+            
+        case .playstation:
+            let (games, _) = try await psnService.syncLibrary(psnId: account.platformUserId)
+            newGames = games.filter { !existingIds.contains($0.platformGameId) }
+        }
+        
+        let result = PlatformSyncResult(
+            platform: account.platform,
+            gamesFound: existingIds.count + newGames.count,
+            newGames: newGames.count,
+            updatedGames: 0,
+            errors: [],
+            syncDate: Date()
+        )
+        
+        // Add new games
+        importedGames.append(contentsOf: newGames)
+        
+        // Update account sync date and count
+        if let index = linkedAccounts.firstIndex(where: { $0.id == account.id }) {
+            linkedAccounts[index].lastSyncDate = Date()
+            linkedAccounts[index].importedGameCount = importedGames.filter { $0.platform == account.platform }.count
+        }
+        
+        saveLinkedAccounts()
+        saveImportedGames()
+        
+        return result
+    }
+    
+    /// Unlink a platform account
+    func unlinkAccount(_ account: LinkedAccount) {
+        linkedAccounts.removeAll { $0.id == account.id }
+        // Keep imported games — user might want to keep them
+        saveLinkedAccounts()
+    }
+    
+    /// Add an imported game to the main Gameboxd library
+    func addImportedGameToLibrary(_ importedGame: ImportedGame) {
+        // Create a Game from ImportedGame
+        let platformName: String
+        switch importedGame.platform {
+        case .steam: platformName = "PC"
+        case .playstation: platformName = "PlayStation"
+        }
+        
+        let game = Game(
+            title: importedGame.title,
+            developer: "",
+            platform: platformName,
+            releaseYear: "",
+            coverImageURL: importedGame.coverImageURL,
+            coverColor: importedGame.platform == .steam ? .blue : .indigo,
+            status: importedGame.playtimeMinutes > 0 ? .playing : .wantToPlay,
+            playTimeMinutes: importedGame.playtimeMinutes,
+            completionPercentage: importedGame.completionPercentage
+        )
+        
+        myGames.append(game)
+        saveGames()
+        
+        // Mark as imported
+        if let index = importedGames.firstIndex(where: { $0.id == importedGame.id }) {
+            importedGames[index].isImportedToLibrary = true
+            importedGames[index].linkedGameId = game.id
+            saveImportedGames()
         }
     }
     

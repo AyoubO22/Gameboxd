@@ -177,6 +177,53 @@ struct ProfileNavigationSection: View {
                     )
                 }
             }
+            
+            // Linked Accounts
+            NavigationLink(destination: LinkedAccountsView()) {
+                HStack(spacing: 14) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(Color.cyan.opacity(0.2))
+                            .frame(width: 44, height: 44)
+                        
+                        Image(systemName: "link.badge.plus")
+                            .font(.title3)
+                            .foregroundColor(.cyan)
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Comptes liés")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.white)
+                        
+                        Text("PlayStation, Steam")
+                            .font(.caption2)
+                            .foregroundColor(.gray)
+                    }
+                    
+                    Spacer(minLength: 0)
+                    
+                    if !store.linkedAccounts.isEmpty {
+                        Text("\(store.linkedAccounts.count)")
+                            .font(.caption)
+                            .fontWeight(.bold)
+                            .foregroundColor(.cyan)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.cyan.opacity(0.2))
+                            .cornerRadius(8)
+                    }
+                    
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundColor(.gray.opacity(0.5))
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, minHeight: 68)
+                .background(Color.gbCard)
+                .cornerRadius(12)
+            }
         }
         .padding(.horizontal)
     }
@@ -235,21 +282,71 @@ struct ProfileHeaderView: View {
     
     var body: some View {
         VStack(spacing: 16) {
-            // Avatar
+            // Avatar (supports Google/Apple profile pic or emoji)
             ZStack {
-                Circle()
-                    .fill(Color.gbGreen.gradient)
+                if let avatarURLString = store.userProfile.avatarURL,
+                   let url = URL(string: avatarURLString) {
+                    CachedAsyncImage(url: url) { image in
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                    } placeholder: {
+                        Circle()
+                            .fill(Color.gbGreen.gradient)
+                            .overlay(
+                                Text(store.userProfile.avatarEmoji)
+                                    .font(.system(size: 50))
+                            )
+                    }
                     .frame(width: 100, height: 100)
-                
-                Text(store.userProfile.avatarEmoji)
-                    .font(.system(size: 50))
+                    .clipShape(Circle())
+                } else {
+                    Circle()
+                        .fill(Color.gbGreen.gradient)
+                        .frame(width: 100, height: 100)
+                    
+                    Text(store.userProfile.avatarEmoji)
+                        .font(.system(size: 50))
+                }
             }
             
             // Username
-            Text(store.userProfile.username)
-                .font(.title)
-                .fontWeight(.bold)
-                .foregroundColor(.white)
+            HStack(spacing: 6) {
+                Text(store.userProfile.username)
+                    .font(.title)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+                
+                // Auth provider badge
+                if store.userProfile.authProvider == "apple" {
+                    Image(systemName: "apple.logo")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                } else if store.userProfile.authProvider == "google" {
+                    Image(systemName: "g.circle.fill")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
+            }
+            
+            // Linked platforms badges
+            if !store.linkedAccounts.isEmpty {
+                HStack(spacing: 8) {
+                    ForEach(store.linkedAccounts) { account in
+                        HStack(spacing: 4) {
+                            Image(systemName: account.platform.sfSymbol)
+                                .font(.caption2)
+                            Text(account.platformUsername.isEmpty ? account.platformUserId : account.platformUsername)
+                                .font(.caption2)
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(account.platform.accentColor.opacity(0.2))
+                        .foregroundColor(account.platform.accentColor)
+                        .cornerRadius(8)
+                    }
+                }
+            }
             
             // Bio
             if !store.userProfile.bio.isEmpty {

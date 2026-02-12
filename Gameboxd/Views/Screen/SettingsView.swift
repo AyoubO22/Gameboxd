@@ -73,6 +73,10 @@ struct SettingsView: View {
                     SettingsRow(icon: "person.fill", title: "Profil", color: .blue)
                 }
                 
+                NavigationLink(destination: LinkedAccountsView()) {
+                    SettingsRow(icon: "link", title: "Comptes liés (PSN, Steam)", color: .cyan)
+                }
+                
                 Button(action: { showingDeleteConfirmation = true }) {
                     SettingsRow(icon: "trash.fill", title: "Supprimer toutes les données", color: .red)
                 }

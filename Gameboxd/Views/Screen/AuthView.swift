@@ -6,10 +6,13 @@
 //
 
 import SwiftUI
+import AuthenticationServices
 
 struct AuthView: View {
     @EnvironmentObject var store: GameStore
     private let securityManager = SecurityManager.shared
+    private let appleSignInService = AppleSignInService.shared
+    private let googleSignInService = GoogleSignInService.shared
     @State private var isLogin = true
     @State private var email = ""
     @State private var password = ""
@@ -18,6 +21,7 @@ struct AuthView: View {
     @State private var showingError = false
     @State private var errorMessage = ""
     @State private var isLoading = false
+    @State private var isSocialLoading = false
     
     var body: some View {
         ZStack {
@@ -143,14 +147,22 @@ struct AuthView: View {
                         
                         HStack(spacing: 20) {
                             SocialLoginButton(icon: "apple.logo", label: "Apple") {
-                                // Apple Sign In
+                                handleAppleSignIn()
                             }
+                            .disabled(isSocialLoading)
                             
                             SocialLoginButton(icon: "g.circle.fill", label: "Google") {
-                                // Google Sign In
+                                handleGoogleSignIn()
                             }
+                            .disabled(isSocialLoading)
                         }
                         .padding(.horizontal, 24)
+                        
+                        if isSocialLoading {
+                            ProgressView()
+                                .tint(.gbGreen)
+                                .padding(.top, 4)
+                        }
                     }
                     
                     // Skip login
@@ -223,6 +235,105 @@ struct AuthView: View {
     
     func skipLogin() {
         store.setLoggedIn(true)
+    }
+    
+    // MARK: - Apple Sign In
+    func handleAppleSignIn() {
+        isSocialLoading = true
+        
+        Task {
+            do {
+                let result = try await appleSignInService.signIn()
+                
+                // Use the display name or stored name, fallback to "Joueur Apple"
+                let displayName = result.displayName
+                    ?? UserDefaults.standard.string(forKey: "appleSignIn_displayName")
+                    ?? "Joueur Apple"
+                
+                let userEmail = result.email
+                    ?? UserDefaults.standard.string(forKey: "appleSignIn_email")
+                    ?? ""
+                
+                await MainActor.run {
+                    store.userProfile.username = displayName
+                    store.userProfile.email = userEmail
+                    store.userProfile.authProvider = "apple"
+                    store.userProfile.authProviderUserId = result.userId
+                    store.userProfile.needsUsernameSetup = true
+                    store.setLoggedIn(true)
+                    isSocialLoading = false
+                }
+                
+                // Optional: Exchange identityToken with your backend / Cognito
+                // try await CognitoAuthService.shared.federatedSignIn(
+                //     provider: .apple,
+                //     token: result.identityToken
+                // )
+                
+            } catch let error as AppleSignInError {
+                await MainActor.run {
+                    isSocialLoading = false
+                    if case .cancelled = error {
+                        // User cancelled — don't show error
+                        return
+                    }
+                    errorMessage = error.localizedDescription
+                    showingError = true
+                }
+            } catch {
+                await MainActor.run {
+                    isSocialLoading = false
+                    errorMessage = error.localizedDescription
+                    showingError = true
+                }
+            }
+        }
+    }
+    
+    // MARK: - Google Sign In
+    func handleGoogleSignIn() {
+        isSocialLoading = true
+        
+        Task {
+            do {
+                let result = try await googleSignInService.signIn()
+                
+                await MainActor.run {
+                    store.userProfile.username = result.displayName ?? result.email.components(separatedBy: "@").first ?? "Joueur Google"
+                    store.userProfile.email = result.email
+                    store.userProfile.authProvider = "google"
+                    store.userProfile.authProviderUserId = result.userId
+                    if let profileURL = result.profileImageURL {
+                        store.userProfile.avatarURL = profileURL.absoluteString
+                    }
+                    store.userProfile.needsUsernameSetup = true
+                    store.setLoggedIn(true)
+                    isSocialLoading = false
+                }
+                
+                // Optional: Exchange idToken with your backend / Cognito
+                // try await CognitoAuthService.shared.federatedSignIn(
+                //     provider: .google,
+                //     token: result.idToken
+                // )
+                
+            } catch let error as GoogleSignInError {
+                await MainActor.run {
+                    isSocialLoading = false
+                    if case .cancelled = error {
+                        return
+                    }
+                    errorMessage = error.localizedDescription
+                    showingError = true
+                }
+            } catch {
+                await MainActor.run {
+                    isSocialLoading = false
+                    errorMessage = error.localizedDescription
+                    showingError = true
+                }
+            }
+        }
     }
 }
 

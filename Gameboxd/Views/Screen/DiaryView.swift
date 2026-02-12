@@ -150,9 +150,9 @@ struct PlaySessionCard: View {
                             
                             // Time
                             Text(session.date, style: .time)
-                            .font(.caption)
-                            .foregroundColor(.gray)
-                    }
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                        }
                     
                     // Mood tag
                     if let mood = session.mood {

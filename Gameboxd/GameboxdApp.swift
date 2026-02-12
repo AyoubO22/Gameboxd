@@ -31,10 +31,17 @@ struct GameboxdApp: App {
                 ContentView()
                     .environmentObject(store)
                     .preferredColorScheme(.dark)
+                    .onOpenURL { url in
+                        // Handle Google Sign-In redirect URL
+                        _ = GoogleSignInService.shared.handleURL(url)
+                    }
             } else {
                 OnboardingView(hasCompletedOnboarding: $hasCompletedOnboarding)
                     .environmentObject(store)
                     .preferredColorScheme(.dark)
+                    .onOpenURL { url in
+                        _ = GoogleSignInService.shared.handleURL(url)
+                    }
             }
         }
     }

@@ -21,6 +21,7 @@ struct AWSConfig {
 // MARK: - AWS Cognito Authentication
 /// Demonstrates AWS Cognito User Pool integration for secure authentication
 /// Implements SRP (Secure Remote Password) protocol flow
+/// Supports federated identity providers: Apple, Google
 class CognitoAuthService {
     static let shared = CognitoAuthService()
     
@@ -28,6 +29,47 @@ class CognitoAuthService {
     private var idToken: String?
     private var refreshToken: String?
     private var tokenExpiration: Date?
+    
+    // MARK: - Federated Identity Providers
+    
+    enum FederatedProvider: String {
+        case apple = "appleid.apple.com"
+        case google = "accounts.google.com"
+    }
+    
+    /// Federated sign-in using external identity provider tokens (Apple, Google)
+    /// Exchanges provider token for Cognito Identity Pool credentials
+    func federatedSignIn(provider: FederatedProvider, token: String) async throws -> CognitoAuthResult {
+        // Step 1: Exchange provider token with Cognito Identity Pool
+        // GetId → Get Cognito Identity ID using the provider token
+        let _ = [
+            "IdentityPoolId": AWSConfig.identityPoolId,
+            "Logins": [
+                provider.rawValue: token
+            ]
+        ] as [String: Any]
+        
+        // Step 2: GetCredentialsForIdentity → Get temporary AWS credentials
+        // Returns: AccessKeyId, SecretKey, SessionToken, Expiration
+        
+        // Step 3: Optionally link identity to Cognito User Pool
+        // AdminLinkProviderForUser or admin user creation
+        
+        // Simulate federated auth result
+        let result = CognitoAuthResult(
+            accessToken: "federated_access_\(provider.rawValue)_\(UUID().uuidString)",
+            idToken: "federated_id_\(provider.rawValue)_\(UUID().uuidString)",
+            refreshToken: "federated_refresh_\(UUID().uuidString)",
+            expiresIn: 3600
+        )
+        
+        self.accessToken = result.accessToken
+        self.idToken = result.idToken
+        self.refreshToken = result.refreshToken
+        self.tokenExpiration = Date().addingTimeInterval(TimeInterval(result.expiresIn))
+        
+        return result
+    }
     
     // MARK: - User Pool Authentication
     

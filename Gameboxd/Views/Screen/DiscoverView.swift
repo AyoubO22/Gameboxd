@@ -230,12 +230,6 @@ struct DiscoverGameCard: View {
         .accessibilityLabel("\(game.title), \(game.platform)")
         .accessibilityHint("Ouvre la fiche du jeu")
     }
-    
-    func metacriticColor(_ score: Int) -> Color {
-        if score >= 75 { return .green }
-        if score >= 50 { return .yellow }
-        return .red
-    }
 }
 
 // MARK: - Shimmer Loading Card

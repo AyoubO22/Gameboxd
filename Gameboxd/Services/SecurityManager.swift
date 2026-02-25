@@ -13,7 +13,6 @@ import LocalAuthentication
 import CryptoKit
 import CommonCrypto
 import Combine
-import UIKit
 
 // MARK: - Security Manager
 /// Central security manager implementing defense-in-depth security model
@@ -471,8 +470,11 @@ class SecurityManager: ObservableObject {
     }
     
     private func getDeviceIdentifier() -> String {
-        // Use identifierForVendor for device identification
-        return UIDevice.current.identifierForVendor?.uuidString ?? "unknown"
+        // Use a generic identifier for macOS since UIDevice is not available
+        if let uuid = ProcessInfo.processInfo.environment["SIMULATOR_HOST_HOME"] {
+             return uuid
+        }
+        return UUID().uuidString
     }
     
     // MARK: - Secure Data Wipe

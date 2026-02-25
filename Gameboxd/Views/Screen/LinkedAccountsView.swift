@@ -601,14 +601,14 @@ struct AllImportedGamesView: View {
             // Platform Filter
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
-                    FilterChip(label: "Tout", isSelected: selectedPlatform == nil) {
+                    LinkedAccountsFilterChip(label: "Tout", isSelected: selectedPlatform == nil) {
                         selectedPlatform = nil
                     }
                     
                     ForEach(GamingPlatform.allCases) { platform in
                         let count = store.importedGames.filter { $0.platform == platform }.count
                         if count > 0 {
-                            FilterChip(
+                            LinkedAccountsFilterChip(
                                 label: "\(platform.rawValue) (\(count))",
                                 isSelected: selectedPlatform == platform
                             ) {
@@ -642,7 +642,7 @@ struct AllImportedGamesView: View {
 }
 
 // MARK: - Filter Chip
-struct FilterChip: View {
+private struct LinkedAccountsFilterChip: View {
     let label: String
     let isSelected: Bool
     let action: () -> Void

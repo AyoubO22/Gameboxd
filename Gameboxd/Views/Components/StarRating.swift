@@ -17,26 +17,7 @@ struct StarRating: View {
     var body: some View {
         HStack(spacing: 4) {
             ForEach(1...maxRating, id: \.self) { star in
-                Image(systemName: star <= rating ? "star.fill" : "star")
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: size, height: size)
-                    .foregroundColor(star <= rating ? .gbGreen : .gray)
-                    .scaleEffect(star <= rating ? 1.1 : 1.0)
-                    .animation(.spring(response: 0.2, dampingFraction: 0.5), value: rating)
-                    .onTapGesture {
-                        if editable {
-                            // Petit retour haptique (vibration)
-                            let generator = UIImpactFeedbackGenerator(style: .medium)
-                            generator.impactOccurred()
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                                // Permet de désélectionner en retappant la même étoile
-                                rating = (rating == star) ? star - 1 : star
-                            }
-                        }
-                    }
-                    .accessibilityLabel("\(star) étoile\(star > 1 ? "s" : "")")
-                    .accessibilityAddTraits(editable ? .isButton : [])
+                starImage(for: star)
             }
         }
         .accessibilityElement(children: .combine)
@@ -52,6 +33,29 @@ struct StarRating: View {
                 break
             }
         }
+    }
+    
+    @ViewBuilder
+    private func starImage(for star: Int) -> some View {
+        let isFilled = star <= rating
+        Image(systemName: isFilled ? "star.fill" : "star")
+            .resizable()
+            .aspectRatio(contentMode: .fit)
+            .frame(width: size, height: size)
+            .foregroundColor(isFilled ? .gbGreen : .gray)
+            .scaleEffect(isFilled ? 1.1 : 1.0)
+            .animation(.spring(response: 0.2, dampingFraction: 0.5), value: rating)
+            .onTapGesture {
+                if editable {
+                    let generator = UIImpactFeedbackGenerator(style: .medium)
+                    generator.impactOccurred()
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                        rating = (rating == star) ? star - 1 : star
+                    }
+                }
+            }
+            .accessibilityLabel("\(star) étoile\(star > 1 ? "s" : "")")
+            .accessibilityAddTraits(editable ? .isButton : [])
     }
 }
 

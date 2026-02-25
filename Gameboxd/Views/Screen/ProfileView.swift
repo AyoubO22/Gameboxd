@@ -110,6 +110,8 @@ struct ProfileView: View {
 
 // MARK: - Profile Navigation Section
 struct ProfileNavigationSection: View {
+    @EnvironmentObject var store: GameStore
+    
     var body: some View {
         VStack(spacing: 12) {
             HStack(spacing: 12) {

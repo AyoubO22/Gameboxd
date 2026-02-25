@@ -8,6 +8,7 @@
 
 import Foundation
 import AuthenticationServices
+import Combine
 import CryptoKit
 
 // MARK: - Apple Sign In Result
@@ -195,11 +196,19 @@ extension AppleSignInService: ASAuthorizationControllerDelegate {
 // MARK: - ASAuthorizationControllerPresentationContextProviding
 extension AppleSignInService: ASAuthorizationControllerPresentationContextProviding {
     func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
-        // Get the key window for presenting the Apple Sign In sheet
-        guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-              let window = scene.windows.first else {
-            return UIWindow()
+        
+        if let scene = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .first,
+           let window = scene.keyWindow {
+            return window
         }
-        return window
+        
+        // fallback iOS 26+
+        let scene = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first!
+        
+        return UIWindow(windowScene: scene)
     }
 }

@@ -13,7 +13,7 @@
 //
 
 import Foundation
-import UIKit
+import Combine
 
 // MARK: - Google Sign In Configuration
 struct GoogleSignInConfig {
@@ -118,11 +118,8 @@ class GoogleSignInService: ObservableObject {
     /// 
     /// IMPORTANT: Uncomment the GIDSignIn code after adding the GoogleSignIn SPM package
     private func performGoogleSignIn(completion: @escaping (Result<GoogleSignInResult, GoogleSignInError>) -> Void) {
-        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-              let rootViewController = windowScene.windows.first?.rootViewController else {
-            completion(.failure(.noRootViewController))
-            return
-        }
+        // Placeholder until SDK is added:
+        completion(.failure(.sdkNotAvailable))
         
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         // UNCOMMENT THE FOLLOWING CODE after adding GoogleSignIn SPM package:
@@ -166,9 +163,6 @@ class GoogleSignInService: ObservableObject {
         //     completion(.success(signInResult))
         // }
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        
-        // Placeholder until SDK is added:
-        completion(.failure(.sdkNotAvailable))
     }
     
     // MARK: - Handle URL (Required for Google Sign-In redirect)
@@ -235,3 +229,4 @@ class GoogleSignInService: ObservableObject {
         }
     }
 }
+

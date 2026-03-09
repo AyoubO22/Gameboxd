@@ -13,7 +13,7 @@ struct ContentView: View {
     @State private var toastAchievement: Achievement?
     @State private var achievementQueue: [Achievement] = []
     @State private var showingUsernameSetup = false
-    
+
     var body: some View {
         ZStack {
             Group {
@@ -25,7 +25,7 @@ struct ContentView: View {
             }
             .id(store.currentTheme)
             .animation(.easeInOut, value: store.isLoggedIn)
-            
+
             // Achievement Toast Overlay
             VStack {
                 if showingAchievementToast, let achievement = toastAchievement {
@@ -58,15 +58,16 @@ struct ContentView: View {
                 .environmentObject(store)
         }
     }
-    
+
     func showNextAchievement() {
         guard !achievementQueue.isEmpty else { return }
         let achievement = achievementQueue.removeFirst()
         toastAchievement = achievement
+        HapticManager.notification(.success)
         withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
             showingAchievementToast = true
         }
-        
+
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
             withAnimation(.spring()) {
                 showingAchievementToast = false
@@ -80,70 +81,59 @@ struct ContentView: View {
 }
 
 // MARK: - Achievement Toast
+
 struct AchievementToast: View {
     let achievement: Achievement
-    @State private var animate = false
-    
-    var color: Color {
-        switch achievement.category {
-        case .collection: return .blue
-        case .completion: return .green
-        case .dedication: return .purple
-        case .exploration: return .orange
-        case .social: return .pink
-        case .time: return .yellow
-        }
-    }
-    
+
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: DS.Spacing.md) {
+            // Icon container — accent tint, no gradient, no colored shadow
             ZStack {
-                Circle()
-                    .fill(color.gradient)
-                    .frame(width: 50, height: 50)
-                    .scaleEffect(animate ? 1.1 : 1.0)
-                    .shadow(color: color.opacity(0.5), radius: animate ? 12 : 6)
-                
+                RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
+                    .fill(Color.accent.opacity(0.15))
+                    .frame(width: 44, height: 44)
+
                 Image(systemName: achievement.icon)
-                    .font(.title3)
-                    .foregroundColor(.white)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(Color.accent)
             }
-            
-            VStack(alignment: .leading, spacing: 2) {
-                Text("🏆 Succès débloqué!")
-                    .font(.caption)
-                    .fontWeight(.medium)
-                    .foregroundColor(color)
-                
+
+            VStack(alignment: .leading, spacing: DS.Spacing.xxs) {
+                HStack(spacing: DS.Spacing.xxs) {
+                    Image(systemName: "trophy.fill")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(Color.accent)
+
+                    Text("Succès débloqué")
+                        .font(DS.Typography.captionMedium)
+                        .foregroundStyle(Color.accent)
+                }
+
                 Text(achievement.title)
-                    .font(.headline)
-                    .foregroundColor(.white)
-                
+                    .font(DS.Typography.headline)
+                    .foregroundStyle(Color.textPrimary)
+
                 Text(achievement.description)
-                    .font(.caption2)
-                    .foregroundColor(.gray)
+                    .font(DS.Typography.micro)
+                    .foregroundStyle(Color.textTertiary)
                     .lineLimit(1)
             }
-            
-            Spacer()
+
+            Spacer(minLength: 0)
         }
-        .padding()
+        .padding(.horizontal, DS.Spacing.md)
+        .padding(.vertical, DS.Spacing.sm)
         .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color.gbCard)
-                .shadow(color: .black.opacity(0.3), radius: 20, y: 10)
+            RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
+                .fill(Color.surfacePrimary)
+                .shadow(color: .black.opacity(0.25), radius: 16, x: 0, y: 8)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(color.opacity(0.5), lineWidth: 1)
+            RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
+                .stroke(Color.separator, lineWidth: 1)
         )
-        .padding(.horizontal)
-        .padding(.top, 10)
-        .onAppear {
-            withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
-                animate = true
-            }
-        }
+        .padding(.horizontal, DS.Spacing.md)
+        .padding(.top, DS.Spacing.xs)
     }
 }
 

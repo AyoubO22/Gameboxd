@@ -1,0 +1,239 @@
+/* Gameboxd — French (Primary Language) */
+
+/* Tabs */
+"tab.collection" = "Collection";
+"tab.discover" = "Découvrir";
+"tab.search" = "Recherche";
+"tab.diary" = "Journal";
+"tab.profile" = "Profil";
+
+/* Library View */
+"library.title" = "Gameboxd";
+"library.filters" = "Filtres";
+"library.sort" = "Trier";
+"library.clear_all" = "Effacer tout";
+"library.stats.games" = "Jeux";
+"library.stats.played" = "Joué";
+"library.stats.average" = "Moyenne";
+"library.stats.finished" = "Finis";
+"library.empty.playing" = "Lance-toi dans une nouvelle aventure";
+"library.empty.want_to_play" = "Ajoute des jeux depuis la recherche";
+"library.empty.completed" = "Termine des jeux pour les voir ici";
+"library.empty.platinum" = "Les jeux platinés apparaîtront ici";
+"library.empty.shelved" = "Les jeux abandonnés seront ici";
+"library.advanced_filters" = "Filtres avancés";
+"library.platform" = "Plateforme";
+"library.genre" = "Genre";
+"library.min_rating" = "Note minimale";
+"library.release_year" = "Année de sortie";
+"library.all_fem" = "Toutes";
+"library.change_status" = "Changer le statut";
+"library.sort.title" = "Titre";
+"library.sort.rating" = "Note";
+"library.sort.recent" = "Récent";
+"library.sort.playtime" = "Temps de jeu";
+"library.sort.priority" = "Priorité";
+"library.sort.year" = "Année";
+
+/* Game Status */
+"status.none" = "Non suivi";
+"status.want_to_play" = "À jouer";
+"status.playing" = "En cours";
+"status.completed" = "Terminé";
+"status.shelved" = "Abandonné";
+"status.platinum" = "Platiné";
+
+/* Game Priority */
+"priority.low" = "Faible";
+"priority.medium" = "Moyenne";
+"priority.high" = "Haute";
+"priority.urgent" = "Urgent";
+
+/* Game Difficulty */
+"difficulty.easy" = "Facile";
+"difficulty.normal" = "Normal";
+"difficulty.hard" = "Difficile";
+"difficulty.very_hard" = "Très difficile";
+"difficulty.custom" = "Personnalisé";
+
+/* Mood Tags */
+"mood.relaxing" = "Relaxant";
+"mood.challenging" = "Challengeant";
+"mood.emotional" = "Émouvant";
+"mood.fun" = "Fun";
+"mood.scary" = "Effrayant";
+"mood.addictive" = "Addictif";
+"mood.beautiful" = "Magnifique";
+"mood.mindless" = "Détente";
+"mood.stressful" = "Stressant";
+"mood.nostalgic" = "Nostalgique";
+
+/* Search View */
+"search.title" = "Recherche";
+"search.prompt" = "Zelda, Elden Ring, God of War…";
+"search.searching" = "Recherche en cours…";
+"search.empty.title" = "Découvre de nouveaux jeux";
+"search.empty.message" = "Recherche par titre, développeur ou plateforme";
+"search.no_results.title" = "Aucun résultat";
+"search.suggestions" = "Suggestions";
+"search.recent" = "Recherches récentes";
+"search.clear" = "Effacer";
+"search.from_library" = "De ta collection";
+"search.online_results" = "Résultats en ligne";
+"search.explore_genre" = "Explorer par genre";
+
+/* Game Detail View */
+"detail.add_to_collection" = "Ajouter à ma collection";
+"detail.update" = "Mettre à jour";
+"detail.info" = "Infos";
+"detail.tracking" = "Suivi";
+"detail.notes" = "Notes";
+"detail.status" = "Statut";
+"detail.global_rating" = "Note globale";
+"detail.sub_ratings" = "Notes détaillées";
+"detail.story" = "Histoire";
+"detail.gameplay" = "Gameplay";
+"detail.graphics" = "Graphismes";
+"detail.sound" = "Musique / Son";
+"detail.progression" = "Progression";
+"detail.completion" = "Complétion";
+"detail.playtime" = "Temps de jeu";
+"detail.playthrough" = "Partie";
+"detail.priority" = "Priorité dans le backlog";
+"detail.difficulty" = "Difficulté jouée";
+"detail.description" = "Description";
+"detail.screenshots" = "Captures d'écran";
+"detail.details" = "Détails";
+"detail.developer" = "Développeur";
+"detail.platform" = "Plateforme";
+"detail.year" = "Année";
+"detail.estimated_time" = "Durée estimée";
+"detail.genres" = "Genres";
+"detail.similar_games" = "Jeux similaires";
+"detail.feeling" = "Ressenti";
+"detail.review" = "Critique";
+"detail.personal_notes" = "Notes personnelles";
+"detail.dates" = "Dates";
+"detail.started_on" = "Commencé le";
+"detail.completed_on" = "Terminé le";
+"detail.add_to_list" = "Ajouter à une liste";
+"detail.add_favorites" = "Ajouter aux favoris";
+"detail.remove_favorites" = "Retirer des favoris";
+"detail.compare" = "Comparer avec…";
+"detail.share" = "Partager";
+"detail.create_card" = "Créer une carte";
+"detail.delete" = "Supprimer";
+"detail.delete_confirm" = "Supprimer ce jeu ?";
+"detail.start_timer" = "Démarrer le timer";
+"detail.timer_active" = "Timer actif";
+"detail.spoiler" = "Spoiler";
+"detail.review_placeholder" = "Écris ta critique du jeu...";
+"detail.notes_placeholder" = "Notes privées (astuces, rappels...)";
+"detail.unsaved_title" = "Modifications non sauvegardées";
+"detail.unsaved_message" = "Tu as des modifications non sauvegardées. Que souhaites-tu faire ?";
+"detail.leave_without_saving" = "Quitter sans sauvegarder";
+"detail.save_and_leave" = "Sauvegarder et quitter";
+"detail.back" = "Retour";
+"detail.favorites" = "Favoris";
+"detail.lists" = "Listes";
+"detail.diary" = "Journal";
+
+/* Rating Labels */
+"rating.bad" = "Mauvais";
+"rating.average" = "Moyen";
+"rating.good" = "Bon";
+"rating.excellent" = "Excellent";
+"rating.masterpiece" = "Chef d'oeuvre";
+
+/* Profile View */
+"profile.title" = "Profil";
+"profile.favorites" = "Jeux favoris";
+"profile.statistics" = "Statistiques";
+"profile.achievements" = "Succès";
+"profile.goals" = "Objectifs";
+"profile.lists" = "Listes";
+"profile.settings" = "Réglages";
+"profile.edit" = "Modifier le profil";
+"profile.my_lists" = "Mes listes";
+"profile.logout_action" = "Se déconnecter";
+"profile.statistics.subtitle" = "Graphiques détaillés";
+"profile.achievements.subtitle" = "Tes badges";
+"profile.goals.subtitle" = "Défis mensuels";
+
+/* Settings View */
+"settings.title" = "Paramètres";
+"settings.theme" = "Thème";
+"settings.notifications" = "Notifications";
+"settings.release_reminders" = "Rappels de sortie";
+"settings.weekly_digest" = "Résumé hebdomadaire";
+"settings.achievement_alerts" = "Alertes de succès";
+"settings.data" = "Données";
+"settings.export" = "Exporter mes données";
+"settings.import" = "Importer des données";
+"settings.delete_all" = "Supprimer toutes les données";
+"settings.linked_accounts" = "Comptes liés";
+"settings.logout" = "Déconnexion";
+
+/* Diary View */
+"diary.title" = "Journal";
+"diary.list" = "Liste";
+"diary.calendar" = "Calendrier";
+"diary.add_session" = "Ajouter une session";
+"diary.no_sessions" = "Aucune session enregistrée";
+"diary.no_sessions_day" = "Aucune session";
+"diary.no_sessions_day_message" = "Aucune session enregistrée ce jour";
+"diary.empty.title" = "Journal vide";
+"diary.empty.message" = "Enregistre tes sessions de jeu pour garder une trace de tes aventures";
+"diary.session_detail" = "Détails de la session";
+"diary.new_session" = "Nouvelle session";
+"diary.delete_session" = "Supprimer cette session";
+"diary.delete_session_confirm" = "Supprimer cette session ?";
+"diary.see_spoiler" = "Voir le spoiler";
+"diary.reveal" = "Appuyer pour révéler";
+"diary.duration" = "Durée";
+"diary.rating" = "Note";
+"diary.game" = "Jeu";
+"diary.date" = "Date";
+"diary.date_time" = "Date et heure";
+"diary.session_duration" = "Durée de la session";
+"diary.rating_optional" = "Note (optionnel)";
+"diary.session_placeholder" = "Qu'as-tu fait pendant cette session ?";
+"diary.contains_spoilers" = "Contient des spoilers";
+"diary.change" = "Changer";
+"diary.select_game" = "Sélectionner un jeu";
+"diary.choose_game" = "Choisir un jeu";
+"diary.search_collection" = "Chercher dans ta collection";
+
+/* Backlog View */
+"backlog.title" = "Backlog";
+"backlog.what_to_play" = "À quoi jouer ?";
+"backlog.spin" = "Choisis pour moi !";
+"backlog.spinning" = "Choix en cours...";
+"backlog.empty" = "Backlog vide";
+"backlog.empty.message" = "Ajoute des jeux avec le statut\n\"À jouer\" pour les voir ici";
+
+/* Comparison View */
+"compare.title" = "Comparer";
+"compare.choose" = "Choisir";
+"compare.reset" = "Réinitialiser";
+"compare.select_games" = "Sélectionne deux jeux";
+
+/* Achievements */
+"achievement.unlocked" = "Succès débloqué";
+
+/* Timer */
+"timer.start" = "Démarrer le timer";
+"timer.active" = "Timer actif";
+"timer.stop" = "Arrêter";
+"timer.pause" = "Pause";
+"timer.resume" = "Reprendre";
+
+/* Common */
+"common.cancel" = "Annuler";
+"common.save" = "Sauvegarder";
+"common.close" = "Fermer";
+"common.delete" = "Supprimer";
+"common.apply" = "Appliquer";
+"common.reset" = "Réinitialiser";
+"common.all" = "Tous";
+"common.games" = "jeux";

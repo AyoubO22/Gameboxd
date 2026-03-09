@@ -1,0 +1,39 @@
+# Xcode
+DerivedData/
+xcuserdata/
+*.xcworkspace
+!*.xcodeproj/project.xcworkspace/
+*.xccheckout
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Build
+build/
+Build/
+
+# Secrets & Config
+*.xcconfig
+.env
+.env.*
+Secrets.plist
+**/APIKeys.swift
+
+# Signing
+*.p12
+*.mobileprovision
+*.provisionprofile
+
+# CocoaPods / SPM
+Pods/
+.build/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Claude Code
+.claude/
+tasks/

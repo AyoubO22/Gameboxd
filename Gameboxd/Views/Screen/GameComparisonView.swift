@@ -29,7 +29,7 @@ struct GameComparisonView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.background.ignoresSafeArea()
+                Color.gbDark.ignoresSafeArea()
 
                 ScrollView {
                     VStack(spacing: DS.Spacing.lg) {
@@ -708,7 +708,7 @@ struct GamePickerSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.background.ignoresSafeArea()
+                Color.gbDark.ignoresSafeArea()
 
                 Group {
                     if filteredGames.isEmpty {

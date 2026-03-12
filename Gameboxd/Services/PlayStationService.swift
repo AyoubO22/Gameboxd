@@ -243,8 +243,10 @@ class PlayStationService {
         // GET \(baseURL)/trophy/v1/users/\(accountId)/trophyTitles?offset=\(offset)&limit=\(limit)
         // Header: Authorization: Bearer \(accessToken)
         
-        guard accessToken != nil || !PlayStationConfig.isConfigured else {
-            throw PlayStationServiceError.notConfigured
+        if PlayStationConfig.isConfigured {
+            guard accessToken != nil else {
+                throw PlayStationServiceError.notConfigured
+            }
         }
         
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

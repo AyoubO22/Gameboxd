@@ -180,7 +180,11 @@ class CognitoAuthService {
         
         // Check token expiration
         if Date() > expiration {
-            _ = try await refreshSession()
+            let refreshed = try await refreshSession()
+            self.accessToken = refreshed.accessToken
+            self.idToken = refreshed.idToken
+            self.refreshToken = refreshed.refreshToken
+            self.tokenExpiration = Date().addingTimeInterval(TimeInterval(refreshed.expiresIn))
         }
         
         // In production: Call GetUser API with access token

@@ -63,14 +63,18 @@ final class TimerManager {
 
     /// Pauses the running timer without discarding elapsed time.
     func pause() {
+        guard isRunning, !isPaused else { return }
         isPaused = true
+        isRunning = false
         timer?.invalidate()
         timer = nil
     }
 
     /// Resumes a paused timer, continuing from the current elapsed time.
     func resume() {
+        guard isPaused else { return }
         isPaused = false
+        isRunning = true
         startTimer()
     }
 
@@ -94,10 +98,12 @@ final class TimerManager {
     // MARK: - Private Helpers
 
     private func startTimer() {
-        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-            Task { @MainActor in
+        let t = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated {
                 self?.elapsedSeconds += 1
             }
         }
+        RunLoop.main.add(t, forMode: .common)
+        timer = t
     }
 }

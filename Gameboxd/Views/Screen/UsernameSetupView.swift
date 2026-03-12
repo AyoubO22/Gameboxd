@@ -142,7 +142,7 @@ struct UsernameSetupView: View {
                     .background(Color.gbCard)
                     .cornerRadius(12)
                     .foregroundColor(.white)
-                    .autocapitalization(.none)
+                    .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                 
                 if !username.isEmpty {

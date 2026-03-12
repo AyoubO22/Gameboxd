@@ -517,7 +517,8 @@ struct NotificationsSettingsView: View {
         // Schedule for next week at 6pm
         var dateComponents = DateComponents()
         dateComponents.hour = 18
-        dateComponents.weekday = Calendar.current.component(.weekday, from: Date()) + backlogReminderDays % 7
+        let currentWeekday = Calendar.current.component(.weekday, from: Date())
+        dateComponents.weekday = ((currentWeekday - 1 + backlogReminderDays) % 7) + 1
         
         let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
         let request = UNNotificationRequest(identifier: "backlog_reminder", content: content, trigger: trigger)
@@ -962,7 +963,7 @@ struct iCloudSyncView: View {
             // Merge with existing games
             for game in games {
                 if !store.myGames.contains(where: { $0.id == game.id }) {
-                    store.myGames.append(game)
+                    store.updateGame(game)
                     importedCount += 1
                 }
             }

@@ -268,13 +268,11 @@ struct GamesPerMonthChart: View {
             }
         }
         
-        // Convert to array and sort
+        // Convert to array and sort using the already-created formatter
         return data.map { (month: $0.key, count: $0.value) }
-            .sorted { 
-                let formatter = DateFormatter()
-                formatter.dateFormat = "MMM"
-                let date1 = formatter.date(from: $0.month) ?? Date()
-                let date2 = formatter.date(from: $1.month) ?? Date()
+            .sorted {
+                let date1 = dateFormatter.date(from: $0.month) ?? Date.distantPast
+                let date2 = dateFormatter.date(from: $1.month) ?? Date.distantPast
                 return date1 < date2
             }
     }

@@ -187,7 +187,9 @@ class SteamService {
     func resolveSteamId(vanityName: String) async throws -> String {
         guard SteamConfig.isConfigured else { throw SteamServiceError.notConfigured }
         
-        let url = URL(string: "\(SteamConfig.baseURL)/ISteamUser/ResolveVanityURL/v1/?key=\(SteamConfig.apiKey)&vanityurl=\(vanityName)")!
+        guard let url = URL(string: "\(SteamConfig.baseURL)/ISteamUser/ResolveVanityURL/v1/?key=\(SteamConfig.apiKey)&vanityurl=\(vanityName)") else {
+            throw SteamServiceError.invalidSteamId
+        }
         
         let (data, response) = try await session.data(from: url)
         try validateResponse(response)
@@ -239,7 +241,9 @@ class SteamService {
     func getPlayerSummary(steamId: String) async throws -> SteamPlayerSummary {
         guard SteamConfig.isConfigured else { throw SteamServiceError.notConfigured }
         
-        let url = URL(string: "\(SteamConfig.baseURL)/ISteamUser/GetPlayerSummaries/v2/?key=\(SteamConfig.apiKey)&steamids=\(steamId)")!
+        guard let url = URL(string: "\(SteamConfig.baseURL)/ISteamUser/GetPlayerSummaries/v2/?key=\(SteamConfig.apiKey)&steamids=\(steamId)") else {
+            throw SteamServiceError.invalidSteamId
+        }
         
         let (data, response) = try await session.data(from: url)
         try validateResponse(response)
@@ -265,7 +269,9 @@ class SteamService {
         }
         urlString += "&include_played_free_games=1"
         
-        let url = URL(string: urlString)!
+        guard let url = URL(string: urlString) else {
+            throw SteamServiceError.invalidSteamId
+        }
         
         let (data, response) = try await session.data(from: url)
         try validateResponse(response)
@@ -283,7 +289,9 @@ class SteamService {
     func getRecentlyPlayed(steamId: String) async throws -> [SteamGame] {
         guard SteamConfig.isConfigured else { throw SteamServiceError.notConfigured }
         
-        let url = URL(string: "\(SteamConfig.baseURL)/IPlayerService/GetRecentlyPlayedGames/v1/?key=\(SteamConfig.apiKey)&steamid=\(steamId)&format=json")!
+        guard let url = URL(string: "\(SteamConfig.baseURL)/IPlayerService/GetRecentlyPlayedGames/v1/?key=\(SteamConfig.apiKey)&steamid=\(steamId)&format=json") else {
+            throw SteamServiceError.invalidSteamId
+        }
         
         let (data, response) = try await session.data(from: url)
         try validateResponse(response)
@@ -298,7 +306,9 @@ class SteamService {
     func getPlayerAchievements(steamId: String, appId: Int) async throws -> [SteamAchievement] {
         guard SteamConfig.isConfigured else { throw SteamServiceError.notConfigured }
         
-        let url = URL(string: "\(SteamConfig.baseURL)/ISteamUserStats/GetPlayerAchievements/v1/?key=\(SteamConfig.apiKey)&steamid=\(steamId)&appid=\(appId)&l=french")!
+        guard let url = URL(string: "\(SteamConfig.baseURL)/ISteamUserStats/GetPlayerAchievements/v1/?key=\(SteamConfig.apiKey)&steamid=\(steamId)&appid=\(appId)&l=french") else {
+            throw SteamServiceError.invalidSteamId
+        }
         
         let (data, response) = try await session.data(from: url)
         try validateResponse(response)

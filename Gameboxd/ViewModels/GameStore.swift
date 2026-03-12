@@ -86,9 +86,7 @@ class GameStore: ObservableObject {
         loadAllData()
         loadSettings()
         initializeAchievements()
-        Task {
-            await loadDiscoverData()
-        }
+        // Discover data is loaded lazily in DiscoverView.onAppear
     }
     
     // MARK: - Auth Methods
@@ -370,10 +368,10 @@ class GameStore: ObservableObject {
     
     func loadDiscoverData() async {
         await withTaskGroup(of: Void.self) { group in
-            group.addTask { await self.fetchTrendingGames() }
-            group.addTask { await self.fetchNewReleases() }
-            group.addTask { await self.fetchTopRated() }
-            group.addTask { await self.fetchUpcomingGames() }
+            group.addTask { @MainActor in await self.fetchTrendingGames() }
+            group.addTask { @MainActor in await self.fetchNewReleases() }
+            group.addTask { @MainActor in await self.fetchTopRated() }
+            group.addTask { @MainActor in await self.fetchUpcomingGames() }
         }
     }
     
@@ -826,50 +824,56 @@ class GameStore: ObservableObject {
     
     func checkAchievements() {
         var newlyUnlocked: [Achievement] = []
-        
+
+        // Pre-compute aggregates once
+        let gameCount = myGames.count
+        let completedCount = myGames.filter { $0.status == .completed || $0.status == .platinum }.count
+        let platinumCount = myGames.filter { $0.status == .platinum }.count
+        let totalHours = totalPlayTimeMinutes / 60
+        let uniqueGenres = Set(myGames.flatMap { $0.genres })
+        let uniquePlatforms = Set(myGames.map { $0.platform })
+        let reviewCount = myGames.filter { !$0.review.isEmpty }.count
+        let streak = calculatePlayStreak()
+        let indieCount = myGames.filter { $0.genres.contains("Indie") }.count
+        let retroCount = myGames.filter {
+            guard let year = Int($0.releaseYear) else { return false }
+            return year < 2000
+        }.count
+
         for i in achievements.indices {
             let oldUnlocked = achievements[i].isUnlocked
-            
+
             switch achievements[i].id {
             case "first_game":
-                achievements[i].currentProgress = min(myGames.count, 1)
+                achievements[i].currentProgress = min(gameCount, 1)
             case "collector_10":
-                achievements[i].currentProgress = min(myGames.count, 10)
+                achievements[i].currentProgress = min(gameCount, 10)
             case "collector_50":
-                achievements[i].currentProgress = min(myGames.count, 50)
+                achievements[i].currentProgress = min(gameCount, 50)
             case "collector_100":
-                achievements[i].currentProgress = min(myGames.count, 100)
+                achievements[i].currentProgress = min(gameCount, 100)
             case "complete_10":
-                let completed = myGames.filter { $0.status == .completed || $0.status == .platinum }.count
-                achievements[i].currentProgress = min(completed, 10)
+                achievements[i].currentProgress = min(completedCount, 10)
             case "complete_25":
-                let completed = myGames.filter { $0.status == .completed || $0.status == .platinum }.count
-                achievements[i].currentProgress = min(completed, 25)
+                achievements[i].currentProgress = min(completedCount, 25)
             case "platinum_5":
-                let platinums = myGames.filter { $0.status == .platinum }.count
-                achievements[i].currentProgress = min(platinums, 5)
+                achievements[i].currentProgress = min(platinumCount, 5)
             case "time_100":
-                let hours = totalPlayTimeMinutes / 60
-                achievements[i].currentProgress = min(hours, 100)
+                achievements[i].currentProgress = min(totalHours, 100)
             case "time_500":
-                let hours = totalPlayTimeMinutes / 60
-                achievements[i].currentProgress = min(hours, 500)
+                achievements[i].currentProgress = min(totalHours, 500)
             case "time_1000":
-                let hours = totalPlayTimeMinutes / 60
-                achievements[i].currentProgress = min(hours, 1000)
+                achievements[i].currentProgress = min(totalHours, 1000)
             case "genres_5":
-                let uniqueGenres = Set(myGames.flatMap { $0.genres })
                 achievements[i].currentProgress = min(uniqueGenres.count, 5)
             case "platforms_3":
-                let uniquePlatforms = Set(myGames.map { $0.platform })
                 achievements[i].currentProgress = min(uniquePlatforms.count, 3)
             case "reviews_10":
-                let reviews = myGames.filter { !$0.review.isEmpty }.count
-                achievements[i].currentProgress = min(reviews, 10)
+                achievements[i].currentProgress = min(reviewCount, 10)
             case "streak_7":
-                achievements[i].currentProgress = min(calculatePlayStreak(), 7)
+                achievements[i].currentProgress = min(streak, 7)
             case "streak_30":
-                achievements[i].currentProgress = min(calculatePlayStreak(), 30)
+                achievements[i].currentProgress = min(streak, 30)
             case "favorite_genre":
                 if let topGenre = topGenres.first, topGenre.1 >= 10 {
                     achievements[i].currentProgress = 10
@@ -877,18 +881,13 @@ class GameStore: ObservableObject {
             case "lists_5":
                 achievements[i].currentProgress = min(gameLists.count, 5)
             case "indie_lover":
-                let indieGames = myGames.filter { $0.genres.contains("Indie") }.count
-                achievements[i].currentProgress = min(indieGames, 20)
+                achievements[i].currentProgress = min(indieCount, 20)
             case "retro_gamer":
-                let retroGames = myGames.filter {
-                    guard let year = Int($0.releaseYear) else { return false }
-                    return year < 2000
-                }.count
-                achievements[i].currentProgress = min(retroGames, 10)
+                achievements[i].currentProgress = min(retroCount, 10)
             default:
                 break
             }
-            
+
             // Check if newly unlocked
             if achievements[i].currentProgress >= achievements[i].requirement && !oldUnlocked {
                 achievements[i].isUnlocked = true
@@ -896,11 +895,11 @@ class GameStore: ObservableObject {
                 newlyUnlocked.append(achievements[i])
             }
         }
-        
+
         if !newlyUnlocked.isEmpty {
             recentlyUnlockedAchievements = newlyUnlocked
             saveAchievements()
-            
+
             if achievementAlerts {
                 for achievement in newlyUnlocked {
                     sendAchievementNotification(achievement)
@@ -910,31 +909,29 @@ class GameStore: ObservableObject {
     }
     
     private func calculatePlayStreak() -> Int {
-        // Calculate consecutive days with play sessions
         guard !playSessions.isEmpty else { return 0 }
-        
+
         let calendar = Calendar.current
+        // Build a Set of session days for O(1) lookups
+        let sessionDays = Set(playSessions.map { calendar.startOfDay(for: $0.date) })
+
         var streak = 1
         var currentDate = calendar.startOfDay(for: Date())
-        
+
         // Check if played today
-        let playedToday = playSessions.contains { calendar.isDate($0.date, inSameDayAs: currentDate) }
-        if !playedToday {
+        if !sessionDays.contains(currentDate) {
             currentDate = calendar.date(byAdding: .day, value: -1, to: currentDate) ?? currentDate
-        }
-        
-        while true {
-            let previousDay = calendar.date(byAdding: .day, value: -1, to: currentDate) ?? currentDate
-            let playedPreviousDay = playSessions.contains { calendar.isDate($0.date, inSameDayAs: previousDay) }
-            
-            if playedPreviousDay {
-                streak += 1
-                currentDate = previousDay
-            } else {
-                break
+            if !sessionDays.contains(currentDate) {
+                return 0
             }
         }
-        
+
+        while let previousDay = calendar.date(byAdding: .day, value: -1, to: currentDate),
+              sessionDays.contains(previousDay) {
+            streak += 1
+            currentDate = previousDay
+        }
+
         return streak
     }
     
@@ -1031,7 +1028,8 @@ class GameStore: ObservableObject {
             }
             
                         guard let monthStart = calendar.date(from: DateComponents(year: currentYear, month: currentMonth, day: 1)),
-                                    let monthEnd = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: monthStart) else {
+                                    let nextMonthStart = calendar.date(byAdding: .month, value: 1, to: monthStart),
+                                    let monthEnd = calendar.date(byAdding: .second, value: -1, to: nextMonthStart) else {
                                 continue
                         }
             
@@ -1050,9 +1048,10 @@ class GameStore: ObservableObject {
                 monthlyGoals[i].current = totalMinutes / 60
                 
             case .reviewsWritten:
+                // Note: uses startedDate as a proxy since there's no dedicated reviewedDate field
                 let reviews = myGames.filter { game in
-                    guard let reviewed = game.startedDate, !game.review.isEmpty else { return false }
-                    return reviewed >= monthStart && reviewed <= monthEnd
+                    guard let started = game.startedDate, !game.review.isEmpty else { return false }
+                    return started >= monthStart && started <= monthEnd
                 }.count
                 monthlyGoals[i].current = reviews
                 

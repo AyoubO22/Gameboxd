@@ -17,7 +17,7 @@ final class ImageCache {
     
     private init() {
         cache.countLimit = 200
-        cache.totalCostLimit = 100 * 1024 * 1024 // 100 MB
+        cache.totalCostLimit = 50 * 1024 * 1024 // 50 MB
         
         let paths = fileManager.urls(for: .cachesDirectory, in: .userDomainMask)
         cacheDirectory = paths[0].appendingPathComponent("GameboxdImageCache")
@@ -35,37 +35,42 @@ final class ImageCache {
         return cacheDirectory.appendingPathComponent(String(filename))
     }
     
-    func image(for url: URL) -> UIImage? {
+    func memoryImage(for url: URL) -> UIImage? {
         let key = cacheKey(for: url)
-        
-        // Check memory cache
-        if let cached = cache.object(forKey: key) {
-            return cached
-        }
-        
-        // Check disk cache
-        let path = diskPath(for: url)
-        if let data = try? Data(contentsOf: path),
-           let image = UIImage(data: data) {
-            cache.setObject(image, forKey: key, cost: data.count)
-            return image
-        }
-        
-        return nil
+        return cache.object(forKey: key)
     }
-    
+
+    func diskImage(for url: URL) async -> UIImage? {
+        let path = diskPath(for: url)
+        let key = cacheKey(for: url)
+        let result: UIImage? = await Task.detached(priority: .utility) {
+            guard let data = try? Data(contentsOf: path),
+                  let image = UIImage(data: data) else { return nil as UIImage? }
+            return image
+        }.value
+        if let image = result {
+            cache.setObject(image, forKey: key)
+        }
+        return result
+    }
+
+    // Synchronous combined lookup (memory only)
+    func image(for url: URL) -> UIImage? {
+        return memoryImage(for: url)
+    }
+
     func store(_ image: UIImage, for url: URL) {
         let key = cacheKey(for: url)
-        let data = image.jpegData(compressionQuality: 0.9)
-        let cost = data?.count ?? 0
-        
-        // Memory cache
-        cache.setObject(image, forKey: key, cost: cost)
-        
-        // Disk cache
-        if let data = data {
-            let path = diskPath(for: url)
-            try? data.write(to: path, options: .atomic)
+        // Memory cache immediately (estimate cost)
+        let estimatedCost = Int(image.size.width * image.size.height * 4)
+        cache.setObject(image, forKey: key, cost: estimatedCost)
+
+        // Disk cache on background thread
+        let path = diskPath(for: url)
+        Task.detached(priority: .utility) {
+            if let data = image.jpegData(compressionQuality: 0.9) {
+                try? data.write(to: path, options: .atomic)
+            }
         }
     }
 }
@@ -123,17 +128,24 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
     
     private func loadImage() {
         guard let url = url else { return }
-        
-        // Check cache first
-        if let cached = ImageCache.shared.image(for: url) {
+
+        // Check memory cache synchronously
+        if let cached = ImageCache.shared.memoryImage(for: url) {
             loadedImage = cached
             return
         }
-        
+
         guard !isLoading else { return }
         isLoading = true
-        
+
         Task {
+            // Check disk cache asynchronously
+            if let diskCached = await ImageCache.shared.diskImage(for: url) {
+                loadedImage = diskCached
+                isLoading = false
+                return
+            }
+
             do {
                 let (data, response) = try await URLSession.shared.data(from: url)
                 

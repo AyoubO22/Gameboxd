@@ -106,24 +106,30 @@ class SecurityManager: ObservableObject {
         // Create access control flags
         var accessControlFlags: SecAccessControlCreateFlags = []
         
+        let attrAccessible: CFString
         switch accessControl {
         case .whenUnlocked:
             accessControlFlags = .init()
+            attrAccessible = kSecAttrAccessibleWhenUnlocked
         case .whenUnlockedThisDeviceOnly:
             accessControlFlags = .init()
+            attrAccessible = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
         case .afterFirstUnlock:
             accessControlFlags = .init()
+            attrAccessible = kSecAttrAccessibleAfterFirstUnlock
         case .biometricOnly:
             accessControlFlags = [.biometryCurrentSet]
+            attrAccessible = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
         case .biometricOrPasscode:
             accessControlFlags = [.biometryCurrentSet, .or, .devicePasscode]
+            attrAccessible = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
         }
-        
+
         // Create access control object
         var error: Unmanaged<CFError>?
         guard let access = SecAccessControlCreateWithFlags(
             kCFAllocatorDefault,
-            kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
+            attrAccessible,
             accessControlFlags,
             &error
         ) else {

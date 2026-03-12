@@ -17,16 +17,14 @@ struct GameboxdApp: App {
     @StateObject private var store = GameStore()
     @State private var timerManager = TimerManager()
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
-    private let notificationDelegate = NotificationDelegate()
+    @State private var notificationDelegate = NotificationDelegate()
 
     let modelContainer: ModelContainer
 
     init() {
-        let memoryCapacity = 50 * 1024 * 1024
-        let diskCapacity = 200 * 1024 * 1024
+        let memoryCapacity = 4 * 1024 * 1024
+        let diskCapacity = 50 * 1024 * 1024
         URLCache.shared = URLCache(memoryCapacity: memoryCapacity, diskCapacity: diskCapacity)
-
-        UNUserNotificationCenter.current().delegate = notificationDelegate
 
         // Set up SwiftData ModelContainer
         let schema = Schema([
@@ -40,6 +38,9 @@ struct GameboxdApp: App {
         } catch {
             fatalError("Failed to create ModelContainer: \(error)")
         }
+
+        // Must be set after all stored properties are initialized
+        UNUserNotificationCenter.current().delegate = notificationDelegate
 
         // Run one-time migration from UserDefaults
         MigrationService.migrateIfNeeded(into: modelContainer.mainContext)

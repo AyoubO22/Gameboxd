@@ -49,7 +49,7 @@ struct LibraryView: View {
     
     // Get unique years
     var availableYears: [String] {
-        Array(Set(store.myGames.map { $0.releaseYear })).sorted().reversed()
+        Array(Set(store.myGames.map { $0.releaseYear })).sorted(by: >)
     }
     
     // Active filters count
@@ -189,7 +189,8 @@ struct LibraryView: View {
                     
                     Spacer()
                     
-                    Text("\(filteredGames.count) jeu\(filteredGames.count > 1 ? "x" : "")")
+                    let count = filteredGames.count
+                    Text("\(count) jeu\(count > 1 ? "x" : "")")
                         .font(.caption)
                         .foregroundColor(.gray)
                     
@@ -247,12 +248,13 @@ struct LibraryView: View {
                 
                 // Grille de contenu
                 ScrollView {
-                    if filteredGames.isEmpty {
+                    let games = filteredGames
+                    if games.isEmpty {
                         EmptyStateView(status: selectedFilter)
                     } else {
                         if viewStyle == .grid {
                             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 16)], spacing: 16) {
-                                ForEach(filteredGames) { game in
+                                ForEach(games) { game in
                                     NavigationLink(destination: GameDetailView(game: game)) {
                                         GameCard(game: game)
                                     }
@@ -267,7 +269,7 @@ struct LibraryView: View {
                             .padding()
                         } else {
                             LazyVStack(spacing: 12) {
-                                ForEach(filteredGames) { game in
+                                ForEach(games) { game in
                                     NavigationLink(destination: GameDetailView(game: game)) {
                                         GameListRow(game: game)
                                     }

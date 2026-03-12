@@ -21,6 +21,15 @@ extension Color {
     
     // Couleur pour le texte secondaire
     static let gbTextSecondary = Color.gray
+
+    // MARK: - Semantic Design System Colors
+    static var accent: Color { ThemeManager.shared.currentTheme.accentColor }
+    static var textPrimary: Color { .white }
+    static var textSecondary: Color { .gray }
+    static var textTertiary: Color { Color.gray.opacity(0.5) }
+    static var surfacePrimary: Color { ThemeManager.shared.currentTheme.cardColor }
+    static var surfaceSecondary: Color { ThemeManager.shared.currentTheme.darkColor }
+    static var separator: Color { Color.gray.opacity(0.3) }
     
     // MARK: - Hex Conversion (pour Codable)
     

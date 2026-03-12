@@ -490,21 +490,22 @@ struct FavoriteGamesSection: View {
     @EnvironmentObject var store: GameStore
     
     var body: some View {
+        let favorites = store.favoriteGames()
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("⭐ Jeux favoris")
                     .font(.headline)
                     .foregroundColor(.white)
-                
+
                 Spacer()
-                
-                Text("\(store.favoriteGames().count)/4")
+
+                Text("\(favorites.count)/4")
                     .font(.caption)
                     .foregroundColor(.gray)
             }
             .padding(.horizontal)
-            
-            if store.favoriteGames().isEmpty {
+
+            if favorites.isEmpty {
                 HStack {
                     Spacer()
                     VStack(spacing: 8) {
@@ -524,14 +525,14 @@ struct FavoriteGamesSection: View {
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
-                        ForEach(store.favoriteGames()) { game in
+                        ForEach(favorites) { game in
                             NavigationLink(destination: GameDetailView(game: game)) {
                                 FavoriteGameCard(game: game)
                             }
                         }
-                        
+
                         // Add more slot
-                        if store.favoriteGames().count < 4 {
+                        if favorites.count < 4 {
                             AddFavoriteSlot()
                         }
                     }

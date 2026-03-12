@@ -23,7 +23,6 @@ struct ContentView: View {
                     AuthView()
                 }
             }
-            .id(store.currentTheme)
             .animation(.easeInOut, value: store.isLoggedIn)
 
             // Achievement Toast Overlay
@@ -68,14 +67,13 @@ struct ContentView: View {
             showingAchievementToast = true
         }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+        Task {
+            try? await Task.sleep(for: .seconds(3))
             withAnimation(.spring()) {
                 showingAchievementToast = false
             }
-            // Show next achievement after a short delay
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                showNextAchievement()
-            }
+            try? await Task.sleep(for: .milliseconds(500))
+            showNextAchievement()
         }
     }
 }

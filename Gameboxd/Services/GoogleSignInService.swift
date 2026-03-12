@@ -89,6 +89,7 @@ enum GoogleSignInError: LocalizedError {
 /// ### 4. Update GoogleSignInConfig
 /// Replace `YOUR_GOOGLE_CLIENT_ID` with your actual client ID
 ///
+@MainActor
 class GoogleSignInService: ObservableObject {
     static let shared = GoogleSignInService()
     
@@ -120,7 +121,8 @@ class GoogleSignInService: ObservableObject {
     private func performGoogleSignIn(completion: @escaping (Result<GoogleSignInResult, GoogleSignInError>) -> Void) {
         // Placeholder until SDK is added:
         completion(.failure(.sdkNotAvailable))
-        
+        return // Remove this return AND the line above when GoogleSignIn SDK is added
+
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         // UNCOMMENT THE FOLLOWING CODE after adding GoogleSignIn SPM package:
         //
@@ -223,10 +225,8 @@ class GoogleSignInService: ObservableObject {
         // UNCOMMENT after adding GoogleSignIn SPM package:
         // GIDSignIn.sharedInstance.signOut()
         
-        DispatchQueue.main.async {
-            self.isSignedIn = false
-            self.currentUser = nil
-        }
+        self.isSignedIn = false
+        self.currentUser = nil
     }
 }
 

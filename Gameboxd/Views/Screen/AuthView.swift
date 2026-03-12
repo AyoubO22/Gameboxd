@@ -352,7 +352,7 @@ struct AuthTextField: View {
             
             TextField(placeholder, text: $text)
                 .keyboardType(keyboardType)
-                .autocapitalization(.none)
+                .textInputAutocapitalization(.never)
                 .foregroundColor(.white)
         }
         .padding()
@@ -376,7 +376,7 @@ struct AuthSecureField: View {
             
             if showPassword {
                 TextField(placeholder, text: $text)
-                    .autocapitalization(.none)
+                    .textInputAutocapitalization(.never)
                     .foregroundColor(.white)
             } else {
                 SecureField(placeholder, text: $text)

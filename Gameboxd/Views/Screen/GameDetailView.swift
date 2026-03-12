@@ -183,7 +183,7 @@ struct GameDetailView: View {
         let activityVC = UIActivityViewController(activityItems: [text], applicationActivities: nil)
         
         if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let window = windowScene.windows.first {
+           let window = windowScene.windows.first(where: { $0.isKeyWindow }) {
             window.rootViewController?.present(activityVC, animated: true)
         }
     }
@@ -362,7 +362,7 @@ struct QuickActionsBar: View {
         let activityVC = UIActivityViewController(activityItems: [text], applicationActivities: nil)
         
         if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let window = windowScene.windows.first {
+           let window = windowScene.windows.first(where: { $0.isKeyWindow }) {
             window.rootViewController?.present(activityVC, animated: true)
         }
     }
@@ -393,16 +393,21 @@ struct GameInfoSection: View {
     @Binding var game: Game
     let similarGames: [Game]
     let isLoadingSimilar: Bool
-    
+    @State private var enrichedData: EnrichedGameData?
+    @State private var isLoadingEnriched = false
+
     var body: some View {
         VStack(spacing: 20) {
+            // Enriched Data: Playtime & Metacritic
+            EnrichedDataSection(enrichedData: enrichedData, isLoading: isLoadingEnriched)
+
             // Description
             if let description = game.description, !description.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Description")
                         .font(.headline)
                         .foregroundColor(.white)
-                    
+
                     Text(description)
                         .font(.subheadline)
                         .foregroundColor(.gray)
@@ -413,7 +418,7 @@ struct GameInfoSection: View {
                 .background(Color.gbCard)
                 .cornerRadius(12)
             }
-            
+
             // Screenshots
             if !game.screenshotURLs.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
@@ -476,7 +481,7 @@ struct GameInfoSection: View {
                     Text("Jeux similaires")
                         .font(.headline)
                         .foregroundColor(.white)
-                    
+
                     if isLoadingSimilar {
                         HStack {
                             Spacer()
@@ -502,6 +507,117 @@ struct GameInfoSection: View {
             }
         }
         .padding()
+        .task {
+            guard enrichedData == nil, !isLoadingEnriched else { return }
+            isLoadingEnriched = true
+            enrichedData = await GameEnrichmentService.shared.enrich(
+                gameId: game.id,
+                title: game.title
+            )
+            isLoadingEnriched = false
+        }
+    }
+}
+
+// MARK: - Enriched Data Section
+struct EnrichedDataSection: View {
+    let enrichedData: EnrichedGameData?
+    let isLoading: Bool
+
+    var body: some View {
+        if isLoading {
+            // Skeleton placeholders
+            HStack(spacing: 12) {
+                SkeletonBox(width: .infinity, height: 70)
+                SkeletonBox(width: .infinity, height: 70)
+            }
+            .padding()
+            .background(Color.gbCard)
+            .cornerRadius(12)
+        } else if let data = enrichedData,
+                  data.hltbMainStory != nil || data.hltbCompletionist != nil {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 6) {
+                    Image(systemName: "clock.fill")
+                        .foregroundColor(.gbGreen)
+                    Text("Durée (HowLongToBeat)")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                }
+
+                HStack(spacing: 16) {
+                    if let main = data.hltbMainStory {
+                        PlaytimeCard(
+                            label: "Histoire",
+                            hours: main,
+                            icon: "book.fill",
+                            color: .blue
+                        )
+                    }
+                    if let comp = data.hltbCompletionist {
+                        PlaytimeCard(
+                            label: "Complétionniste",
+                            hours: comp,
+                            icon: "star.fill",
+                            color: .purple
+                        )
+                    }
+                }
+            }
+            .padding()
+            .background(Color.gbCard)
+            .cornerRadius(12)
+        }
+        // If enrichedData is nil and not loading, show nothing (silent failure)
+    }
+}
+
+// MARK: - Enriched Subviews
+
+struct PlaytimeCard: View {
+    let label: String
+    let hours: Double
+    let icon: String
+    let color: Color
+
+    var body: some View {
+        VStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.title3)
+                .foregroundColor(color)
+            Text(String(format: "%.0fh", hours))
+                .font(.title2)
+                .fontWeight(.bold)
+                .foregroundColor(.white)
+            Text(label)
+                .font(.caption2)
+                .foregroundColor(.gray)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .background(Color.gbDark)
+        .cornerRadius(10)
+    }
+}
+
+struct SkeletonBox: View {
+    let width: CGFloat
+    let height: CGFloat
+    @State private var isAnimating = false
+
+    init(width: CGFloat = .infinity, height: CGFloat) {
+        self.width = width
+        self.height = height
+    }
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 8)
+            .fill(Color.gbDark)
+            .frame(maxWidth: width == .infinity ? .infinity : nil)
+            .frame(width: width == .infinity ? nil : width, height: height)
+            .opacity(isAnimating ? 0.4 : 0.8)
+            .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: isAnimating)
+            .onAppear { isAnimating = true }
     }
 }
 

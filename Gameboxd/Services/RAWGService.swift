@@ -11,7 +11,9 @@ import SwiftUI
 
 // MARK: - API Configuration
 enum RAWGConfig {
-    // 🔑 RAWG API Key (https://rawg.io/apidocs)
+    // 🔑 RAWG API Key — set RAWG_API_KEY in Xcode scheme environment variables,
+    //   or in Info.plist via Secrets.xcconfig build configuration.
+    //   See Secrets.xcconfig.example for setup instructions.
     static var apiKey: String {
         if let key = Bundle.main.object(forInfoDictionaryKey: "RAWG_API_KEY") as? String,
            !key.isEmpty {
@@ -20,7 +22,7 @@ enum RAWGConfig {
         if let key = ProcessInfo.processInfo.environment["RAWG_API_KEY"], !key.isEmpty {
             return key
         }
-        return "07fc16efc7a54bb49f8bcdd75e54147a"
+        return ""
     }
     static let baseURL = "https://api.rawg.io/api"
 }
@@ -143,14 +145,20 @@ struct RAWGScreenshotsResponse: Codable {
 // MARK: - RAWG Service
 class RAWGService: ObservableObject {
     static let shared = RAWGService()
-    
+
     @Published var isLoading = false
     @Published var error: String?
-    
+
     private let session = URLSession.shared
     private let decoder: JSONDecoder = {
         let decoder = JSONDecoder()
         return decoder
+    }()
+
+    private static let apiDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
     }()
     
     var hasValidAPIKey: Bool {
@@ -203,12 +211,10 @@ class RAWGService: ObservableObject {
     // MARK: - Get Trending Games
     func getTrendingGames(page: Int = 1) async throws -> [RAWGGame] {
         guard hasValidAPIKey else { return [] }
-        
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd"
-        let endDate = dateFormatter.string(from: Date())
+
+        let endDate = Self.apiDateFormatter.string(from: Date())
         guard let start = Calendar.current.date(byAdding: .month, value: -1, to: Date()) else { return [] }
-        let startDate = dateFormatter.string(from: start)
+        let startDate = Self.apiDateFormatter.string(from: start)
         
         let urlString = "\(RAWGConfig.baseURL)/games?key=\(RAWGConfig.apiKey)&dates=\(startDate),\(endDate)&ordering=-added&page=\(page)&page_size=10"
         guard let url = URL(string: urlString) else {
@@ -223,12 +229,10 @@ class RAWGService: ObservableObject {
     // MARK: - Get New Releases
     func getNewReleases(page: Int = 1) async throws -> [RAWGGame] {
         guard hasValidAPIKey else { return [] }
-        
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd"
-        let today = dateFormatter.string(from: Date())
+
+        let today = Self.apiDateFormatter.string(from: Date())
         guard let past = Calendar.current.date(byAdding: .month, value: -2, to: Date()) else { return [] }
-        let pastDate = dateFormatter.string(from: past)
+        let pastDate = Self.apiDateFormatter.string(from: past)
         
         let urlString = "\(RAWGConfig.baseURL)/games?key=\(RAWGConfig.apiKey)&dates=\(pastDate),\(today)&ordering=-released&page=\(page)&page_size=10"
         guard let url = URL(string: urlString) else {
@@ -257,12 +261,10 @@ class RAWGService: ObservableObject {
     // MARK: - Get Upcoming Games
     func getUpcomingGames(page: Int = 1) async throws -> [RAWGGame] {
         guard hasValidAPIKey else { return [] }
-        
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd"
-        let today = dateFormatter.string(from: Date())
+
+        let today = Self.apiDateFormatter.string(from: Date())
         guard let future = Calendar.current.date(byAdding: .year, value: 1, to: Date()) else { return [] }
-        let futureDate = dateFormatter.string(from: future)
+        let futureDate = Self.apiDateFormatter.string(from: future)
         
         let urlString = "\(RAWGConfig.baseURL)/games?key=\(RAWGConfig.apiKey)&dates=\(today),\(futureDate)&ordering=released&page=\(page)&page_size=10"
         guard let url = URL(string: urlString) else {

@@ -72,11 +72,13 @@ struct DiaryListView: View {
         if store.playSessions.isEmpty {
             EmptyDiaryView()
         } else {
+            let grouped = groupedSessions
+            let dates = grouped.keys.sorted(by: >)
             ScrollView {
                 LazyVStack(spacing: 16, pinnedViews: .sectionHeaders) {
-                    ForEach(sortedDates, id: \.self) { date in
+                    ForEach(dates, id: \.self) { date in
                         Section {
-                            ForEach(groupedSessions[date] ?? []) { session in
+                            ForEach(grouped[date] ?? []) { session in
                                 PlaySessionCard(session: session)
                             }
                         } header: {
@@ -471,21 +473,23 @@ struct DiaryCalendarView: View {
     }
     
     var body: some View {
+        let sessionDates = datesWithSessions
+        let selectedSessions = sessionsForSelectedDate
         ScrollView {
             VStack(spacing: 16) {
                 // Custom Calendar with dots
                 CustomCalendarView(
                     selectedDate: $selectedDate,
                     currentMonth: $currentMonth,
-                    datesWithSessions: datesWithSessions
+                    datesWithSessions: sessionDates
                 )
                 .padding()
                 .background(Color.gbCard)
                 .cornerRadius(12)
                 .padding(.horizontal)
-                
+
                 // Sessions for selected date
-                if sessionsForSelectedDate.isEmpty {
+                if selectedSessions.isEmpty {
                     VStack(spacing: 12) {
                         Image(systemName: "calendar.badge.exclamationmark")
                             .font(.largeTitle)
@@ -497,13 +501,13 @@ struct DiaryCalendarView: View {
                     .frame(height: 150)
                 } else {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("\(sessionsForSelectedDate.count) session(s)")
+                        Text("\(selectedSessions.count) session(s)")
                             .font(.headline)
                             .foregroundColor(.white)
                             .padding(.horizontal)
-                        
+
                         LazyVStack(spacing: 12) {
-                            ForEach(sessionsForSelectedDate) { session in
+                            ForEach(selectedSessions) { session in
                                 PlaySessionCard(session: session)
                             }
                         }

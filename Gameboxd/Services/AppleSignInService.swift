@@ -205,10 +205,11 @@ extension AppleSignInService: ASAuthorizationControllerPresentationContextProvid
         }
         
         // fallback iOS 26+
-        let scene = UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .first!
-        
+        guard let scene = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .first else {
+            return UIWindow()
+        }
         return UIWindow(windowScene: scene)
     }
 }

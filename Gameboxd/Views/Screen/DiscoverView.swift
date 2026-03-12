@@ -61,6 +61,11 @@ struct DiscoverView: View {
             }
             .background(Color.gbDark.ignoresSafeArea())
             .navigationTitle("Découvrir")
+            .task {
+                if store.trendingGames.isEmpty {
+                    await store.loadDiscoverData()
+                }
+            }
             .refreshable {
                 await store.loadDiscoverData()
             }

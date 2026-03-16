@@ -78,7 +78,7 @@ struct DiaryListView: View {
                 LazyVStack(spacing: 16, pinnedViews: .sectionHeaders) {
                     ForEach(dates, id: \.self) { date in
                         Section {
-                            ForEach(grouped[date] ?? []) { session in
+                            ForEach(grouped[date, default: []]) { session in
                                 PlaySessionCard(session: session)
                             }
                         } header: {

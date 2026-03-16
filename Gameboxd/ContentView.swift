@@ -91,9 +91,8 @@ struct AchievementToast: View {
                     .fill(Color.accent.opacity(0.15))
                     .frame(width: 44, height: 44)
 
-                Image(systemName: achievement.icon)
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(Color.accent)
+                Text(achievement.icon)
+                    .font(.title2)
             }
 
             VStack(alignment: .leading, spacing: DS.Spacing.xxs) {

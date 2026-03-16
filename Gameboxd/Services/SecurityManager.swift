@@ -336,16 +336,17 @@ class SecurityManager: ObservableObject {
         // Remove potential XSS/injection characters
         var sanitized = input
         
-        // HTML entities
-        let replacements: [String: String] = [
-            "<": "&lt;",
-            ">": "&gt;",
-            "\"": "&quot;",
-            "'": "&#x27;",
-            "&": "&amp;",
-            "/": "&#x2F;"
+        // HTML entities — ampersand MUST be replaced first to avoid
+        // double-encoding (e.g. "<" → "&lt;" → "&amp;lt;" if & ran later).
+        let replacements: [(String, String)] = [
+            ("&", "&amp;"),
+            ("<", "&lt;"),
+            (">", "&gt;"),
+            ("\"", "&quot;"),
+            ("'", "&#x27;"),
+            ("/", "&#x2F;")
         ]
-        
+
         for (char, replacement) in replacements {
             sanitized = sanitized.replacingOccurrences(of: char, with: replacement)
         }
@@ -476,11 +477,13 @@ class SecurityManager: ObservableObject {
     }
     
     private func getDeviceIdentifier() -> String {
-        // Use a generic identifier for macOS since UIDevice is not available
-        if let uuid = ProcessInfo.processInfo.environment["SIMULATOR_HOST_HOME"] {
-             return uuid
+        let key = "gameboxd_device_identifier"
+        if let existing = UserDefaults.standard.string(forKey: key) {
+            return existing
         }
-        return UUID().uuidString
+        let newId = UUID().uuidString
+        UserDefaults.standard.set(newId, forKey: key)
+        return newId
     }
     
     // MARK: - Secure Data Wipe

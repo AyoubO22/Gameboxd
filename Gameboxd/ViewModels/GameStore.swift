@@ -763,15 +763,26 @@ class GameStore: ObservableObject {
         
         let favoriteGame = gamesThisYear.max { $0.rating < $1.rating }
         let mostPlayed = gamesThisYear.max { $0.playTimeMinutes < $1.playTimeMinutes }
-        
+
+        // Compute genre/platform stats for this year only
+        var yearGenreCounts: [String: Int] = [:]
+        for game in gamesThisYear {
+            for genre in game.genres { yearGenreCounts[genre, default: 0] += 1 }
+        }
+        let yearTopGenres = yearGenreCounts.sorted { $0.value > $1.value }.prefix(5).map { ($0.key, $0.value) }
+
+        var yearPlatformCounts: [String: Int] = [:]
+        for game in gamesThisYear { yearPlatformCounts[game.platform, default: 0] += 1 }
+        let yearTopPlatforms = yearPlatformCounts.sorted { $0.value > $1.value }.prefix(5).map { ($0.key, $0.value) }
+
         return YearStats(
             year: year,
             gamesPlayed: gamesThisYear.count,
             gamesCompleted: completedThisYear.count,
             totalPlayTime: totalTime,
             averageRating: avgRating,
-            topGenres: topGenres,
-            topPlatforms: topPlatforms,
+            topGenres: yearTopGenres,
+            topPlatforms: yearTopPlatforms,
             favoriteGame: favoriteGame,
             mostPlayedGame: mostPlayed
         )

@@ -183,11 +183,10 @@ struct RecentAchievementBadge: View {
                     .fill(achievementColor(for: achievement).gradient)
                     .frame(width: 60, height: 60)
                 
-                Image(systemName: achievement.icon)
+                Text(achievement.icon)
                     .font(.title2)
-                    .foregroundColor(.white)
             }
-            
+
             Text(achievement.title)
                 .font(.caption)
                 .fontWeight(.medium)
@@ -265,9 +264,8 @@ struct AchievementCard: View {
                         .scaleEffect(animateUnlock ? 1.1 : 1.0)
                     
                     if achievement.isUnlocked {
-                        Image(systemName: achievement.icon)
+                        Text(achievement.icon)
                             .font(.title2)
-                            .foregroundColor(.white)
                             .rotationEffect(.degrees(animateUnlock ? 360 : 0))
                     } else {
                         Image(systemName: "lock.fill")
@@ -373,9 +371,8 @@ struct AchievementDetailSheet: View {
                         .shadow(color: achievement.isUnlocked ? color.opacity(0.5) : .clear, radius: 20)
                     
                     if achievement.isUnlocked {
-                        Image(systemName: achievement.icon)
+                        Text(achievement.icon)
                             .font(.system(size: 50))
-                            .foregroundColor(.white)
                     } else {
                         Image(systemName: "lock.fill")
                             .font(.system(size: 40))

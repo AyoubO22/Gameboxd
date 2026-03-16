@@ -16,6 +16,7 @@ Build/
 
 # Secrets & Config
 *.xcconfig
+!Secrets.xcconfig.example
 .env
 .env.*
 Secrets.plist

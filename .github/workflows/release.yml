@@ -1,0 +1,146 @@
+name: Release to TestFlight
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      build_number:
+        description: 'Override build number (leave empty to use run number)'
+        required: false
+
+env:
+  SCHEME: Gameboxd
+  PROJECT: Gameboxd.xcodeproj
+  ARCHIVE_PATH: build/Gameboxd.xcarchive
+  EXPORT_PATH: build/export
+  KEYCHAIN: build.keychain-db
+  KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+
+jobs:
+  release:
+    name: Archive & Upload to TestFlight
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+
+      - name: Generate Secrets.xcconfig
+        run: |
+          cat > Secrets.xcconfig <<EOF
+          // Auto-generated for release build
+          RAWG_API_KEY = ${{ secrets.RAWG_API_KEY }}
+          EOF
+
+      - name: Install Apple certificate and provisioning profiles
+        run: |
+          # Decode secrets
+          CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
+          APP_PROFILE_PATH=$RUNNER_TEMP/app.mobileprovision
+          WIDGET_PROFILE_PATH=$RUNNER_TEMP/widget.mobileprovision
+
+          echo -n "${{ secrets.BUILD_CERTIFICATE_BASE64 }}" | base64 --decode -o $CERTIFICATE_PATH
+          echo -n "${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}" | base64 --decode -o $APP_PROFILE_PATH
+
+          # Widget profile is optional
+          if [ -n "${{ secrets.WIDGET_PROVISION_PROFILE_BASE64 }}" ]; then
+            echo -n "${{ secrets.WIDGET_PROVISION_PROFILE_BASE64 }}" | base64 --decode -o $WIDGET_PROFILE_PATH
+          fi
+
+          # Create temporary keychain
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN
+          security set-keychain-settings -lut 21600 $KEYCHAIN
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN
+
+          # Import certificate
+          security import $CERTIFICATE_PATH -P "${{ secrets.P12_PASSWORD }}" \
+            -A -t cert -f pkcs12 -k $KEYCHAIN
+          security set-key-partition-list -S apple-tool:,apple: \
+            -k "$KEYCHAIN_PASSWORD" $KEYCHAIN
+          security list-keychain -d user -s $KEYCHAIN login.keychain
+
+          # Install provisioning profiles
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp $APP_PROFILE_PATH ~/Library/MobileDevice/Provisioning\ Profiles/
+          if [ -f "$WIDGET_PROFILE_PATH" ]; then
+            cp $WIDGET_PROFILE_PATH ~/Library/MobileDevice/Provisioning\ Profiles/
+          fi
+
+      - name: Determine build number
+        id: build_number
+        run: |
+          if [ -n "${{ github.event.inputs.build_number }}" ]; then
+            echo "value=${{ github.event.inputs.build_number }}" >> $GITHUB_OUTPUT
+          else
+            echo "value=${{ github.run_number }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Archive
+        run: |
+          set -o pipefail
+          xcodebuild archive \
+            -project $PROJECT \
+            -scheme $SCHEME \
+            -archivePath $ARCHIVE_PATH \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM="${{ secrets.APPLE_TEAM_ID }}" \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            CURRENT_PROJECT_VERSION="${{ steps.build_number.outputs.value }}" \
+            | xcpretty
+          exit ${PIPESTATUS[0]}
+
+      - name: Create ExportOptions.plist
+        run: |
+          cat > ExportOptions.plist <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+            "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store-connect</string>
+            <key>teamID</key>
+            <string>${{ secrets.APPLE_TEAM_ID }}</string>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>uploadSymbols</key>
+            <true/>
+            <key>compileBitcode</key>
+            <false/>
+          </dict>
+          </plist>
+          EOF
+
+      - name: Export IPA
+        run: |
+          set -o pipefail
+          xcodebuild -exportArchive \
+            -archivePath $ARCHIVE_PATH \
+            -exportOptionsPlist ExportOptions.plist \
+            -exportPath $EXPORT_PATH \
+            | xcpretty
+          exit ${PIPESTATUS[0]}
+
+      - name: Upload to TestFlight
+        run: |
+          # Create API key file
+          mkdir -p private_keys
+          echo -n "${{ secrets.ASC_PRIVATE_KEY }}" > private_keys/AuthKey_${{ secrets.ASC_KEY_ID }}.p8
+
+          xcrun altool --upload-app \
+            -f "$EXPORT_PATH/Gameboxd.ipa" \
+            -t ios \
+            --apiKey "${{ secrets.ASC_KEY_ID }}" \
+            --apiIssuer "${{ secrets.ASC_ISSUER_ID }}"
+
+      - name: Cleanup keychain
+        if: always()
+        run: |
+          security delete-keychain $KEYCHAIN 2>/dev/null || true
+          rm -rf private_keys 2>/dev/null || true

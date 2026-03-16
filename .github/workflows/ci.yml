@@ -38,7 +38,7 @@ jobs:
           xcodebuild build \
             -project Gameboxd.xcodeproj \
             -scheme Gameboxd \
-            -destination 'platform=macOS,variant=Designed for [iPad,iPhone]' \
+            -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
@@ -51,7 +51,7 @@ jobs:
           xcodebuild test \
             -project Gameboxd.xcodeproj \
             -scheme Gameboxd \
-            -destination 'platform=macOS,variant=Designed for [iPad,iPhone]' \
+            -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
             -resultBundlePath TestResults.xcresult \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \

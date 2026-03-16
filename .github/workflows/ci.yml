@@ -43,6 +43,7 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             IPHONEOS_DEPLOYMENT_TARGET=26.0 \
+            SWIFT_COMPILATION_MODE=singlefile \
             | xcpretty
           exit ${PIPESTATUS[0]}
 
@@ -58,6 +59,7 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             IPHONEOS_DEPLOYMENT_TARGET=26.0 \
+            SWIFT_COMPILATION_MODE=singlefile \
             | xcpretty
           exit ${PIPESTATUS[0]}
 

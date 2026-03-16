@@ -32,14 +32,18 @@ jobs:
           RAWG_API_KEY = ${{ secrets.RAWG_API_KEY || 'CI_PLACEHOLDER_KEY' }}
           EOF
 
+      - name: List available simulators
+        run: |
+          xcrun simctl list devices available | grep -i iphone | head -10
+
       - name: Build
         run: |
           set -o pipefail
-          xcodebuild build \
+          xcodebuild build-for-testing \
             -project Gameboxd.xcodeproj \
             -scheme Gameboxd \
             -configuration Debug \
-            -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
+            -destination 'generic/platform=iOS Simulator' \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
@@ -50,11 +54,22 @@ jobs:
       - name: Test
         run: |
           set -o pipefail
-          xcodebuild test \
+          DEST=$(xcrun simctl list devices available -j | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          for runtime, devices in data['devices'].items():
+              if 'iOS' in runtime:
+                  for d in devices:
+                      if 'iPhone' in d['name'] and d['isAvailable']:
+                          print(f\"platform=iOS Simulator,id={d['udid']}\")
+                          sys.exit(0)
+          sys.exit(1)
+          ")
+          xcodebuild test-without-building \
             -project Gameboxd.xcodeproj \
             -scheme Gameboxd \
             -configuration Debug \
-            -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
+            -destination "$DEST" \
             -resultBundlePath TestResults.xcresult \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \

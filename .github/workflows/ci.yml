@@ -38,12 +38,12 @@ jobs:
           xcodebuild build \
             -project Gameboxd.xcodeproj \
             -scheme Gameboxd \
+            -configuration Debug \
             -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             IPHONEOS_DEPLOYMENT_TARGET=26.0 \
-            SWIFT_COMPILATION_MODE=singlefile \
             | xcpretty
           exit ${PIPESTATUS[0]}
 
@@ -53,13 +53,13 @@ jobs:
           xcodebuild test \
             -project Gameboxd.xcodeproj \
             -scheme Gameboxd \
+            -configuration Debug \
             -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
             -resultBundlePath TestResults.xcresult \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             IPHONEOS_DEPLOYMENT_TARGET=26.0 \
-            SWIFT_COMPILATION_MODE=singlefile \
             | xcpretty
           exit ${PIPESTATUS[0]}
 

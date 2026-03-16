@@ -85,7 +85,7 @@ struct OnboardingView: View {
                 
                 // Page Content
                 TabView(selection: $currentPage) {
-                    ForEach(0..<pages.count, id: \.self) { index in
+                    ForEach(Array(pages.indices), id: \.self) { index in
                         OnboardingPageView(page: pages[index], isLastPage: index == pages.count - 1)
                             .tag(index)
                     }
@@ -97,7 +97,7 @@ struct OnboardingView: View {
                 VStack(spacing: 24) {
                     // Dots
                     HStack(spacing: 8) {
-                        ForEach(0..<pages.count, id: \.self) { index in
+                        ForEach(Array(pages.indices), id: \.self) { index in
                             Circle()
                                 .fill(index == currentPage ? Color.gbGreen : Color.gray.opacity(0.3))
                                 .frame(width: index == currentPage ? 10 : 8, height: index == currentPage ? 10 : 8)

@@ -774,7 +774,7 @@ struct AddPlaySessionView: View {
                 Section("Durée de la session") {
                     HStack {
                         Picker("Heures", selection: $hours) {
-                            ForEach(0..<24, id: \.self) { h in
+                            ForEach(Array(0..<24), id: \.self) { h in
                                 Text("\(h)h").tag(h)
                             }
                         }

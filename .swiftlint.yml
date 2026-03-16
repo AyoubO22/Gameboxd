@@ -24,5 +24,4 @@ disabled_rules:
   - trailing_comma
 
 opt_in_rules:
-  - empty_count
   - closure_spacing

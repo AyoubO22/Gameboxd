@@ -130,7 +130,7 @@ struct DiscoverSection: View {
             if isLoading {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
-                        ForEach(0..<5) { _ in
+                        ForEach(Array(0..<5), id: \.self) { _ in
                             ShimmerCard()
                         }
                     }

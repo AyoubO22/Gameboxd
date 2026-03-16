@@ -28,7 +28,7 @@ struct UsernameSetupView: View {
             VStack(spacing: 0) {
                 // Progress indicator
                 HStack(spacing: 8) {
-                    ForEach(0..<3) { step in
+                    ForEach(Array(0..<3), id: \.self) { step in
                         Capsule()
                             .fill(step <= currentStep ? Color.gbGreen : Color.gray.opacity(0.3))
                             .frame(height: 4)

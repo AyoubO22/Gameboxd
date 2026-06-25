@@ -12,28 +12,34 @@ import SwiftUI
 
 // MARK: - Helpers
 
-/// Encodes an array of strings as a single comma-separated string for storage.
+/// Field separator used to encode arrays into a single stored string.
+/// Uses ASCII Unit Separator (U+001F) instead of a comma so that values which
+/// legitimately contain commas (genre names, screenshot URLs with query params)
+/// survive the encode/decode round-trip intact.
+private let fieldSeparator = "\u{1F}"
+
+/// Encodes an array of strings as a single separator-joined string for storage.
 /// Returns an empty string for an empty array so the field is never nil.
 private func joinStrings(_ values: [String]) -> String {
-    values.joined(separator: ",")
+    values.joined(separator: fieldSeparator)
 }
 
-/// Decodes a comma-separated storage string back into a [String] array.
+/// Decodes a separator-joined storage string back into a [String] array.
 /// An empty storage string yields an empty array.
 private func splitStrings(_ value: String) -> [String] {
     guard !value.isEmpty else { return [] }
-    return value.components(separatedBy: ",")
+    return value.components(separatedBy: fieldSeparator)
 }
 
-/// Encodes a [UUID] array as a comma-separated string.
+/// Encodes a [UUID] array as a separator-joined string.
 private func joinUUIDs(_ values: [UUID]) -> String {
-    values.map(\.uuidString).joined(separator: ",")
+    values.map(\.uuidString).joined(separator: fieldSeparator)
 }
 
-/// Decodes a comma-separated UUID string back into [UUID].
+/// Decodes a separator-joined UUID string back into [UUID].
 private func splitUUIDs(_ value: String) -> [UUID] {
     guard !value.isEmpty else { return [] }
-    return value.components(separatedBy: ",").compactMap { UUID(uuidString: $0) }
+    return value.components(separatedBy: fieldSeparator).compactMap { UUID(uuidString: $0) }
 }
 
 // MARK: - SDGame

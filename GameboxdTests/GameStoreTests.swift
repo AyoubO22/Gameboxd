@@ -23,7 +23,7 @@ final class GameStoreTests: XCTestCase {
         XCTAssertEqual(saved?.notes, "hello &amp; bye")
     }
 
-    func testDeletePlaySessionDoesNotGoNegative() {
+    func testAddThenDeletePlaySessionRestoresPlayTime() {
         let store = GameStore()
         store.myGames = []
         store.playSessions = []
@@ -39,7 +39,31 @@ final class GameStoreTests: XCTestCase {
         store.updateGame(game)
 
         let session = PlaySession(gameId: game.id, gameTitle: game.title, duration: 15)
-        store.addPlaySession(session)
+        store.addPlaySession(session)      // 10 + 15 = 25
+        store.deletePlaySession(session)   // 25 - 15 = 10
+
+        let updated = store.myGames.first(where: { $0.id == game.id })
+        XCTAssertEqual(updated?.playTimeMinutes, 10)
+    }
+
+    func testDeletePlaySessionDoesNotGoNegative() {
+        let store = GameStore()
+        store.myGames = []
+        store.playSessions = []
+        var game = Game(
+            title: "Test",
+            developer: "Dev",
+            platform: "iOS",
+            releaseYear: "2024",
+            coverColor: .green,
+            status: .playing
+        )
+        game.playTimeMinutes = 10
+        store.updateGame(game)
+
+        // Data-integrity edge case: delete a session longer than the recorded
+        // play time. The total must clamp to 0, never go negative.
+        let session = PlaySession(gameId: game.id, gameTitle: game.title, duration: 15)
         store.deletePlaySession(session)
 
         let updated = store.myGames.first(where: { $0.id == game.id })

@@ -179,7 +179,7 @@ struct GameDetailView: View {
     }
     
     private func shareGame() {
-        let text = "🎮 \(game.title) - \(game.rating > 0 ? String(repeating: "⭐", count: game.rating) : "Non noté") sur Gameboxd"
+        let text = "\(game.title) - \(game.rating > 0 ? String(repeating: "★", count: game.rating) : "Non noté") sur Gameboxd"
         let activityVC = UIActivityViewController(activityItems: [text], applicationActivities: nil)
         
         if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
@@ -358,7 +358,7 @@ struct QuickActionsBar: View {
     }
     
     private func shareGame() {
-        let text = "🎮 \(game.title) - \(game.rating > 0 ? String(repeating: "⭐", count: game.rating) : "Non noté") sur Gameboxd"
+        let text = "\(game.title) - \(game.rating > 0 ? String(repeating: "★", count: game.rating) : "Non noté") sur Gameboxd"
         let activityVC = UIActivityViewController(activityItems: [text], applicationActivities: nil)
         
         if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,

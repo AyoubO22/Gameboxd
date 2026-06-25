@@ -58,15 +58,25 @@ extension Color {
         )
     }
     
-    /// Convertit la couleur en code hex
+    /// Convertit la couleur en code hex ARGB (8 chiffres).
+    /// Les composantes sont clampées à [0, 1] pour rester valides même avec des
+    /// couleurs wide-gamut (P3) dont les composantes peuvent dépasser 1.0, et
+    /// l'alpha est conservé pour un round-trip fidèle avec `init(hex:)`.
     func toHex() -> String {
         let uiColor = UIColor(self)
         var r: CGFloat = 0
         var g: CGFloat = 0
         var b: CGFloat = 0
         var a: CGFloat = 0
-        uiColor.getRed(&r, green: &g, blue: &b, alpha: &a)
-        return String(format: "%02X%02X%02X", Int(r * 255), Int(g * 255), Int(b * 255))
+        // getRed renvoie false pour certains espaces colorimétriques (motifs,
+        // niveaux de gris non convertis) : on retombe alors sur un gris opaque.
+        guard uiColor.getRed(&r, green: &g, blue: &b, alpha: &a) else {
+            return "FF808080"
+        }
+        func channel(_ value: CGFloat) -> Int {
+            Int((max(0, min(1, value)) * 255).rounded())
+        }
+        return String(format: "%02X%02X%02X%02X", channel(a), channel(r), channel(g), channel(b))
     }
 }
 

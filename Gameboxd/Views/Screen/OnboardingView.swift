@@ -19,9 +19,9 @@ struct OnboardingView: View {
             icon: "gamecontroller.fill",
             color: .gbGreen,
             features: [
-                "📚 Catalogue ta collection",
-                "📝 Note et critique tes jeux",
-                "📊 Suis tes statistiques"
+                "Catalogue ta collection",
+                "Note et critique tes jeux",
+                "Suis tes statistiques"
             ]
         ),
         OnboardingPage(
@@ -30,9 +30,9 @@ struct OnboardingView: View {
             icon: "square.stack.3d.up.fill",
             color: .blue,
             features: [
-                "🎮 En cours, terminé, à jouer...",
-                "⭐ Note de 1 à 5 étoiles",
-                "🏷️ Tags personnalisés"
+                "En cours, terminé, à jouer...",
+                "Note de 1 à 5 étoiles",
+                "Tags personnalisés"
             ]
         ),
         OnboardingPage(
@@ -41,9 +41,9 @@ struct OnboardingView: View {
             icon: "book.fill",
             color: .purple,
             features: [
-                "⏱️ Temps de jeu par session",
-                "📅 Calendrier interactif",
-                "😊 Ton ressenti du moment"
+                "Temps de jeu par session",
+                "Calendrier interactif",
+                "Ton ressenti du moment"
             ]
         ),
         OnboardingPage(
@@ -52,9 +52,9 @@ struct OnboardingView: View {
             icon: "magnifyingglass",
             color: .orange,
             features: [
-                "🔥 Jeux tendances",
-                "🆕 Nouvelles sorties",
-                "🏆 Les mieux notés"
+                "Jeux tendances",
+                "Nouvelles sorties",
+                "Les mieux notés"
             ]
         ),
         OnboardingPage(

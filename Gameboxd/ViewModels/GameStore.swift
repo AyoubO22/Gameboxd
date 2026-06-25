@@ -86,6 +86,8 @@ class GameStore: ObservableObject {
         loadAllData()
         loadSettings()
         initializeAchievements()
+        updateGoalProgress()
+        syncWidgetData()
         // Discover data is loaded lazily in DiscoverView.onAppear
     }
     
@@ -158,9 +160,8 @@ class GameStore: ObservableObject {
         if let data = UserDefaults.standard.data(forKey: StorageKeys.myGames),
            let decoded = try? JSONDecoder().decode([Game].self, from: data) {
             myGames = decoded
-        } else {
-            loadMockData()
         }
+        // A fresh install starts with an empty library — no seeded demo games.
     }
     
     private func saveGames() {
@@ -168,6 +169,8 @@ class GameStore: ObservableObject {
             UserDefaults.standard.set(encoded, forKey: StorageKeys.myGames)
         }
         checkAchievements()
+        updateGoalProgress()
+        syncWidgetData()
     }
     
     private func loadPlaySessions() {
@@ -214,6 +217,7 @@ class GameStore: ObservableObject {
         if let encoded = try? JSONEncoder().encode(userProfile) {
             UserDefaults.standard.set(encoded, forKey: StorageKeys.userProfile)
         }
+        syncWidgetData()
     }
     
     // MARK: - Linked Accounts
@@ -907,9 +911,12 @@ class GameStore: ObservableObject {
             }
         }
 
+        // Always persist progress so progress bars survive a relaunch,
+        // not only when an achievement is newly unlocked.
+        saveAchievements()
+
         if !newlyUnlocked.isEmpty {
             recentlyUnlockedAchievements = newlyUnlocked
-            saveAchievements()
 
             if achievementAlerts {
                 for achievement in newlyUnlocked {
@@ -1024,6 +1031,8 @@ class GameStore: ObservableObject {
     func addMonthlyGoal(_ goal: MonthlyGoal) {
         monthlyGoals.append(goal)
         saveMonthlyGoals()
+        // Immediately reflect any progress already achieved this month.
+        updateGoalProgress()
     }
     
     func updateGoalProgress() {
@@ -1174,7 +1183,7 @@ class GameStore: ObservableObject {
         guard releaseReminders else { return }
         
         let content = UNMutableNotificationContent()
-        content.title = "🎮 Sortie aujourd'hui!"
+        content.title = "Sortie aujourd'hui!"
         content.body = "\(game.title) sort aujourd'hui!"
         content.sound = .default
         
@@ -1188,7 +1197,7 @@ class GameStore: ObservableObject {
     
     private func sendAchievementNotification(_ achievement: Achievement) {
         let content = UNMutableNotificationContent()
-        content.title = "🏆 Succès débloqué!"
+        content.title = "Succès débloqué!"
         content.body = "\(achievement.icon) \(achievement.title)"
         content.sound = .default
         
@@ -1308,13 +1317,42 @@ class GameStore: ObservableObject {
         saveUserProfile()
     }
     
-    // MARK: - Mock Data
-    
-    private func loadMockData() {
-        myGames = [
-            Game(title: "The Legend of Zelda: TOTK", developer: "Nintendo", platform: "Switch", releaseYear: "2023", coverColor: .green, rating: 5, status: .playing, review: "Une liberté totale, c'est fou.", playTime: "45h", playTimeMinutes: 2700, startedDate: Date(), genres: ["Action", "Adventure"]),
-            Game(title: "Elden Ring", developer: "FromSoftware", platform: "PS5", releaseYear: "2022", coverColor: .yellow, rating: 5, status: .completed, review: "Difficile mais le monde est magnifique.", playTime: "120h", playTimeMinutes: 7200, completionPercentage: 100, moodTags: [.challenging, .beautiful], completedDate: Date(), genres: ["Action RPG", "Souls-like"]),
-            Game(title: "Hollow Knight", developer: "Team Cherry", platform: "PC", releaseYear: "2017", coverColor: .blue.opacity(0.7), rating: 4, status: .completed, review: "Ambiance mélancolique incroyable.", playTime: "30h", playTimeMinutes: 1800, genres: ["Metroidvania", "Indie"])
-        ]
+    // MARK: - Widget Sync
+
+    /// Pushes the latest widget-relevant snapshot into the shared App Group store
+    /// and asks WidgetKit to reload its timelines.
+    ///
+    /// Safe no-op when the App Group is not configured (e.g. the widget extension
+    /// target has not been added yet): `SharedDataProvider.updateWidgetData`
+    /// returns early when the suite cannot be opened.
+    private func syncWidgetData() {
+        let currentWidgetGame = myGames.first { $0.status == .playing }.map { game in
+            SharedDataProvider.WidgetGame(
+                title: game.title,
+                coverURL: game.coverImageURL,
+                platform: game.platform,
+                playTimeMinutes: game.playTimeMinutes,
+                status: game.status.rawValue
+            )
+        }
+
+        let backlogWidgetGames = backlog.prefix(20).map { game in
+            SharedDataProvider.WidgetGame(
+                title: game.title,
+                coverURL: game.coverImageURL,
+                platform: game.platform,
+                playTimeMinutes: game.playTimeMinutes,
+                status: game.status.rawValue
+            )
+        }
+
+        SharedDataProvider.updateWidgetData(
+            currentGame: currentWidgetGame,
+            yearlyCompleted: completedThisYear,
+            yearlyTarget: max(userProfile.yearlyGoal, 1),
+            backlogGames: Array(backlogWidgetGames),
+            totalPlayTimeMinutes: totalPlayTimeMinutes
+        )
     }
+
 }

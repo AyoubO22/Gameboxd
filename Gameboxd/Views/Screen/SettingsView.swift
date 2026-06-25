@@ -486,7 +486,7 @@ struct NotificationsSettingsView: View {
             }
             
             let content = UNMutableNotificationContent()
-            content.title = "🎮 Gameboxd"
+            content.title = "Gameboxd"
             content.body = "Les notifications fonctionnent ! Tu seras rappelé de jouer."
             content.sound = .default
             
@@ -510,7 +510,7 @@ struct NotificationsSettingsView: View {
         guard let randomGame = store.randomBacklogPick() else { return }
         
         let content = UNMutableNotificationContent()
-        content.title = "🎮 Un jeu t'attend!"
+        content.title = "Un jeu t'attend!"
         content.body = "Que dirais-tu de lancer \(randomGame.title) ?"
         content.sound = .default
         
@@ -677,7 +677,7 @@ struct AboutView: View {
                     
                     VStack(spacing: 8) {
                         Text("Données de jeux par RAWG.io")
-                        Text("Développé avec ❤️ en SwiftUI")
+                        Text("Développé en SwiftUI")
                     }
                     .font(.caption)
                     .foregroundColor(.gray)

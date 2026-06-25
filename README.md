@@ -2,15 +2,35 @@
 
 > A Letterboxd-style gaming journal for iOS — Track, rate, and review your gaming experiences.
 
-![Swift](https://img.shields.io/badge/Swift-5.9-orange.svg)
-![iOS](https://img.shields.io/badge/iOS-16.0+-blue.svg)
-![SwiftUI](https://img.shields.io/badge/SwiftUI-4.0-purple.svg)
+![Swift](https://img.shields.io/badge/Swift-5.0%20(Xcode%2026)-orange.svg)
+![iOS](https://img.shields.io/badge/iOS-26.0+-blue.svg)
+![SwiftUI](https://img.shields.io/badge/SwiftUI-6.0-purple.svg)
 ![License](https://img.shields.io/badge/License-MIT-green.svg)
+
+---
+
+## ℹ️ Project Status & Scope
+
+To keep this README honest about what ships versus what is illustrative:
+
+| Onderdeel | Status |
+|---|---|
+| iOS-app (SwiftUI, MVVM, RAWG-integratie, lokale persistentie) | ✅ **Werkend** — bouwt en draait |
+| RAWG API | ✅ Werkend zodra een key is geconfigureerd (zie [Getting Started](#-getting-started)) |
+| Unit tests (`GameboxdTests`) | ✅ Target geconfigureerd in het Xcode-project |
+| Widget-extensie (`GameboxdWidget`) | ⚠️ Code aanwezig; de **extensie-target + App Group** moeten nog in Xcode worden toegevoegd (zie [Getting Started](#-getting-started)) |
+| AWS (`AWSService.swift`) & PlayStation (`PlayStationService.swift`) | ⚠️ **Gesimuleerd** — demonstreren de concepten/API-vorm, geen live backend-calls |
+| Steam (`SteamService.swift`) | ⚠️ Echte REST-client, vereist een eigen Steam Web API-key |
+| Docker (`Docker/`) | ⚠️ **Deployment-blueprint** — bouwt een server-side Swift backend (`Package.swift`, `Sources/`) die **niet** in deze repo zit |
+| iCloud-sync & Keychain | ⚠️ **Scaffolding** — UI/utilities aanwezig; vereisen de bijbehorende capabilities/entitlements om te activeren |
+
+De rest van dit document beschrijft de competenties en concepten achter elk onderdeel.
 
 ---
 
 ## 📋 Table of Contents
 
+- [Project Status & Scope](#-project-status--scope)
 - [Future Proof Project — Context](#-future-proof-project--context)
 - [Reflectie & Persoonlijke Ontwikkeling](#-reflectie--persoonlijke-ontwikkeling)
 - [Ambities & Motivatie](#-ambities--motivatie)
@@ -54,9 +74,9 @@
 **Definition of Done:**
 1. ✅ Werkende iOS-app met 20+ schermen in SwiftUI
 2. ✅ RAWG.io API-integratie voor game-data
-3. ✅ AWS-backend services geïmplementeerd (Cognito, S3, Lambda, DynamoDB, CloudWatch)
+3. ⚠️ AWS-backend services *gesimuleerd* (Cognito, S3, Lambda, DynamoDB, CloudWatch) — concept-/API-demonstratie, geen live backend
 4. ✅ Beveiligingslaag op basis van Security+-principes (AES-256-GCM, PBKDF2, biometrie)
-5. ✅ Docker-deployment met multi-stage builds en docker-compose
+5. ⚠️ Docker-deployment-blueprint met multi-stage builds en docker-compose (backend-source niet in deze repo)
 6. ✅ Unit tests voor kernfunctionaliteiten
 7. ✅ Gedocumenteerd met README inclusief competentiemapping
 
@@ -276,7 +296,7 @@ Bij de ontwikkeling van Gameboxd is **GitHub Copilot** gebruikt als AI-ondersteu
 | Wachtwoordbeleid | Sterkte-scoring (NIST-richtlijnen), detectie van veelvoorkomende wachtwoorden, visuele feedback | `Services/SecurityManager.swift`, `Views/Screen/AuthView.swift` |
 | Certificate Pinning | MITM-detectie, server-certificaatvalidatie tegen pinned certificates, TLS 1.2+ | `Services/SecurityManager.swift` |
 | Security Audit Logging | Gestructureerde event-logging (AUTH_SUCCESS, AUTH_FAILURE, SUSPICIOUS), forensisch onderzoek | `Services/SecurityManager.swift` |
-| API-sleutelbeheer | API-key geëxternaliseerd naar `Info.plist` / omgevingsvariabelen, nooit hardcoded | `Services/RAWGService.swift` |
+| API-sleutelbeheer | RAWG-key geëxternaliseerd naar `Config.xcconfig` → `Info.plist` / omgevingsvariabelen, nooit hardcoded. (Steam/PSN gebruiken nog vervangbare placeholder-constanten — zie [Project Status](#-project-status--scope).) | `Services/RAWGService.swift` |
 
 → Zie sectie [🔐 Security Implementation (CompTIA Security+)](#-security-implementation-comptia-security) voor gedetailleerde code-voorbeelden.
 
@@ -506,12 +526,16 @@ cd gameboxd
 open Gameboxd.xcodeproj
 ```
 
-3. Configure RAWG API key in `RAWGService.swift`:
-```swift
-private let apiKey = "YOUR_API_KEY"
+3. Configure your RAWG API key (the key is **never** hardcoded — it is injected at build time):
+```bash
+cp Secrets.xcconfig.example Secrets.xcconfig
+# then edit Secrets.xcconfig and set RAWG_API_KEY = <your_key>
 ```
+   `Config.xcconfig` is the app target's base configuration; it does `#include? "Secrets.xcconfig"` and exposes `RAWG_API_KEY` to the generated Info.plist, where `RAWGService` reads it via `Bundle.main`. `Secrets.xcconfig` is gitignored. Without a key the app still builds — RAWG calls simply return empty results.
 
 4. Build and run on simulator or device.
+
+> **Widget extension:** the widget code lives in `GameboxdWidget/` but is not yet a build target. To enable it: in Xcode add a *Widget Extension* target named `GameboxdWidget`, add `GameboxdWidget.swift` + `Services/SharedDataProvider.swift` to its membership, and enable the **App Groups** capability (`group.personal.Gameboxd`) on **both** the app and the widget target. The app already writes widget data via `SharedDataProvider.updateWidgetData(...)`.
 
 ### Configuration
 
@@ -1087,7 +1111,9 @@ The app uses [RAWG Video Games Database API](https://rawg.io/apidocs) for game d
 
 ```swift
 class RAWGService {
-    private let apiKey = "YOUR_API_KEY"
+    // Key is injected at build time via Config.xcconfig → Info.plist,
+    // or read from the RAWG_API_KEY environment variable. Never hardcoded.
+    private var apiKey: String { RAWGConfig.apiKey }
     private let baseURL = "https://api.rawg.io/api"
     
     func searchGames(query: String) async throws -> [Game]

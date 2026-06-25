@@ -419,7 +419,7 @@ struct RatingChart: View {
     var body: some View {
         Chart(ratingData, id: \.rating) { item in
             BarMark(
-                x: .value("Note", "⭐ \(item.rating)"),
+                x: .value("Note", "\(item.rating)"),
                 y: .value("Jeux", item.count)
             )
             .foregroundStyle(ratingColor(item.rating).gradient)
@@ -520,7 +520,7 @@ struct AdditionalStatsView: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("📈 Statistiques détaillées")
+            Text("Statistiques détaillées")
                 .font(.headline)
                 .foregroundColor(.white)
             
@@ -577,7 +577,7 @@ struct GamingHabitsView: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("🎮 Tes habitudes")
+            Text("Tes habitudes")
                 .font(.headline)
                 .foregroundColor(.white)
             

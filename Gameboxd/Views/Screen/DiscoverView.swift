@@ -22,7 +22,7 @@ struct DiscoverView: View {
                     
                     // Trending Section
                     DiscoverSection(
-                        title: "🔥 Tendances",
+                        title: "Tendances",
                         subtitle: "Les jeux du moment",
                         games: store.trendingGames,
                         isLoading: store.isLoadingTrending
@@ -30,7 +30,7 @@ struct DiscoverView: View {
                     
                     // New Releases Section
                     DiscoverSection(
-                        title: "🆕 Sorties récentes",
+                        title: "Sorties récentes",
                         subtitle: "Jeux fraîchement sortis",
                         games: store.newReleases,
                         isLoading: store.isLoadingNewReleases
@@ -38,7 +38,7 @@ struct DiscoverView: View {
                     
                     // Top Rated Section
                     DiscoverSection(
-                        title: "⭐ Les mieux notés",
+                        title: "Les mieux notés",
                         subtitle: "Plébiscités par la critique",
                         games: store.topRated,
                         isLoading: store.isLoadingTopRated
@@ -46,7 +46,7 @@ struct DiscoverView: View {
                     
                     // Upcoming Section
                     DiscoverSection(
-                        title: "📅 À venir",
+                        title: "À venir",
                         subtitle: "Bientôt disponibles",
                         games: store.upcomingGames,
                         isLoading: store.isLoadingUpcoming
@@ -291,7 +291,7 @@ struct RandomPickSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("🎲 Pas d'inspiration ?")
+                Text("Pas d'inspiration ?")
                     .font(.title2)
                     .fontWeight(.bold)
                     .foregroundColor(.white)

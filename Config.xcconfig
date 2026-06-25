@@ -1,0 +1,13 @@
+// Config.xcconfig
+// Base build configuration for the Gameboxd app target.
+//
+// This file is committed. It optionally pulls in your private, gitignored
+// Secrets.xcconfig (copy it from Secrets.xcconfig.example, or let CI generate it).
+// The `#include?` form does not fail when the file is absent, so the project
+// still builds without secrets — RAWGConfig then falls back to an empty key.
+
+// Default empty value so $(RAWG_API_KEY) always resolves to a valid (empty) string.
+RAWG_API_KEY =
+
+// Override with the real key when Secrets.xcconfig is present.
+#include? "Secrets.xcconfig"

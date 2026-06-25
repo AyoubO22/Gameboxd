@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	    Partial Info.plist for the Gameboxd app target.
+	    GENERATE_INFOPLIST_FILE stays YES, so Xcode merges the standard generated
+	    keys (CFBundle*, UILaunchScreen, orientations…) on top of this file.
+	    This file only carries custom keys that Xcode does not generate.
+
+	    RAWG_API_KEY is substituted from the $(RAWG_API_KEY) build setting, which
+	    comes from Config.xcconfig (which #include?'s the gitignored Secrets.xcconfig).
+	-->
+	<key>RAWG_API_KEY</key>
+	<string>$(RAWG_API_KEY)</string>
+</dict>
+</plist>

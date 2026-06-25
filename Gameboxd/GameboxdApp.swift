@@ -17,7 +17,9 @@ struct GameboxdApp: App {
     @StateObject private var store = GameStore()
     @State private var timerManager = TimerManager()
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
-    @State private var notificationDelegate = NotificationDelegate()
+    // Plain stored reference (not @State): the delegate never changes and must stay
+    // alive for the app's lifetime since UNUserNotificationCenter holds it weakly.
+    private let notificationDelegate = NotificationDelegate()
 
     let modelContainer: ModelContainer
 

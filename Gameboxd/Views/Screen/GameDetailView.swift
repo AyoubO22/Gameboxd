@@ -18,12 +18,11 @@ struct GameDetailView: View {
     @State private var showingDeleteConfirm = false
     @State private var showingAddSession = false
     @State private var showingComparison = false
-    @State private var showingUnsavedChanges = false
     @State private var similarGames: [Game] = []
     @State private var isLoadingSimilar = false
     @State private var selectedTab = 0
     
-    /// The original game state to detect unsaved changes
+    /// The last saved state; edits are compared against it to autosave.
     @State private var originalGame: Game? = nil
     
     var isInLibrary: Bool {
@@ -57,12 +56,14 @@ struct GameDetailView: View {
                     EmptyView()
                 }
                 
-                // Save Button
-                SaveButton(game: game, isInLibrary: isInLibrary) {
-                    store.updateGame(game)
-                    dismiss()
+                // Library games save themselves; others need adding first.
+                if !isInLibrary {
+                    SaveButton(game: game, isInLibrary: false) {
+                        save()
+                        HapticManager.notification(.success)
+                    }
+                    .padding()
                 }
-                .padding()
             }
         }
         .background(Color.gbDark.ignoresSafeArea())
@@ -104,6 +105,7 @@ struct GameDetailView: View {
                     Image(systemName: "ellipsis.circle")
                         .foregroundStyle(Color.accent)
                 }
+                .accessibilityLabel("Plus d'actions")
             }
         }
         .sheet(isPresented: $showingAddToList) {
@@ -153,36 +155,35 @@ struct GameDetailView: View {
             }
             originalGame = original
         }
-        .alert("Modifications non sauvegardées", isPresented: $showingUnsavedChanges) {
-            Button("Quitter sans sauvegarder", role: .destructive) {
-                dismiss()
-            }
-            Button("Sauvegarder et quitter") {
-                store.updateGame(game)
-                dismiss()
-            }
-            Button("Annuler", role: .cancel) {}
-        } message: {
-            Text("Tu as des modifications non sauvegardées. Que souhaites-tu faire ?")
+        // Autosave: shortly after the last edit (typing stays smooth), and at once on leaving.
+        .task(id: game) {
+            guard isInLibrary, hasUnsavedChanges else { return }
+            try? await Task.sleep(for: .milliseconds(600))
+            guard !Task.isCancelled else { return }
+            save()
         }
-        .navigationBarBackButtonHidden(hasUnsavedChanges)
-        .toolbar {
-            if hasUnsavedChanges {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: { showingUnsavedChanges = true }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "chevron.left")
-                            Text("Retour")
-                        }
-                    }
-                }
-            }
+        .onDisappear {
+            if isInLibrary && hasUnsavedChanges { save() }
         }
     }
     
     private var hasUnsavedChanges: Bool {
         guard let original = originalGame else { return false }
         return game != original
+    }
+
+    private func save() {
+        store.updateGame(game)
+        // The store fills in dates (started, completed): take them back so the next
+        // save doesn't see them as missing and stamp them again.
+        if let stored = store.myGames.first(where: { $0.id == game.id || ($0.rawgId != nil && $0.rawgId == game.rawgId) }) {
+            game.id = stored.id
+            game.startedDate = stored.startedDate
+            game.completedDate = stored.completedDate
+            game.status = stored.status
+            game.boxArtURL = stored.boxArtURL
+        }
+        originalGame = game
     }
     
     private func loadSimilarGames() async {
@@ -206,110 +207,59 @@ struct GameDetailView: View {
 // MARK: - Header
 struct GameDetailHeader: View {
     let game: Game
-    
+    /// The cover's own colour, glowing behind the box.
+    @State private var glow: Color?
+
+    private var subtitle: String {
+        [game.developer, game.releaseYear].filter { !$0.isEmpty && $0 != "Unknown" && $0 != "—" }.joined(separator: ", ")
+    }
+
     var body: some View {
-        ZStack(alignment: .bottomLeading) {
-            // Background Image/Color
-            if let imageURL = game.coverImageURL, let url = URL(string: imageURL) {
-                CachedAsyncImage(url: url) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 250)
-                        .clipped()
-                        .overlay(
-                            LinearGradient(
-                                colors: [.clear, .gbDark],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-                } placeholder: {
-                    Rectangle()
-                        .fill(game.coverColor.gradient)
-                        .frame(height: 250)
-                        .overlay(
-                            LinearGradient(
-                                colors: [.clear, .gbDark],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
+        VStack(spacing: 18) {
+            GameBox3DView(game: game, height: 340)
+
+            VStack(spacing: 6) {
+                Text(game.title)
+                    .font(.system(size: 40, weight: .black).width(.condensed))
+                    .foregroundStyle(Color.textPrimary)
+                    .multilineTextAlignment(.center)
+
+                if !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(DS.Typography.body)
+                        .foregroundStyle(Color.textSecondary)
                 }
-                .frame(height: 250)
-                .clipped()
-            } else {
-                Rectangle()
-                    .fill(game.coverColor.gradient)
-                    .frame(height: 250)
-                    .overlay(
-                        LinearGradient(
-                            colors: [.clear, .gbDark],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-            }
-            
-            // Game Info
-            VStack(alignment: .leading, spacing: 8) {
-                // Badges
+
                 HStack(spacing: 8) {
-                    // Platform
-                    Text(game.platform)
-                        .font(DS.Typography.label)
-                        .foregroundStyle(Color.textPrimary)
-                        .padding(.vertical, 4)
-                        .padding(.horizontal, 10)
-                        .background(.ultraThinMaterial)
-                        .clipShape(Capsule())
-
-                    // Metacritic
-                    if let score = game.metacriticScore {
-                        HStack(spacing: 4) {
-                            Image(systemName: "star.fill")
-                                .font(.caption2)
-                            Text("\(score)")
-                        }
-                        .font(DS.Typography.label)
-                        .foregroundStyle(DS.Colors.score(score))
-                        .padding(.vertical, 4)
-                        .padding(.horizontal, 10)
-                        .background(DS.Colors.score(score).opacity(0.16))
-                        .clipShape(Capsule())
-                        .overlay(Capsule().stroke(DS.Colors.score(score).opacity(0.4), lineWidth: 1))
-                    }
-
-                    // Status
                     if game.status != .none {
                         TagPill(label: game.status.rawValue, icon: game.status.icon, isSelected: true, tint: game.status.color)
                     }
+                    if let score = game.metacriticScore {
+                        Text("Metacritic \(score)")
+                            .font(DS.Typography.captionMedium)
+                            .foregroundStyle(DS.Colors.score(score))
+                    }
                 }
-
-                // Title
-                Text(game.title)
-                    .font(DS.Typography.largeTitle)
-                    .foregroundStyle(Color.textPrimary)
-                    .shadow(radius: 2)
-
-                // Developer & Year
-                HStack {
-                    Text(game.developer)
-                    Text("•")
-                    Text(game.releaseYear)
-                }
-                .font(DS.Typography.body)
-                .foregroundStyle(Color.textSecondary)
-
-                // Genres
-                if !game.genres.isEmpty {
-                    Text(game.genres.joined(separator: " • "))
-                        .font(DS.Typography.label)
-                        .foregroundStyle(Color.accent)
-                }
+                .padding(.top, 4)
             }
-            .padding()
+            .padding(.horizontal)
+        }
+        .padding(.top, 8)
+        .padding(.bottom, 12)
+        .frame(maxWidth: .infinity)
+        .background(
+            RadialGradient(
+                colors: [(glow ?? Shelf.wallTop).opacity(0.45), Color.gbDark],
+                center: .init(x: 0.5, y: 0.25),
+                startRadius: 10,
+                endRadius: 360
+            )
+            .animation(.easeOut(duration: 0.4), value: glow)
+        )
+        .task(id: game.artURL) {
+            guard let url = game.artURL,
+                  let color = await ImageCache.shared.dominantColor(for: url) else { return }
+            glow = Color(color)
         }
     }
 }
@@ -332,7 +282,7 @@ struct QuickActionsBar: View {
             QuickActionButton(
                 icon: game.isFavorite ? "heart.fill" : "heart",
                 label: "Favoris",
-                color: game.isFavorite ? Color(hex: "FF5C5C") : Color.textPrimary
+                color: game.isFavorite ? Color(hex: "D9695A") : Color.textPrimary
             ) {
                 game.isFavorite.toggle()
             }
@@ -395,14 +345,9 @@ struct GameInfoSection: View {
     @Binding var game: Game
     let similarGames: [Game]
     let isLoadingSimilar: Bool
-    @State private var enrichedData: EnrichedGameData?
-    @State private var isLoadingEnriched = false
 
     var body: some View {
         VStack(spacing: 20) {
-            // Enriched Data: Playtime & Metacritic
-            EnrichedDataSection(enrichedData: enrichedData, isLoading: isLoadingEnriched)
-
             // Description
             if let description = game.description, !description.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
@@ -493,77 +438,6 @@ struct GameInfoSection: View {
             }
         }
         .padding()
-        .task {
-            guard enrichedData == nil, !isLoadingEnriched else { return }
-            isLoadingEnriched = true
-            enrichedData = await GameEnrichmentService.shared.enrich(
-                gameId: game.id,
-                title: game.title
-            )
-            isLoadingEnriched = false
-        }
-    }
-}
-
-// MARK: - Enriched Data Section
-struct EnrichedDataSection: View {
-    let enrichedData: EnrichedGameData?
-    let isLoading: Bool
-
-    var body: some View {
-        if isLoading {
-            // Skeleton placeholders
-            HStack(spacing: 12) {
-                SkeletonBox(width: .infinity, height: 70)
-                SkeletonBox(width: .infinity, height: 70)
-            }
-            .cardStyle()
-        } else if let data = enrichedData,
-                  data.hltbMainStory != nil || data.hltbCompletionist != nil {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 6) {
-                    Image(systemName: "clock.fill")
-                        .foregroundStyle(Color.accent)
-                    Text("Durée (HowLongToBeat)")
-                        .font(DS.Typography.headline)
-                        .foregroundStyle(Color.textPrimary)
-                }
-
-                HStack(spacing: 16) {
-                    if let main = data.hltbMainStory {
-                        MetricCard(value: String(format: "%.0fh", main), label: "Histoire", icon: "book.fill", tint: Color(hex: "5B8DEF"), compact: true)
-                    }
-                    if let comp = data.hltbCompletionist {
-                        MetricCard(value: String(format: "%.0fh", comp), label: "Complétionniste", icon: "star.fill", tint: Color(hex: "B98EFF"), compact: true)
-                    }
-                }
-            }
-            .cardStyle()
-        }
-        // If enrichedData is nil and not loading, show nothing (silent failure)
-    }
-}
-
-// MARK: - Enriched Subviews
-
-struct SkeletonBox: View {
-    let width: CGFloat
-    let height: CGFloat
-    @State private var isAnimating = false
-
-    init(width: CGFloat = .infinity, height: CGFloat) {
-        self.width = width
-        self.height = height
-    }
-
-    var body: some View {
-        RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
-            .fill(Color.gbSurface2)
-            .frame(maxWidth: width == .infinity ? .infinity : nil)
-            .frame(width: width == .infinity ? nil : width, height: height)
-            .opacity(isAnimating ? 0.4 : 0.8)
-            .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: isAnimating)
-            .onAppear { isAnimating = true }
     }
 }
 
@@ -589,7 +463,7 @@ struct SimilarGameCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Group {
-                if let imageURL = game.coverImageURL, let url = URL(string: imageURL) {
+                if let url = game.artURL {
                     CachedAsyncImage(url: url) { image in
                         image.resizable().aspectRatio(contentMode: .fill)
                     } placeholder: {
@@ -818,10 +692,10 @@ struct GameNotesSection: View {
 
                     Toggle(isOn: $game.isSpoiler) {
                         Label("Spoiler", systemImage: "eye.slash")
-                            .font(.caption)
+                            .font(DS.Typography.caption)
                     }
                     .toggleStyle(.button)
-                    .tint(game.isSpoiler ? Color(hex: "FF8A3D") : Color.textSecondary)
+                    .tint(game.isSpoiler ? Color(hex: "E3A24C") : Color.textSecondary)
                 }
 
                 TextField("Écris ta critique du jeu...", text: $game.review, axis: .vertical)
@@ -961,9 +835,9 @@ struct StatusButton: View {
         }) {
             VStack(spacing: 6) {
                 Image(systemName: status.icon)
-                    .font(.title3)
+                    .font(DS.Typography.title3)
                 Text(status.rawValue)
-                    .font(.caption2)
+                    .font(DS.Typography.micro)
                     .lineLimit(1)
             }
             .frame(width: 75, height: 60)

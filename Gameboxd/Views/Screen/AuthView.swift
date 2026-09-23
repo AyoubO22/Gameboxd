@@ -33,22 +33,22 @@ struct AuthView: View {
                     VStack(spacing: 16) {
                         ZStack {
                             Circle()
-                                .fill(Color.gbGreen.gradient)
+                                .fill(Color.gbBrass.gradient)
                                 .frame(width: 120, height: 120)
                             
                             Image(systemName: "gamecontroller.fill")
                                 .font(.system(size: 50))
                                 .foregroundColor(.gbDark)
                         }
-                        .shadow(color: .gbGreen.opacity(0.4), radius: 20)
+                        .shadow(color: .gbBrass.opacity(0.4), radius: 20)
                         
                         Text("Gameboxd")
-                            .font(.system(size: 36, weight: .bold, design: .rounded))
-                            .foregroundColor(.white)
+                            .font(DS.Typography.display(48))
+                            .foregroundColor(.textPrimary)
                         
                         Text("Ton journal de jeux vidéo")
-                            .font(.subheadline)
-                            .foregroundColor(.gray)
+                            .font(DS.Typography.body)
+                            .foregroundColor(.textSecondary)
                     }
                     .padding(.top, 60)
                     
@@ -61,8 +61,8 @@ struct AuthView: View {
                     .padding(.horizontal, 40)
 
                     Text("Profil local : tes identifiants restent sur cet appareil, aucun compte en ligne n'est créé.")
-                        .font(.caption)
-                        .foregroundColor(.gray)
+                        .font(DS.Typography.caption)
+                        .foregroundColor(.textSecondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 40)
                     
@@ -109,7 +109,7 @@ struct AuthView: View {
                             .fontWeight(.semibold)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Color.gbGreen)
+                        .background(Color.gbBrass)
                         .foregroundColor(.gbDark)
                         .cornerRadius(12)
                     }
@@ -121,15 +121,15 @@ struct AuthView: View {
                     VStack(spacing: 16) {
                         HStack {
                             Rectangle()
-                                .fill(Color.gray.opacity(0.3))
+                                .fill(Color.textSecondary.opacity(0.3))
                                 .frame(height: 1)
                             
                             Text("ou continuer avec")
-                                .font(.caption)
-                                .foregroundColor(.gray)
+                                .font(DS.Typography.caption)
+                                .foregroundColor(.textSecondary)
                             
                             Rectangle()
-                                .fill(Color.gray.opacity(0.3))
+                                .fill(Color.textSecondary.opacity(0.3))
                                 .frame(height: 1)
                         }
                         .padding(.horizontal, 24)
@@ -149,7 +149,7 @@ struct AuthView: View {
                         
                         if isSocialLoading {
                             ProgressView()
-                                .tint(.gbGreen)
+                                .tint(.gbBrass)
                                 .padding(.top, 4)
                         }
                     }
@@ -157,8 +157,8 @@ struct AuthView: View {
                     // Skip login
                     Button(action: skipLogin) {
                         Text("Continuer sans compte")
-                            .font(.subheadline)
-                            .foregroundColor(.gray)
+                            .font(DS.Typography.body)
+                            .foregroundColor(.textSecondary)
                             .underline()
                     }
                     .padding(.top, 8)
@@ -338,13 +338,13 @@ struct AuthTextField: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .foregroundColor(.gray)
+                .foregroundColor(.textSecondary)
                 .frame(width: 24)
             
             TextField(placeholder, text: $text)
                 .keyboardType(keyboardType)
                 .textInputAutocapitalization(.never)
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
         }
         .padding()
         .background(Color.gbCard)
@@ -362,21 +362,21 @@ struct AuthSecureField: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .foregroundColor(.gray)
+                .foregroundColor(.textSecondary)
                 .frame(width: 24)
             
             if showPassword {
                 TextField(placeholder, text: $text)
                     .textInputAutocapitalization(.never)
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
             } else {
                 SecureField(placeholder, text: $text)
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
             }
             
             Button(action: { showPassword.toggle() }) {
                 Image(systemName: showPassword ? "eye.slash" : "eye")
-                    .foregroundColor(.gray)
+                    .foregroundColor(.textSecondary)
             }
         }
         .padding()
@@ -395,15 +395,15 @@ struct SocialLoginButton: View {
         Button(action: action) {
             HStack {
                 Image(systemName: icon)
-                    .font(.title2)
+                    .font(DS.Typography.title)
                 Text(label)
-                    .font(.subheadline)
+                    .font(DS.Typography.body)
                     .fontWeight(.medium)
             }
             .frame(maxWidth: .infinity)
             .padding()
             .background(Color.gbCard)
-            .foregroundColor(.white)
+            .foregroundColor(.textPrimary)
             .cornerRadius(12)
         }
     }

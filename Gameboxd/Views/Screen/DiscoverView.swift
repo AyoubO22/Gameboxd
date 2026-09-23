@@ -75,9 +75,7 @@ struct DiscoverView: View {
                 }
             }
             .task {
-                if store.trendingGames.isEmpty {
-                    await store.loadDiscoverData()
-                }
+                await store.refreshDiscoverIfStale()
             }
             .refreshable {
                 await store.loadDiscoverData()
@@ -94,7 +92,7 @@ struct DiscoverHeroCard: View {
         NavigationLink(destination: GameDetailView(game: game)) {
             ZStack(alignment: .bottomLeading) {
                 Group {
-                    if let imageURL = game.coverImageURL, let url = URL(string: imageURL) {
+                    if let url = game.coverImageURL.flatMap(URL.init(string:)) { // landscape banner: keep RAWG art
                         CachedAsyncImage(url: url) { image in
                             image.resizable().aspectRatio(contentMode: .fill)
                         } placeholder: {
@@ -117,7 +115,7 @@ struct DiscoverHeroCard: View {
                 )
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("TENDANCE")
+                    Text("Tendance")
                         .font(DS.Typography.label)
                         .foregroundStyle(Color.accent)
                     Text(game.title)
@@ -137,8 +135,8 @@ struct APIKeyWarningView: View {
     var body: some View {
         HStack(spacing: DS.Spacing.md) {
             Image(systemName: "key.fill")
-                .font(.title2)
-                .foregroundStyle(Color(hex: "FF8A3D"))
+                .font(DS.Typography.title)
+                .foregroundStyle(Color(hex: "E3A24C"))
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("Clé API manquante")
@@ -161,7 +159,7 @@ struct APIKeyWarningView: View {
         .cardStyle()
         .overlay(
             RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                .stroke(Color(hex: "FF8A3D").opacity(0.4), lineWidth: 1)
+                .stroke(Color(hex: "E3A24C").opacity(0.4), lineWidth: 1)
         )
         .padding(.horizontal)
     }
@@ -182,7 +180,7 @@ struct DiscoverSection: View {
             // Content
             if isLoading {
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 12) {
+                    LazyHStack(spacing: 12) {
                         ForEach(Array(0..<5), id: \.self) { _ in
                             ShimmerCard()
                         }
@@ -193,7 +191,7 @@ struct DiscoverSection: View {
                 EmptyDiscoverSection()
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 12) {
+                    LazyHStack(spacing: 12) {
                         ForEach(games) { game in
                             NavigationLink(destination: GameDetailView(game: game)) {
                                 DiscoverGameCard(game: game)
@@ -217,7 +215,7 @@ struct DiscoverGameCard: View {
             // Cover Image
             ZStack(alignment: .topTrailing) {
                 Group {
-                    if let imageURL = game.coverImageURL, let url = URL(string: imageURL) {
+                    if let url = game.artURL {
                         CachedAsyncImage(url: url) { image in
                             image
                                 .resizable()
@@ -279,15 +277,8 @@ struct DiscoverGameCard: View {
 
             // Info
             HStack(spacing: 4) {
-                Text(game.releaseYear)
-                    .font(DS.Typography.label)
-                    .foregroundStyle(Color.textTertiary)
-
-                Text("•")
-                    .foregroundStyle(Color.textTertiary)
-
-                Text(game.platform)
-                    .font(DS.Typography.label)
+                Text("\(game.releaseYear), \(game.platform)")
+                    .font(DS.Typography.caption)
                     .foregroundStyle(Color.textSecondary)
                     .lineLimit(1)
             }
@@ -346,7 +337,7 @@ struct RandomPickSection: View {
                 HStack(spacing: DS.Spacing.md) {
                     // Cover
                     Group {
-                        if let imageURL = game.coverImageURL, let url = URL(string: imageURL) {
+                        if let url = game.artURL {
                             CachedAsyncImage(url: url) { image in
                                 image.resizable().aspectRatio(contentMode: .fill)
                             } placeholder: {

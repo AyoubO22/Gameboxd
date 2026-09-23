@@ -13,7 +13,8 @@ struct LibraryView: View {
     @State private var showingStats = false
     @State private var sortOption: SortOption = .title
     @State private var showingSortMenu = false
-    @State private var viewStyle: ViewStyle = .grid
+    @State private var viewStyle: ViewStyle = .shelf
+    @Namespace private var shelfNamespace
     @State private var showingAdvancedFilters = false
     @State private var gameToDelete: Game? = nil
     @State private var showingDeleteConfirm = false
@@ -35,7 +36,7 @@ struct LibraryView: View {
     }
     
     enum ViewStyle {
-        case grid, list
+        case shelf, grid, list
     }
     
     // Get unique platforms
@@ -65,7 +66,16 @@ struct LibraryView: View {
     
     // Filtre dynamique des jeux
     var filteredGames: [Game] {
-        var filtered = store.myGames.filter { $0.status == selectedFilter }
+        filteredAndSorted(store.myGames.filter { $0.status == selectedFilter })
+    }
+
+    /// The shelf shows every status, grouped by plank; advanced filters and sort still apply.
+    var shelfGames: [Game] {
+        filteredAndSorted(store.myGames)
+    }
+
+    private func filteredAndSorted(_ games: [Game]) -> [Game] {
+        var filtered = games
         
         // Apply advanced filters
         if let platform = selectedPlatform {
@@ -117,7 +127,8 @@ struct LibraryView: View {
                         .transition(.move(edge: .top).combined(with: .opacity))
                 }
                 
-                // Barre de filtres avec compteur
+                // Barre de filtres avec compteur (the shelf groups by status itself)
+                if viewStyle != .shelf {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {
                         ForEach([GameStatus.playing, GameStatus.wantToPlay, GameStatus.completed, GameStatus.platinum, GameStatus.shelved], id: \.self) { status in
@@ -135,7 +146,7 @@ struct LibraryView: View {
                     .padding(.horizontal)
                     .padding(.vertical, 12)
                 }
-                .background(Color.gbDark)
+                }
                 
                 // Sort and View Options Bar
                 HStack {
@@ -197,7 +208,7 @@ struct LibraryView: View {
 
                     Spacer()
 
-                    let count = filteredGames.count
+                    let count = viewStyle == .shelf ? shelfGames.count : filteredGames.count
                     Text("\(count) jeu\(count > 1 ? "x" : "")")
                         .font(DS.Typography.caption)
                         .foregroundStyle(Color.textSecondary)
@@ -206,17 +217,26 @@ struct LibraryView: View {
 
                     // View Style Toggle
                     HStack(spacing: 0) {
+                        Button(action: { viewStyle = .shelf }) {
+                            Image(systemName: "books.vertical")
+                                .foregroundStyle(viewStyle == .shelf ? Color.accent : Color.textSecondary)
+                                .padding(8)
+                        }
+                        .accessibilityLabel("Affichage en étagère")
+
                         Button(action: { viewStyle = .grid }) {
                             Image(systemName: "square.grid.2x2")
                                 .foregroundStyle(viewStyle == .grid ? Color.accent : Color.textSecondary)
                                 .padding(8)
                         }
+                        .accessibilityLabel("Affichage en grille")
 
                         Button(action: { viewStyle = .list }) {
                             Image(systemName: "list.bullet")
                                 .foregroundStyle(viewStyle == .list ? Color.accent : Color.textSecondary)
                                 .padding(8)
                         }
+                        .accessibilityLabel("Affichage en liste")
                     }
                     .background(Color.gbCard)
                     .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
@@ -227,7 +247,6 @@ struct LibraryView: View {
                 }
                 .padding(.horizontal)
                 .padding(.vertical, 8)
-                .background(Color.gbDark)
 
                 // Active Filters Pills
                 if activeFiltersCount > 0 {
@@ -249,7 +268,7 @@ struct LibraryView: View {
                             Button(action: clearAllFilters) {
                                 Text("Tout effacer")
                                     .font(DS.Typography.caption)
-                                    .foregroundStyle(Color(hex: "FF5C5C"))
+                                    .foregroundStyle(Color(hex: "D9695A"))
                             }
                         }
                         .padding(.horizontal)
@@ -260,8 +279,20 @@ struct LibraryView: View {
                 
                 // Grille de contenu
                 ScrollView {
-                    let games = filteredGames
-                    if games.isEmpty {
+                    let games = viewStyle == .shelf ? shelfGames : filteredGames
+                    if games.isEmpty && viewStyle == .shelf {
+                        EmptyState(icon: "books.vertical", title: "Ton étagère est vide", message: "Cherche un jeu dans l'onglet Recherche pour poser ta première boîte.")
+                            .frame(minHeight: 420)
+                    } else if viewStyle == .shelf {
+                        ShelfLibrary(games: games, namespace: shelfNamespace) { game in
+                            GameContextMenu(game: game) { g in
+                                gameToDelete = g
+                                showingDeleteConfirm = true
+                            }
+                        }
+                        .padding(.top, DS.Spacing.sm)
+                        .padding(.bottom, 110)
+                    } else if games.isEmpty {
                         EmptyStateView(status: selectedFilter)
                     } else {
                         if viewStyle == .grid {
@@ -297,11 +328,13 @@ struct LibraryView: View {
                         }
                     }
                 }
-                .background(Color.gbDark)
             }
-            .navigationTitle("Gameboxd")
+            .navigationTitle("Ma collection")
             .navigationBarTitleDisplayMode(.large)
-            .background(Color.gbDark.ignoresSafeArea())
+            .background(
+                LinearGradient(colors: [Shelf.wallTop, Color.gbDark], startPoint: .top, endPoint: .center)
+                    .ignoresSafeArea()
+            )
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: { showingComparison = true }) {
@@ -419,12 +452,12 @@ struct AdvancedFiltersSheet: View {
                                 VStack(spacing: 4) {
                                     if rating == 0 {
                                         Image(systemName: "star.slash")
-                                            .font(.title2)
+                                            .font(DS.Typography.title)
                                     } else {
                                         HStack(spacing: 1) {
                                             ForEach(1...rating, id: \.self) { _ in
                                                 Image(systemName: "star.fill")
-                                                    .font(.caption2)
+                                                    .font(DS.Typography.micro)
                                             }
                                         }
                                     }
@@ -475,7 +508,7 @@ struct AdvancedFiltersSheet: View {
                         minimumRating = 0
                         selectedYear = nil
                     }
-                    .foregroundStyle(Color(hex: "FF5C5C"))
+                    .foregroundStyle(Color(hex: "D9695A"))
                 }
 
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -511,7 +544,7 @@ struct FilterButton: View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Image(systemName: status.icon)
-                    .font(.caption)
+                    .font(DS.Typography.caption)
 
                 Text(status.rawValue)
                     .font(DS.Typography.bodyMedium)
@@ -547,7 +580,7 @@ struct GameListRow: View {
         HStack(spacing: DS.Spacing.sm) {
             // Cover
             Group {
-                if let imageURL = game.coverImageURL, let url = URL(string: imageURL) {
+                if let url = game.artURL {
                     CachedAsyncImage(url: url) { image in
                         image.resizable().aspectRatio(contentMode: .fill)
                     } placeholder: {
@@ -574,8 +607,8 @@ struct GameListRow: View {
 
                     if game.isFavorite {
                         Image(systemName: "heart.fill")
-                            .font(.caption)
-                            .foregroundStyle(Color(hex: "FF5C5C"))
+                            .font(DS.Typography.caption)
+                            .foregroundStyle(Color(hex: "D9695A"))
                     }
                 }
 
@@ -619,7 +652,7 @@ struct GameListRow: View {
                     HStack(spacing: 4) {
                         ForEach(game.moodTags.prefix(3), id: \.self) { tag in
                             Image(systemName: tag.icon)
-                                .font(.caption2)
+                                .font(DS.Typography.micro)
                                 .foregroundStyle(tag.color)
                         }
                     }
@@ -636,7 +669,7 @@ struct GameListRow: View {
             }
 
             Image(systemName: "chevron.right")
-                .font(.caption)
+                .font(DS.Typography.caption)
                 .foregroundStyle(Color.textTertiary)
         }
         .cardStyle()
@@ -704,10 +737,10 @@ struct StatsHeaderView: View {
 
     var body: some View {
         HStack(spacing: DS.Spacing.xs) {
-            MetricCard(value: "\(store.totalGames)", label: "Jeux", icon: "gamecontroller.fill", tint: Color(hex: "5B8DEF"), compact: true)
-            MetricCard(value: store.totalPlayTimeFormatted, label: "Joué", icon: "clock.fill", tint: Color(hex: "FF8A3D"), compact: true)
+            MetricCard(value: "\(store.totalGames)", label: "Jeux", icon: "gamecontroller.fill", tint: Color(hex: "8EA9C9"), compact: true)
+            MetricCard(value: store.totalPlayTimeFormatted, label: "Joué", icon: "clock.fill", tint: Color(hex: "E3A24C"), compact: true)
             MetricCard(value: String(format: "%.1f", store.averageRating), label: "Moyenne", icon: "star.fill", tint: .accent, compact: true)
-            MetricCard(value: "\(store.gamesCount(for: .completed) + store.gamesCount(for: .platinum))", label: "Finis", icon: "checkmark.circle.fill", tint: Color(hex: "FF8A3D"), compact: true)
+            MetricCard(value: "\(store.gamesCount(for: .completed) + store.gamesCount(for: .platinum))", label: "Finis", icon: "checkmark.circle.fill", tint: Color(hex: "E3A24C"), compact: true)
         }
         .padding(DS.Spacing.md)
         .background(Color.gbDark)

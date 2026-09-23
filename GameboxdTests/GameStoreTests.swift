@@ -1,10 +1,18 @@
 import XCTest
 @testable import Gameboxd
 
+/// A store backed by a throwaway directory, so tests never touch the app's real data.
+@MainActor
+func makeIsolatedStore() -> GameStore {
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let defaults = UserDefaults(suiteName: "tests-\(UUID().uuidString)")!
+    return GameStore(fileStore: FileStore(directory: dir, legacyDefaults: defaults))
+}
+
 @MainActor
 final class GameStoreTests: XCTestCase {
-    func testUpdateGameSanitizesReviewAndNotes() {
-        let store = GameStore()
+    func testUpdateGameKeepsReviewTextIntact() {
+        let store = makeIsolatedStore()
         store.myGames = []
         let game = Game(
             title: "Test",
@@ -19,12 +27,12 @@ final class GameStoreTests: XCTestCase {
         )
         store.updateGame(game)
         let saved = store.myGames.first(where: { $0.id == game.id })
-        XCTAssertEqual(saved?.review, "&lt;script&gt;alert(1)&lt;&#x2F;script&gt;")
-        XCTAssertEqual(saved?.notes, "hello &amp; bye")
+        XCTAssertEqual(saved?.review, "<script>alert(1)</script>")
+        XCTAssertEqual(saved?.notes, "hello & bye")
     }
 
     func testAddThenDeletePlaySessionRestoresPlayTime() {
-        let store = GameStore()
+        let store = makeIsolatedStore()
         store.myGames = []
         store.playSessions = []
         var game = Game(
@@ -47,7 +55,7 @@ final class GameStoreTests: XCTestCase {
     }
 
     func testDeletePlaySessionDoesNotGoNegative() {
-        let store = GameStore()
+        let store = makeIsolatedStore()
         store.myGames = []
         store.playSessions = []
         var game = Game(
@@ -78,7 +86,7 @@ final class GameStoreTests: XCTestCase {
     }
 
     private func emptyStore() -> GameStore {
-        let store = GameStore()
+        let store = makeIsolatedStore()
         store.myGames = []
         store.playSessions = []
         store.gameLists = [GameList(name: "L")]

@@ -30,7 +30,7 @@ struct UsernameSetupView: View {
                 HStack(spacing: 8) {
                     ForEach(Array(0..<3), id: \.self) { step in
                         Capsule()
-                            .fill(step <= currentStep ? Color.gbGreen : Color.gray.opacity(0.3))
+                            .fill(step <= currentStep ? Color.gbBrass : Color.gray.opacity(0.3))
                             .frame(height: 4)
                     }
                 }
@@ -63,7 +63,7 @@ struct UsernameSetupView: View {
                                 Image(systemName: "chevron.left")
                                 Text("Retour")
                             }
-                            .foregroundColor(.gray)
+                            .foregroundColor(.textSecondary)
                             .padding(.vertical, 14)
                             .padding(.horizontal, 24)
                         }
@@ -81,7 +81,7 @@ struct UsernameSetupView: View {
                         .frame(minWidth: 160)
                         .padding(.vertical, 14)
                         .padding(.horizontal, 24)
-                        .background(canProceed ? Color.gbGreen : Color.gray.opacity(0.3))
+                        .background(canProceed ? Color.gbBrass : Color.gray.opacity(0.3))
                         .foregroundColor(canProceed ? .black : .gray)
                         .cornerRadius(14)
                     }
@@ -108,7 +108,7 @@ struct UsernameSetupView: View {
             VStack(spacing: 16) {
                 ZStack {
                     Circle()
-                        .fill(Color.gbGreen.gradient)
+                        .fill(Color.gbBrass.gradient)
                         .frame(width: 100, height: 100)
                         .scaleEffect(isAnimating ? 1.05 : 1.0)
                     
@@ -116,7 +116,7 @@ struct UsernameSetupView: View {
                         .font(.system(size: 40))
                         .foregroundColor(.gbDark)
                 }
-                .shadow(color: .gbGreen.opacity(0.3), radius: 20)
+                .shadow(color: .gbBrass.opacity(0.3), radius: 20)
                 .onAppear {
                     withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
                         isAnimating = true
@@ -124,40 +124,40 @@ struct UsernameSetupView: View {
                 }
                 
                 Text("Choisis ton pseudo")
-                    .font(.title)
+                    .font(DS.Typography.title)
                     .fontWeight(.bold)
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
                 
                 Text("C'est comme ça que les autres joueurs te verront")
-                    .font(.subheadline)
-                    .foregroundColor(.gray)
+                    .font(DS.Typography.body)
+                    .foregroundColor(.textSecondary)
                     .multilineTextAlignment(.center)
             }
             
             VStack(spacing: 8) {
                 TextField("Ton pseudo gaming", text: $username)
-                    .font(.title3)
+                    .font(DS.Typography.title3)
                     .multilineTextAlignment(.center)
                     .padding()
                     .background(Color.gbCard)
                     .cornerRadius(12)
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                 
                 if !username.isEmpty {
                     if username.count < 3 {
                         Label("Minimum 3 caractères", systemImage: "exclamationmark.circle")
-                            .font(.caption)
+                            .font(DS.Typography.caption)
                             .foregroundColor(.orange)
                     } else if username.count > 20 {
                         Label("Maximum 20 caractères", systemImage: "exclamationmark.circle")
-                            .font(.caption)
+                            .font(DS.Typography.caption)
                             .foregroundColor(.orange)
                     } else {
                         Label("Super pseudo !", systemImage: "checkmark.circle.fill")
-                            .font(.caption)
-                            .foregroundColor(.gbGreen)
+                            .font(DS.Typography.caption)
+                            .foregroundColor(.gbBrass)
                     }
                 }
             }
@@ -176,22 +176,22 @@ struct UsernameSetupView: View {
             VStack(spacing: 16) {
                 ZStack {
                     Circle()
-                        .fill(Color.gbGreen.gradient)
+                        .fill(Color.gbBrass.gradient)
                         .frame(width: 100, height: 100)
                     
                     Text(selectedEmoji)
                         .font(.system(size: 50))
                 }
-                .shadow(color: .gbGreen.opacity(0.3), radius: 20)
+                .shadow(color: .gbBrass.opacity(0.3), radius: 20)
                 
                 Text("Choisis ton avatar")
-                    .font(.title)
+                    .font(DS.Typography.title)
                     .fontWeight(.bold)
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
                 
                 Text("Exprime ta personnalité gaming")
-                    .font(.subheadline)
-                    .foregroundColor(.gray)
+                    .font(DS.Typography.body)
+                    .foregroundColor(.textSecondary)
             }
             
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 5), spacing: 12) {
@@ -206,11 +206,11 @@ struct UsernameSetupView: View {
                             .frame(width: 55, height: 55)
                             .background(
                                 RoundedRectangle(cornerRadius: 12)
-                                    .fill(selectedEmoji == emoji ? Color.gbGreen.opacity(0.25) : Color.gbCard)
+                                    .fill(selectedEmoji == emoji ? Color.gbBrass.opacity(0.25) : Color.gbCard)
                             )
                             .overlay(
                                 RoundedRectangle(cornerRadius: 12)
-                                    .stroke(selectedEmoji == emoji ? Color.gbGreen : Color.clear, lineWidth: 2)
+                                    .stroke(selectedEmoji == emoji ? Color.gbBrass : Color.clear, lineWidth: 2)
                             )
                             .scaleEffect(selectedEmoji == emoji ? 1.1 : 1.0)
                     }
@@ -231,23 +231,23 @@ struct UsernameSetupView: View {
             VStack(spacing: 16) {
                 ZStack {
                     Circle()
-                        .fill(Color.gbGreen.gradient)
+                        .fill(Color.gbBrass.gradient)
                         .frame(width: 100, height: 100)
                     
                     Image(systemName: "gamecontroller.fill")
                         .font(.system(size: 40))
                         .foregroundColor(.gbDark)
                 }
-                .shadow(color: .gbGreen.opacity(0.3), radius: 20)
+                .shadow(color: .gbBrass.opacity(0.3), radius: 20)
                 
                 Text("Tes plateformes")
-                    .font(.title)
+                    .font(DS.Typography.title)
                     .fontWeight(.bold)
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
                 
                 Text("Sur quoi tu joues ? (optionnel)")
-                    .font(.subheadline)
-                    .foregroundColor(.gray)
+                    .font(DS.Typography.body)
+                    .foregroundColor(.textSecondary)
             }
             
             FlowLayout(spacing: 10) {
@@ -263,19 +263,19 @@ struct UsernameSetupView: View {
                     }) {
                         HStack(spacing: 6) {
                             Image(systemName: platformIcon(for: platform))
-                                .font(.caption)
+                                .font(DS.Typography.caption)
                             Text(platform)
-                                .font(.subheadline)
+                                .font(DS.Typography.body)
                                 .fontWeight(.medium)
                         }
                         .padding(.horizontal, 16)
                         .padding(.vertical, 10)
-                        .background(selectedPlatforms.contains(platform) ? Color.gbGreen.opacity(0.2) : Color.gbCard)
-                        .foregroundColor(selectedPlatforms.contains(platform) ? .gbGreen : .gray)
+                        .background(selectedPlatforms.contains(platform) ? Color.gbBrass.opacity(0.2) : Color.gbCard)
+                        .foregroundColor(selectedPlatforms.contains(platform) ? .gbBrass : .gray)
                         .cornerRadius(20)
                         .overlay(
                             RoundedRectangle(cornerRadius: 20)
-                                .stroke(selectedPlatforms.contains(platform) ? Color.gbGreen : Color.gray.opacity(0.3), lineWidth: 1)
+                                .stroke(selectedPlatforms.contains(platform) ? Color.gbBrass : Color.gray.opacity(0.3), lineWidth: 1)
                         )
                     }
                 }

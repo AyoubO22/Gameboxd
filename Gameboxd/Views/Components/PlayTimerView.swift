@@ -65,7 +65,7 @@ struct PlayTimerOverlay: View {
 
     @ViewBuilder
     private func gameCoverThumbnail(for game: Game) -> some View {
-        if let urlString = game.coverImageURL, let url = URL(string: urlString) {
+        if let url = game.artURL {
             CachedAsyncImage(url: url) { image in
                 image
                     .resizable()
@@ -87,7 +87,7 @@ struct PlayTimerOverlay: View {
                 .lineLimit(1)
 
             Text(timerManager.formattedTime)
-                .font(.system(size: 18, weight: .semibold, design: .monospaced))
+                .font(DS.Typography.display(24, weight: .heavy, relativeTo: .title3).monospacedDigit())
                 .foregroundStyle(Color.accent)
                 .contentTransition(.numericText())
                 .animation(.linear(duration: 0.3), value: timerManager.formattedTime)
@@ -109,6 +109,7 @@ struct PlayTimerOverlay: View {
                 .background(Color.accent.opacity(0.15))
                 .clipShape(Circle())
         }
+        .accessibilityLabel(timerManager.isPaused ? "Reprendre le chrono" : "Mettre le chrono en pause")
     }
 
     private var stopButton: some View {
@@ -120,6 +121,7 @@ struct PlayTimerOverlay: View {
                 .background(DS.Colors.error.opacity(0.15))
                 .clipShape(Circle())
         }
+        .accessibilityLabel("Arrêter et enregistrer la session")
     }
 
     // MARK: - Background Helpers

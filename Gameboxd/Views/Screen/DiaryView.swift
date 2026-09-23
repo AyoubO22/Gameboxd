@@ -40,6 +40,7 @@ struct DiaryView: View {
                         Image(systemName: "plus.circle.fill")
                             .foregroundStyle(Color.accent)
                     }
+                    .accessibilityLabel("Ajouter une session")
                 }
             }
             .sheet(isPresented: $showingAddSession) {
@@ -169,7 +170,7 @@ struct PlaySessionCard: View {
                         HStack(spacing: 2) {
                             ForEach(1...rating, id: \.self) { _ in
                                 Image(systemName: "star.fill")
-                                    .font(.caption2)
+                                    .font(DS.Typography.micro)
                             }
                         }
                         .foregroundStyle(Color.accent)
@@ -186,7 +187,7 @@ struct PlaySessionCard: View {
                             Text("Voir le spoiler")
                         }
                         .font(DS.Typography.caption)
-                        .foregroundStyle(Color(hex: "FF8A3D"))
+                        .foregroundStyle(Color(hex: "E3A24C"))
                     }
                 } else {
                     Text(session.notes)
@@ -315,12 +316,12 @@ struct PlaySessionDetailView: View {
                                 HStack(spacing: 2) {
                                     ForEach(1...rating, id: \.self) { _ in
                                         Image(systemName: "star.fill")
-                                            .font(.caption)
+                                            .font(DS.Typography.caption)
                                     }
                                     if rating < 5 {
                                     ForEach(rating..<5, id: \.self) { _ in
                                         Image(systemName: "star")
-                                            .font(.caption)
+                                            .font(DS.Typography.caption)
                                     }
                                     }
                                 }
@@ -345,7 +346,7 @@ struct PlaySessionDetailView: View {
                                         .font(DS.Typography.label)
                                         .padding(.horizontal, 8)
                                         .padding(.vertical, 4)
-                                        .background(Color(hex: "FF8A3D"))
+                                        .background(Color(hex: "E3A24C"))
                                         .foregroundStyle(Color.gbDark)
                                         .clipShape(Capsule())
                                 }
@@ -361,8 +362,8 @@ struct PlaySessionDetailView: View {
                                     }
                                     .frame(maxWidth: .infinity)
                                     .padding()
-                                    .background(Color(hex: "FF8A3D").opacity(0.16))
-                                    .foregroundStyle(Color(hex: "FF8A3D"))
+                                    .background(Color(hex: "E3A24C").opacity(0.16))
+                                    .foregroundStyle(Color(hex: "E3A24C"))
                                     .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
                                 }
                             } else {
@@ -383,7 +384,7 @@ struct PlaySessionDetailView: View {
                         .font(DS.Typography.headline)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .foregroundStyle(Color(hex: "FF5C5C"))
+                        .foregroundStyle(Color(hex: "D9695A"))
                         .contentShape(Rectangle())
                     }
                 }
@@ -643,7 +644,7 @@ struct CalendarDayCell: View {
                     }
 
                     Text(dayNumber)
-                        .font(.system(.callout, design: .monospaced, weight: isSelected || isToday ? .bold : .regular))
+                        .font(DS.Typography.text(16, weight: isSelected || isToday ? .bold : .regular).monospacedDigit())
                         .foregroundStyle(isSelected ? Color.gbDark : (isToday ? Color.accent : Color.textPrimary))
                 }
 
@@ -709,7 +710,7 @@ struct AddPlaySessionView: View {
                     if let game = selectedGame {
                         HStack {
                             Group {
-                                if let coverURL = game.coverImageURL, let url = URL(string: coverURL) {
+                                if let url = game.artURL {
                                     CachedAsyncImage(url: url) { image in
                                         image.resizable().aspectRatio(contentMode: .fill)
                                     } placeholder: {
@@ -781,7 +782,7 @@ struct AddPlaySessionView: View {
                                 }) {
                                     VStack(spacing: 4) {
                                         Image(systemName: tag.icon)
-                                            .font(.title3)
+                                            .font(DS.Typography.title3)
                                         Text(tag.rawValue)
                                             .font(DS.Typography.micro)
                                     }
@@ -818,7 +819,7 @@ struct AddPlaySessionView: View {
                     Toggle(isOn: $isSpoiler) {
                         Label("Contient des spoilers", systemImage: "eye.slash")
                     }
-                    .tint(Color(hex: "FF8A3D"))
+                    .tint(Color(hex: "E3A24C"))
                 }
             }
             .scrollContentBackground(.hidden)
@@ -857,7 +858,7 @@ struct AddPlaySessionView: View {
         let session = PlaySession(
             gameId: game.id,
             gameTitle: game.title,
-            gameCoverURL: game.coverImageURL,
+            gameCoverURL: game.artURL?.absoluteString,
             gameCoverColor: game.coverColor,
             date: date,
             duration: duration,
@@ -895,7 +896,7 @@ struct GamePickerView: View {
                 }) {
                     HStack {
                         Group {
-                            if let coverURL = game.coverImageURL, let url = URL(string: coverURL) {
+                            if let url = game.artURL {
                                 CachedAsyncImage(url: url) { image in
                                     image.resizable().aspectRatio(contentMode: .fill)
                                 } placeholder: {

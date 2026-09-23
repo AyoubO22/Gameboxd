@@ -26,15 +26,16 @@ struct GoalsView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
                         Text("Objectifs actifs")
-                            .font(.headline)
-                            .foregroundColor(.white)
+                            .font(DS.Typography.headline)
+                            .foregroundColor(.textPrimary)
                         
                         Spacer()
                         
                         Button(action: { showingAddGoal = true }) {
                             Image(systemName: "plus.circle.fill")
-                                .foregroundColor(.gbGreen)
+                                .foregroundColor(.gbBrass)
                         }
+                        .accessibilityLabel("Ajouter un objectif")
                     }
                     .padding(.horizontal)
                     
@@ -51,8 +52,8 @@ struct GoalsView: View {
                 // Suggested Goals
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Suggestions")
-                        .font(.headline)
-                        .foregroundColor(.white)
+                        .font(DS.Typography.headline)
+                        .foregroundColor(.textPrimary)
                         .padding(.horizontal)
                     
                     ForEach(GoalSuggestions.all, id: \.title) { suggestion in
@@ -67,8 +68,8 @@ struct GoalsView: View {
                 if !store.completedGoals.isEmpty {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Objectifs accomplis")
-                            .font(.headline)
-                            .foregroundColor(.white)
+                            .font(DS.Typography.headline)
+                            .foregroundColor(.textPrimary)
                             .padding(.horizontal)
                         
                         ScrollView(.horizontal, showsIndicators: false) {
@@ -113,13 +114,13 @@ struct MonthHeaderView: View {
     var body: some View {
         VStack(spacing: 8) {
             Text(monthName.capitalized)
-                .font(.title)
+                .font(DS.Typography.title)
                 .fontWeight(.bold)
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
             
             Text("Fixe-toi des objectifs et suis ta progression")
-                .font(.subheadline)
-                .foregroundColor(.gray)
+                .font(DS.Typography.body)
+                .foregroundColor(.textSecondary)
         }
         .frame(maxWidth: .infinity)
         .padding()
@@ -149,30 +150,30 @@ struct GoalCard: View {
                 // Icon
                 ZStack {
                     Circle()
-                        .fill(isCompleted ? Color.gbGreen : Color.gbGreen.opacity(0.2))
+                        .fill(isCompleted ? Color.gbBrass : Color.gbBrass.opacity(0.2))
                         .frame(width: 44, height: 44)
                     
                     Image(systemName: isCompleted ? "checkmark" : goal.icon)
-                        .font(.title3)
-                        .foregroundColor(isCompleted ? .gbDark : .gbGreen)
+                        .font(DS.Typography.title3)
+                        .foregroundColor(isCompleted ? .gbDark : .gbBrass)
                 }
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(goal.title)
-                        .font(.headline)
-                        .foregroundColor(.white)
+                        .font(DS.Typography.headline)
+                        .foregroundColor(.textPrimary)
                     
                     Text(goal.description)
-                        .font(.caption)
-                        .foregroundColor(.gray)
+                        .font(DS.Typography.caption)
+                        .foregroundColor(.textSecondary)
                 }
                 
                 Spacer()
                 
                 // Progress Text
                 Text("\(goal.current)/\(goal.target)")
-                    .font(.headline)
-                    .foregroundColor(isCompleted ? .gbGreen : .white)
+                    .font(DS.Typography.headline)
+                    .foregroundColor(isCompleted ? .gbBrass : .white)
             }
             
             // Progress Bar
@@ -183,7 +184,7 @@ struct GoalCard: View {
                         .frame(height: 8)
                     
                     RoundedRectangle(cornerRadius: 6)
-                        .fill(Color.gbGreen)
+                        .fill(Color.gbBrass)
                         .frame(width: geometry.size.width * progress, height: 8)
                         .animation(.spring(response: 0.5), value: progress)
                 }
@@ -194,11 +195,11 @@ struct GoalCard: View {
             if !isCompleted {
                 HStack {
                     Image(systemName: "calendar")
-                        .font(.caption2)
+                        .font(DS.Typography.micro)
                     Text("\(daysRemainingInMonth()) jours restants")
-                        .font(.caption)
+                        .font(DS.Typography.caption)
                 }
-                .foregroundColor(.gray)
+                .foregroundColor(.textSecondary)
             }
         }
         .padding()
@@ -206,7 +207,7 @@ struct GoalCard: View {
         .cornerRadius(12)
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(isCompleted ? Color.gbGreen : Color.clear, lineWidth: 2)
+                .stroke(isCompleted ? Color.gbBrass : Color.clear, lineWidth: 2)
         )
     }
     
@@ -227,19 +228,19 @@ struct EmptyGoalsView: View {
         VStack(spacing: 16) {
             Image(systemName: "target")
                 .font(.system(size: 40))
-                .foregroundColor(.gray.opacity(0.5))
+                .foregroundColor(.textSecondary.opacity(0.5))
             
             Text("Aucun objectif défini")
-                .font(.headline)
-                .foregroundColor(.gray)
+                .font(DS.Typography.headline)
+                .foregroundColor(.textSecondary)
             
             Button(action: onAdd) {
                 Text("Ajouter un objectif")
-                    .font(.subheadline)
+                    .font(DS.Typography.body)
                     .fontWeight(.medium)
                     .padding(.horizontal, 20)
                     .padding(.vertical, 10)
-                    .background(Color.gbGreen)
+                    .background(Color.gbBrass)
                     .foregroundColor(.gbDark)
                     .cornerRadius(20)
             }
@@ -260,28 +261,29 @@ struct SuggestedGoalCard: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: suggestion.icon)
-                .font(.title2)
-                .foregroundColor(.gbGreen)
+                .font(DS.Typography.title)
+                .foregroundColor(.gbBrass)
                 .frame(width: 40)
             
             VStack(alignment: .leading, spacing: 2) {
                 Text(suggestion.title)
-                    .font(.subheadline)
+                    .font(DS.Typography.body)
                     .fontWeight(.medium)
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
                 
                 Text(suggestion.description)
-                    .font(.caption)
-                    .foregroundColor(.gray)
+                    .font(DS.Typography.caption)
+                    .foregroundColor(.textSecondary)
             }
             
             Spacer()
             
             Button(action: onAdd) {
                 Image(systemName: "plus.circle.fill")
-                    .font(.title2)
-                    .foregroundColor(.gbGreen)
+                    .font(DS.Typography.title)
+                    .foregroundColor(.gbBrass)
             }
+            .accessibilityLabel("Ajouter cet objectif")
         }
         .padding()
         .background(Color.gbCard)
@@ -297,7 +299,7 @@ struct CompletedGoalBadge: View {
         VStack(spacing: 8) {
             ZStack {
                 Circle()
-                    .fill(Color.gbGreen.gradient)
+                    .fill(Color.gbBrass.gradient)
                     .frame(width: 50, height: 50)
                 
                 Image(systemName: goal.icon)
@@ -305,14 +307,14 @@ struct CompletedGoalBadge: View {
             }
             
             Text(goal.title)
-                .font(.caption2)
-                .foregroundColor(.white)
+                .font(DS.Typography.micro)
+                .foregroundColor(.textPrimary)
                 .lineLimit(1)
             
             if let date = goal.completedDate {
                 Text(date.formatted(.dateTime.month(.abbreviated)))
-                    .font(.caption2)
-                    .foregroundColor(.gray)
+                    .font(DS.Typography.micro)
+                    .foregroundColor(.textSecondary)
             }
         }
         .frame(width: 80)
@@ -355,7 +357,7 @@ struct AddGoalSheet: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Annuler") { dismiss() }
-                        .foregroundColor(.gray)
+                        .foregroundColor(.textSecondary)
                 }
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -363,7 +365,7 @@ struct AddGoalSheet: View {
                         addGoal()
                         dismiss()
                     }
-                    .foregroundColor(.gbGreen)
+                    .foregroundColor(.gbBrass)
                     .fontWeight(.semibold)
                 }
             }

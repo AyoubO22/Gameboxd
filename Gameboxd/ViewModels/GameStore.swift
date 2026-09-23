@@ -74,16 +74,22 @@ class GameStore: ObservableObject {
         static let completedGoals = "gameboxd_completed_goals"
         static let linkedAccounts = "gameboxd_linked_accounts"
         static let importedGames = "gameboxd_imported_games"
+        static let discoverCache = "gameboxd_discover_cache"
     }
     
+    // Collections are stored as JSON files (see FileStore); small flags stay in UserDefaults.
+    private let fileStore: FileStore
+
     // MARK: - Initialization
-    init() {
+    init(fileStore: FileStore = .shared) {
+        self.fileStore = fileStore
         isLoggedIn = UserDefaults.standard.bool(forKey: StorageKeys.isLoggedIn)
         loadAllData()
         initializeAchievements()
         updateGoalProgress()
         syncWidgetData()
         setICloudObservation(UserDefaults.standard.bool(forKey: "icloud_enabled"))
+        Task { await fetchMissingBoxArt() }
         // Discover data is loaded lazily in DiscoverView.onAppear
     }
     
@@ -124,32 +130,27 @@ class GameStore: ObservableObject {
         loadMonthlyGoals()
         loadLinkedAccounts()
         loadImportedGames()
+        loadDiscoverCache()
     }
     
-    /// Decodes a stored value. If the bytes exist but can't be decoded, they are
-    /// copied to a backup key first, so the next save can't silently destroy them.
     private func load<T: Decodable>(_ type: T.Type, key: String) -> T? {
-        guard let data = UserDefaults.standard.data(forKey: key) else { return nil }
-        do {
-            return try JSONDecoder().decode(T.self, from: data)
-        } catch {
-            UserDefaults.standard.set(data, forKey: key + "_unreadable_backup")
-            print("Failed to decode \(key), raw data backed up: \(error)")
-            return nil
-        }
+        fileStore.load(type, key: key)
     }
 
     private func loadGames() {
         if let decoded = load([Game].self, key: StorageKeys.myGames) {
-            myGames = decoded
+            myGames = decoded.map { game in
+                var repaired = game
+                repaired.review = SecurityManager.unescapeLegacyEntities(game.review)
+                repaired.notes = SecurityManager.unescapeLegacyEntities(game.notes)
+                return repaired
+            }
         }
         // A fresh install starts with an empty library — no seeded demo games.
     }
     
     private func saveGames(syncWidget: Bool = true) {
-        if let encoded = try? JSONEncoder().encode(myGames) {
-            UserDefaults.standard.set(encoded, forKey: StorageKeys.myGames)
-        }
+        fileStore.save(myGames, key: StorageKeys.myGames)
         checkAchievements()
         updateGoalProgress()
         if syncWidget {
@@ -164,9 +165,7 @@ class GameStore: ObservableObject {
     }
     
     private func savePlaySessions() {
-        if let encoded = try? JSONEncoder().encode(playSessions) {
-            UserDefaults.standard.set(encoded, forKey: StorageKeys.playSessions)
-        }
+        fileStore.save(playSessions, key: StorageKeys.playSessions)
     }
     
     private func loadGameLists() {
@@ -183,9 +182,7 @@ class GameStore: ObservableObject {
     }
     
     private func saveGameLists() {
-        if let encoded = try? JSONEncoder().encode(gameLists) {
-            UserDefaults.standard.set(encoded, forKey: StorageKeys.gameLists)
-        }
+        fileStore.save(gameLists, key: StorageKeys.gameLists)
     }
     
     private func loadUserProfile() {
@@ -195,9 +192,7 @@ class GameStore: ObservableObject {
     }
     
     func saveUserProfile(syncWidget: Bool = true) {
-        if let encoded = try? JSONEncoder().encode(userProfile) {
-            UserDefaults.standard.set(encoded, forKey: StorageKeys.userProfile)
-        }
+        fileStore.save(userProfile, key: StorageKeys.userProfile)
         if syncWidget {
             syncWidgetData()
         }
@@ -212,9 +207,7 @@ class GameStore: ObservableObject {
     }
     
     private func saveLinkedAccounts() {
-        if let encoded = try? JSONEncoder().encode(linkedAccounts) {
-            UserDefaults.standard.set(encoded, forKey: StorageKeys.linkedAccounts)
-        }
+        fileStore.save(linkedAccounts, key: StorageKeys.linkedAccounts)
     }
     
     private func loadImportedGames() {
@@ -224,9 +217,7 @@ class GameStore: ObservableObject {
     }
     
     private func saveImportedGames() {
-        if let encoded = try? JSONEncoder().encode(importedGames) {
-            UserDefaults.standard.set(encoded, forKey: StorageKeys.importedGames)
-        }
+        fileStore.save(importedGames, key: StorageKeys.importedGames)
     }
     
     /// Link a new gaming platform account
@@ -363,10 +354,38 @@ class GameStore: ObservableObject {
             group.addTask { @MainActor in await self.fetchTopRated() }
             group.addTask { @MainActor in await self.fetchUpcomingGames() }
         }
+        guard !trendingGames.isEmpty || !newReleases.isEmpty else { return }
+        discoverCacheDate = Date()
+        fileStore.save(DiscoverCache(date: Date(), trending: trendingGames, newReleases: newReleases,
+                                     topRated: topRated, upcoming: upcomingGames), key: StorageKeys.discoverCache)
+    }
+
+    // MARK: - Discover cache
+    // Discover opens instantly with the last lists; they refresh in the background when old.
+
+    private struct DiscoverCache: Codable {
+        let date: Date
+        let trending, newReleases, topRated, upcoming: [Game]
+    }
+
+    private var discoverCacheDate: Date?
+
+    private func loadDiscoverCache() {
+        guard let cache = load(DiscoverCache.self, key: StorageKeys.discoverCache) else { return }
+        trendingGames = cache.trending
+        newReleases = cache.newReleases
+        topRated = cache.topRated
+        upcomingGames = cache.upcoming
+        discoverCacheDate = cache.date
+    }
+
+    func refreshDiscoverIfStale() async {
+        if let date = discoverCacheDate, Date().timeIntervalSince(date) < 6 * 3600 { return }
+        await loadDiscoverData()
     }
     
     func fetchTrendingGames() async {
-        isLoadingTrending = true
+        isLoadingTrending = trendingGames.isEmpty // keep showing the cached list while refreshing
         do {
             let games = try await rawgService.getTrendingGames()
             trendingGames = games.map { $0.toGame() }
@@ -377,7 +396,7 @@ class GameStore: ObservableObject {
     }
     
     func fetchNewReleases() async {
-        isLoadingNewReleases = true
+        isLoadingNewReleases = newReleases.isEmpty // keep showing the cached list while refreshing
         do {
             let games = try await rawgService.getNewReleases()
             newReleases = games.map { $0.toGame() }
@@ -388,7 +407,7 @@ class GameStore: ObservableObject {
     }
     
     func fetchTopRated() async {
-        isLoadingTopRated = true
+        isLoadingTopRated = topRated.isEmpty // keep showing the cached list while refreshing
         do {
             let games = try await rawgService.getTopRated()
             topRated = games.map { $0.toGame() }
@@ -399,7 +418,7 @@ class GameStore: ObservableObject {
     }
     
     func fetchUpcomingGames() async {
-        isLoadingUpcoming = true
+        isLoadingUpcoming = upcomingGames.isEmpty // keep showing the cached list while refreshing
         do {
             let games = try await rawgService.getUpcomingGames()
             upcomingGames = games.map { $0.toGame() }
@@ -410,11 +429,14 @@ class GameStore: ObservableObject {
     }
     
     private var latestSearchQuery = ""
+    /// The query `searchResults` answers. Until it equals what's typed, a search is pending.
+    @Published private(set) var searchedQuery = ""
 
     func searchGamesOnline(query: String) async {
         latestSearchQuery = query
         guard !query.isEmpty else {
             searchResults = []
+            searchedQuery = ""
             isSearching = false
             return
         }
@@ -427,7 +449,9 @@ class GameStore: ObservableObject {
         } catch {
             print("Error searching: \(error)")
         }
-        if query == latestSearchQuery { isSearching = false }
+        guard query == latestSearchQuery else { return }
+        searchedQuery = query
+        isSearching = false
     }
     
     func fetchSimilarGames(for game: Game) async -> [Game] {
@@ -478,9 +502,11 @@ class GameStore: ObservableObject {
 
         if let index {
             updated.id = myGames[index].id
+            if updated.boxArtURL == nil { updated.boxArtURL = myGames[index].boxArtURL }
             myGames[index] = updated
         } else {
             myGames.append(updated)
+            Task { await fetchMissingBoxArt() }
         }
 
         // Sync favorite state with userProfile
@@ -821,9 +847,7 @@ class GameStore: ObservableObject {
     }
     
     private func saveAchievements() {
-        if let encoded = try? JSONEncoder().encode(achievements) {
-            UserDefaults.standard.set(encoded, forKey: StorageKeys.achievements)
-        }
+        fileStore.save(achievements, key: StorageKeys.achievements)
     }
     
     func checkAchievements() {
@@ -964,9 +988,7 @@ class GameStore: ObservableObject {
     }
     
     func saveCustomTags() {
-        if let encoded = try? JSONEncoder().encode(customTags) {
-            UserDefaults.standard.set(encoded, forKey: StorageKeys.customTags)
-        }
+        fileStore.save(customTags, key: StorageKeys.customTags)
     }
     
     func addCustomTag(_ tag: CustomTag) {
@@ -988,9 +1010,7 @@ class GameStore: ObservableObject {
     }
     
     private func saveFriends() {
-        if let encoded = try? JSONEncoder().encode(friends) {
-            UserDefaults.standard.set(encoded, forKey: StorageKeys.friends)
-        }
+        fileStore.save(friends, key: StorageKeys.friends)
     }
     
     // MARK: - Monthly Goals
@@ -1005,12 +1025,8 @@ class GameStore: ObservableObject {
     }
     
     private func saveMonthlyGoals() {
-        if let encoded = try? JSONEncoder().encode(monthlyGoals) {
-            UserDefaults.standard.set(encoded, forKey: StorageKeys.monthlyGoals)
-        }
-        if let encoded = try? JSONEncoder().encode(completedGoals) {
-            UserDefaults.standard.set(encoded, forKey: StorageKeys.completedGoals)
-        }
+        fileStore.save(monthlyGoals, key: StorageKeys.monthlyGoals)
+        fileStore.save(completedGoals, key: StorageKeys.completedGoals)
     }
     
     func addMonthlyGoal(_ goal: MonthlyGoal) {
@@ -1270,7 +1286,7 @@ class GameStore: ObservableObject {
         userProfile = UserProfile()
         userProfile.username = username
         
-        // Clear UserDefaults
+        // Remove the stored files
         let keys = [
             StorageKeys.myGames,
             StorageKeys.playSessions,
@@ -1285,7 +1301,7 @@ class GameStore: ObservableObject {
         ]
         
         for key in keys {
-            UserDefaults.standard.removeObject(forKey: key)
+            fileStore.remove(key: key)
         }
         
         // Recreate the default lists and achievements
@@ -1354,12 +1370,40 @@ class GameStore: ObservableObject {
         return count
     }
 
+    // MARK: - Box art (IGDB)
+
+    private var isFetchingBoxArt = false
+
+    /// Looks up portrait box art for library games that don't have it yet, one request
+    /// at a time (IGDB allows 4 per second). Network errors leave the game for next launch.
+    func fetchMissingBoxArt() async {
+        guard IGDBService.shared.isConfigured, !isFetchingBoxArt else { return }
+        isFetchingBoxArt = true
+        defer { isFetchingBoxArt = false }
+
+        var changed = false
+        while let game = myGames.first(where: { $0.boxArtURL == nil }) {
+            let url: URL?
+            do {
+                url = try await IGDBService.shared.boxArtURL(title: game.title, year: game.releaseYear)
+            } catch {
+                break // offline or auth failure: try again next launch
+            }
+            if let index = myGames.firstIndex(where: { $0.id == game.id }) {
+                myGames[index].boxArtURL = url?.absoluteString ?? ""
+                changed = true
+            }
+            try? await Task.sleep(for: .milliseconds(260))
+        }
+        if changed { saveGames() }
+    }
+
     // MARK: - Widget Sync
 
     private func makeWidgetGame(from game: Game) -> SharedDataProvider.WidgetGame {
         SharedDataProvider.WidgetGame(
             title: game.title,
-            coverURL: game.coverImageURL,
+            coverURL: game.artURL?.absoluteString,
             platform: game.platform,
             playTimeMinutes: game.playTimeMinutes,
             status: game.status.rawValue

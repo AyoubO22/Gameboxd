@@ -29,7 +29,7 @@ struct EditProfileView: View {
                 VStack(spacing: 16) {
                     ZStack {
                         Circle()
-                            .fill(Color.gbGreen.gradient)
+                            .fill(Color.gbBrass.gradient)
                             .frame(width: 100, height: 100)
                         
                         Text(selectedEmoji)
@@ -37,8 +37,8 @@ struct EditProfileView: View {
                     }
                     
                     Text("Choisis ton avatar")
-                        .font(.caption)
-                        .foregroundColor(.gray)
+                        .font(DS.Typography.caption)
+                        .foregroundColor(.textSecondary)
                     
                     // Emoji Grid
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 5), spacing: 12) {
@@ -49,11 +49,11 @@ struct EditProfileView: View {
                                     .frame(width: 50, height: 50)
                                     .background(
                                         RoundedRectangle(cornerRadius: 10)
-                                            .fill(selectedEmoji == emoji ? Color.gbGreen.opacity(0.3) : Color.gbCard)
+                                            .fill(selectedEmoji == emoji ? Color.gbBrass.opacity(0.3) : Color.gbCard)
                                     )
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 10)
-                                            .stroke(selectedEmoji == emoji ? Color.gbGreen : Color.clear, lineWidth: 2)
+                                            .stroke(selectedEmoji == emoji ? Color.gbBrass : Color.clear, lineWidth: 2)
                                     )
                             }
                         }
@@ -66,26 +66,26 @@ struct EditProfileView: View {
                 // Username & Bio
                 VStack(alignment: .leading, spacing: 16) {
                     Text("Informations")
-                        .font(.headline)
-                        .foregroundColor(.white)
+                        .font(DS.Typography.headline)
+                        .foregroundColor(.textPrimary)
                     
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Pseudo")
-                            .font(.caption)
-                            .foregroundColor(.gray)
+                            .font(DS.Typography.caption)
+                            .foregroundColor(.textSecondary)
                         
                         TextField("Ton pseudo", text: $username)
                             .textFieldStyle(.plain)
                             .padding(12)
                             .background(Color.gbDark)
                             .cornerRadius(8)
-                            .foregroundColor(.white)
+                            .foregroundColor(.textPrimary)
                     }
                     
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Bio")
-                            .font(.caption)
-                            .foregroundColor(.gray)
+                            .font(DS.Typography.caption)
+                            .foregroundColor(.textSecondary)
                         
                         TextEditor(text: $bio)
                             .scrollContentBackground(.hidden)
@@ -93,25 +93,25 @@ struct EditProfileView: View {
                             .padding(8)
                             .background(Color.gbDark)
                             .cornerRadius(8)
-                            .foregroundColor(.white)
+                            .foregroundColor(.textPrimary)
                     }
                     
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Objectif annuel de jeux terminés")
-                            .font(.caption)
-                            .foregroundColor(.gray)
+                            .font(DS.Typography.caption)
+                            .foregroundColor(.textSecondary)
                         
                         HStack {
                             Text("\(yearlyGoal) jeux")
-                                .font(.headline)
-                                .foregroundColor(.gbGreen)
+                                .font(DS.Typography.headline)
+                                .foregroundColor(.gbBrass)
                                 .frame(width: 80)
                             
                             Slider(value: Binding(
                                 get: { Double(yearlyGoal) },
                                 set: { yearlyGoal = Int($0) }
                             ), in: 1...100, step: 1)
-                            .tint(.gbGreen)
+                            .tint(.gbBrass)
                         }
                     }
                 }
@@ -122,8 +122,8 @@ struct EditProfileView: View {
                 // Platforms
                 VStack(alignment: .leading, spacing: 16) {
                     Text("Plateformes préférées")
-                        .font(.headline)
-                        .foregroundColor(.white)
+                        .font(DS.Typography.headline)
+                        .foregroundColor(.textPrimary)
                     
                     FlowLayout(spacing: 8) {
                         ForEach(platformOptions, id: \.self) { platform in
@@ -153,7 +153,7 @@ struct EditProfileView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(showingSaved ? Color.green : Color.gbGreen)
+                    .background(showingSaved ? Color.green : Color.gbBrass)
                     .foregroundColor(showingSaved ? .white : .black)
                     .cornerRadius(12)
                 }
@@ -214,19 +214,19 @@ struct PlatformChip: View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Image(systemName: platformIcon)
-                    .font(.caption)
+                    .font(DS.Typography.caption)
                 Text(name)
-                    .font(.caption)
+                    .font(DS.Typography.caption)
                     .fontWeight(.medium)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(isSelected ? Color.gbGreen.opacity(0.2) : Color.gbDark)
-            .foregroundColor(isSelected ? .gbGreen : .gray)
+            .background(isSelected ? Color.gbBrass.opacity(0.2) : Color.gbDark)
+            .foregroundColor(isSelected ? .gbBrass : .gray)
             .cornerRadius(20)
             .overlay(
                 RoundedRectangle(cornerRadius: 20)
-                    .stroke(isSelected ? Color.gbGreen : Color.gray.opacity(0.3), lineWidth: 1)
+                    .stroke(isSelected ? Color.gbBrass : Color.gray.opacity(0.3), lineWidth: 1)
             )
         }
     }

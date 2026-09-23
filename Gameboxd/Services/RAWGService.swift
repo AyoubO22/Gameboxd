@@ -257,8 +257,8 @@ class RAWGService: ObservableObject {
 // MARK: - Convert RAWG Game to App Game Model
 extension RAWGGame {
     func toGame() -> Game {
-        let platformName = platforms?.first?.platform.name ?? "Unknown"
-        let developerName = developers?.first?.name ?? "Unknown"
+        let platformName = platforms?.first?.platform.name ?? ""
+        let developerName = developers?.first?.name ?? ""
         let year = released?.prefix(4).description ?? "TBA"
         let genreList = genres?.map { $0.name } ?? []
         

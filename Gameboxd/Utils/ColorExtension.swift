@@ -1,21 +1,20 @@
 import SwiftUI
 
 extension Color {
-    // Palette (hardcoded — single design, no per-user theming)
-    static let gbGreen = Color(hex: "D4FF3F")
-    static let gbDark = Color(hex: "0A0B0D")
-    static let gbCard = Color(hex: "16181C")
-    static let gbSurface2 = Color(hex: "1E2126")
-    static let gbBorder = Color(hex: "23262B")
+    // Palette « L'Étagère » : bois de noyer, laiton, os.
+    static let gbBrass = Color(hex: "D1AE66")      // laiton : actions, sélection
+    static let gbDark = Color(hex: "1E1915")       // noyer foncé : fond
+    static let gbCard = Color(hex: "2B241F")       // noyer : surfaces
+    static let gbSurface2 = Color(hex: "362D27")   // noyer clair : surfaces imbriquées
+    static let gbBorder = Color(hex: "463B33")     // arête de planche
 
-    // Couleur pour le texte secondaire
-    static let gbTextSecondary = Color(hex: "9BA1A9")
+    static let gbTextSecondary = Color(hex: "ADA092")
 
     // MARK: - Semantic Design System Colors
-    static let accent = Color.gbGreen
-    static let textPrimary = Color(hex: "F5F6F2")
+    static let accent = Color.gbBrass
+    static let textPrimary = Color(hex: "F1EADF")  // os
     static let textSecondary = Color.gbTextSecondary
-    static let textTertiary = Color(hex: "5C6167")
+    static let textTertiary = Color(hex: "85786B")
     static let surfacePrimary = Color.gbCard
     static let surfaceSecondary = Color.gbSurface2
     static let separator = Color.gbBorder
@@ -71,7 +70,5 @@ extension Color {
 
 // MARK: - Metacritic Color Helper (global)
 func metacriticColor(_ score: Int) -> Color {
-    if score >= 75 { return .green }
-    if score >= 50 { return .yellow }
-    return .red
+    DS.Colors.score(score)
 }

@@ -13,5 +13,24 @@
 	-->
 	<key>RAWG_API_KEY</key>
 	<string>$(RAWG_API_KEY)</string>
+	<key>IGDB_CLIENT_ID</key>
+	<string>$(IGDB_CLIENT_ID)</string>
+	<key>IGDB_CLIENT_SECRET</key>
+	<string>$(IGDB_CLIENT_SECRET)</string>
+	<!-- Launch screen in the app's walnut, so opening the app doesn't flash white -->
+	<key>UILaunchScreen</key>
+	<dict>
+		<key>UIColorName</key>
+		<string>LaunchBackground</string>
+	</dict>
+	<!-- Bundled typefaces (SIL Open Font License, see Resources/Fonts/OFL.txt) -->
+	<key>UIAppFonts</key>
+	<array>
+		<string>BigShouldersDisplay-Variable.ttf</string>
+		<string>AtkinsonHyperlegible-Regular.ttf</string>
+		<string>AtkinsonHyperlegible-Bold.ttf</string>
+		<string>AtkinsonHyperlegible-Italic.ttf</string>
+		<string>AtkinsonHyperlegible-BoldItalic.ttf</string>
+	</array>
 </dict>
 </plist>

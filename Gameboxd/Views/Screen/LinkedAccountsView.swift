@@ -70,7 +70,7 @@ struct LinkedAccountsView: View {
         VStack(spacing: 12) {
             ZStack {
                 Circle()
-                    .fill(Color.gbGreen.gradient)
+                    .fill(Color.gbBrass.gradient)
                     .frame(width: 80, height: 80)
                 
                 Image(systemName: "link.badge.plus")
@@ -79,13 +79,13 @@ struct LinkedAccountsView: View {
             }
             
             Text("Lie tes comptes gaming")
-                .font(.title2)
+                .font(DS.Typography.title)
                 .fontWeight(.bold)
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
             
             Text("Importe ta bibliothèque PlayStation ou Steam\npour retrouver tous tes jeux ici")
-                .font(.subheadline)
-                .foregroundColor(.gray)
+                .font(DS.Typography.body)
+                .foregroundColor(.textSecondary)
                 .multilineTextAlignment(.center)
         }
         .padding()
@@ -95,8 +95,8 @@ struct LinkedAccountsView: View {
     var connectedAccountsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Comptes connectés")
-                .font(.headline)
-                .foregroundColor(.white)
+                .font(DS.Typography.headline)
+                .foregroundColor(.textPrimary)
                 .padding(.horizontal)
             
             ForEach(store.linkedAccounts) { account in
@@ -115,8 +115,8 @@ struct LinkedAccountsView: View {
     var availablePlatformsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(store.linkedAccounts.isEmpty ? "Plateformes disponibles" : "Ajouter un compte")
-                .font(.headline)
-                .foregroundColor(.white)
+                .font(DS.Typography.headline)
+                .foregroundColor(.textPrimary)
                 .padding(.horizontal)
             
             ForEach(GamingPlatform.allCases) { platform in
@@ -137,14 +137,14 @@ struct LinkedAccountsView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Jeux importés")
-                    .font(.headline)
-                    .foregroundColor(.white)
+                    .font(DS.Typography.headline)
+                    .foregroundColor(.textPrimary)
                 
                 Spacer()
                 
                 Text("\(store.importedGames.count) jeux")
-                    .font(.caption)
-                    .foregroundColor(.gray)
+                    .font(DS.Typography.caption)
+                    .foregroundColor(.textSecondary)
             }
             .padding(.horizontal)
             
@@ -159,11 +159,11 @@ struct LinkedAccountsView: View {
                 NavigationLink(destination: AllImportedGamesView()) {
                     HStack {
                         Text("Voir les \(store.importedGames.count) jeux importés")
-                            .font(.subheadline)
-                            .foregroundColor(.gbGreen)
+                            .font(DS.Typography.body)
+                            .foregroundColor(.gbBrass)
                         Image(systemName: "chevron.right")
-                            .font(.caption)
-                            .foregroundColor(.gbGreen)
+                            .font(DS.Typography.caption)
+                            .foregroundColor(.gbBrass)
                     }
                     .padding()
                     .frame(maxWidth: .infinity)
@@ -215,29 +215,29 @@ struct ConnectedAccountCard: View {
                         .frame(width: 50, height: 50)
                     
                     Image(systemName: account.platform.sfSymbol)
-                        .font(.title2)
+                        .font(DS.Typography.title)
                         .foregroundColor(account.platform.accentColor)
                 }
                 
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 6) {
                         Text(account.platform.rawValue)
-                            .font(.headline)
-                            .foregroundColor(.white)
+                            .font(DS.Typography.headline)
+                            .foregroundColor(.textPrimary)
                         
                         Image(systemName: "checkmark.seal.fill")
-                            .font(.caption)
-                            .foregroundColor(.gbGreen)
+                            .font(DS.Typography.caption)
+                            .foregroundColor(.gbBrass)
                     }
                     
                     Text(account.platformUsername.isEmpty ? account.platformUserId : account.platformUsername)
-                        .font(.subheadline)
-                        .foregroundColor(.gray)
+                        .font(DS.Typography.body)
+                        .foregroundColor(.textSecondary)
                     
                     if let lastSync = account.lastSyncDate {
                         Text("Sync: \(lastSync.formatted(.relative(presentation: .named)))")
-                            .font(.caption2)
-                            .foregroundColor(.gray.opacity(0.7))
+                            .font(DS.Typography.micro)
+                            .foregroundColor(.textSecondary.opacity(0.7))
                     }
                 }
                 
@@ -246,13 +246,13 @@ struct ConnectedAccountCard: View {
                 // Stats
                 VStack(alignment: .trailing, spacing: 4) {
                     Text("\(account.importedGameCount)")
-                        .font(.title3)
+                        .font(DS.Typography.title3)
                         .fontWeight(.bold)
-                        .foregroundColor(.gbGreen)
+                        .foregroundColor(.gbBrass)
                     
                     Text("jeux")
-                        .font(.caption2)
-                        .foregroundColor(.gray)
+                        .font(DS.Typography.micro)
+                        .foregroundColor(.textSecondary)
                 }
             }
             
@@ -265,17 +265,17 @@ struct ConnectedAccountCard: View {
                         if isSyncing {
                             ProgressView()
                                 .scaleEffect(0.8)
-                                .tint(.gbGreen)
+                                .tint(.gbBrass)
                         } else {
                             Image(systemName: "arrow.triangle.2.circlepath")
                         }
                         Text("Synchroniser")
-                            .font(.subheadline)
+                            .font(DS.Typography.body)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
                     .background(Color.gbDark)
-                    .foregroundColor(.gbGreen)
+                    .foregroundColor(.gbBrass)
                     .cornerRadius(10)
                 }
                 .disabled(isSyncing)
@@ -285,7 +285,7 @@ struct ConnectedAccountCard: View {
                     HStack(spacing: 6) {
                         Image(systemName: "link.badge.minus")
                         Text("Délier")
-                            .font(.subheadline)
+                            .font(DS.Typography.body)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
@@ -315,25 +315,25 @@ struct PlatformLinkCard: View {
                         .frame(width: 50, height: 50)
                     
                     Image(systemName: platform.sfSymbol)
-                        .font(.title2)
+                        .font(DS.Typography.title)
                         .foregroundColor(platform.accentColor)
                 }
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(platform.rawValue)
-                        .font(.headline)
-                        .foregroundColor(.white)
+                        .font(DS.Typography.headline)
+                        .foregroundColor(.textPrimary)
                     
                     Text(platform.description)
-                        .font(.caption)
-                        .foregroundColor(.gray)
+                        .font(DS.Typography.caption)
+                        .foregroundColor(.textSecondary)
                         .lineLimit(2)
                 }
                 
                 Spacer()
                 
                 Image(systemName: "plus.circle.fill")
-                    .font(.title2)
+                    .font(DS.Typography.title)
                     .foregroundColor(platform.accentColor)
             }
             .padding()
@@ -370,24 +370,24 @@ struct LinkPlatformSheet: View {
                         
                         Image(systemName: platform.sfSymbol)
                             .font(.system(size: 35))
-                            .foregroundColor(.white)
+                            .foregroundColor(.textPrimary)
                     }
                     .padding(.top, 20)
                     
                     Text("Lier \(platform.rawValue)")
-                        .font(.title2)
+                        .font(DS.Typography.title)
                         .fontWeight(.bold)
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
                     
                     // Instructions
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Instructions")
-                            .font(.headline)
-                            .foregroundColor(.white)
+                            .font(DS.Typography.headline)
+                            .foregroundColor(.textPrimary)
                         
                         Text(platform.setupInstructions)
-                            .font(.subheadline)
-                            .foregroundColor(.gray)
+                            .font(DS.Typography.body)
+                            .foregroundColor(.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     .padding()
@@ -397,8 +397,8 @@ struct LinkPlatformSheet: View {
                     // ID Input
                     VStack(alignment: .leading, spacing: 8) {
                         Text(platform == .steam ? "Steam ID ou URL de profil" : "PSN ID (Online ID)")
-                            .font(.subheadline)
-                            .foregroundColor(.gray)
+                            .font(DS.Typography.body)
+                            .foregroundColor(.textSecondary)
                         
                         TextField(
                             platform == .steam ? "Ex: 76561198000000000 ou nom_perso" : "Ex: MonPSN_ID",
@@ -408,7 +408,7 @@ struct LinkPlatformSheet: View {
                         .padding()
                         .background(Color.gbCard)
                         .cornerRadius(12)
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                     }
@@ -416,7 +416,7 @@ struct LinkPlatformSheet: View {
                     
                     if let error = errorMessage {
                         Label(error, systemImage: "exclamationmark.triangle.fill")
-                            .font(.subheadline)
+                            .font(DS.Typography.body)
                             .foregroundColor(.red)
                             .padding(.horizontal)
                     }
@@ -425,11 +425,11 @@ struct LinkPlatformSheet: View {
                         VStack(spacing: 12) {
                             Image(systemName: "checkmark.circle.fill")
                                 .font(.system(size: 50))
-                                .foregroundColor(.gbGreen)
+                                .foregroundColor(.gbBrass)
                             
                             Text("Compte lié avec succès !")
-                                .font(.headline)
-                                .foregroundColor(.gbGreen)
+                                .font(DS.Typography.headline)
+                                .foregroundColor(.gbBrass)
                         }
                         .padding()
                     }
@@ -451,7 +451,7 @@ struct LinkPlatformSheet: View {
                         .fontWeight(.semibold)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(linkSuccess ? Color.green : Color.gbGreen)
+                        .background(linkSuccess ? Color.green : Color.gbBrass)
                         .foregroundColor(.black)
                         .cornerRadius(14)
                     }
@@ -466,7 +466,7 @@ struct LinkPlatformSheet: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Fermer") { dismiss() }
-                        .foregroundColor(.gbGreen)
+                        .foregroundColor(.gbBrass)
                 }
             }
         }
@@ -525,29 +525,29 @@ struct ImportedGameRow: View {
                     .frame(width: 60, height: 35)
                     .overlay(
                         Image(systemName: game.platform.sfSymbol)
-                            .font(.caption)
-                            .foregroundColor(.gray)
+                            .font(DS.Typography.caption)
+                            .foregroundColor(.textSecondary)
                     )
             }
             
             VStack(alignment: .leading, spacing: 3) {
                 Text(game.title)
-                    .font(.subheadline)
+                    .font(DS.Typography.body)
                     .fontWeight(.medium)
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
                     .lineLimit(1)
                 
                 HStack(spacing: 8) {
                     if game.playtimeMinutes > 0 {
                         Label(game.formattedPlaytime, systemImage: "clock")
-                            .font(.caption2)
-                            .foregroundColor(.gray)
+                            .font(DS.Typography.micro)
+                            .foregroundColor(.textSecondary)
                     }
                     
                     if game.achievementsTotal > 0 {
                         Label("\(game.achievementsEarned)/\(game.achievementsTotal)", systemImage: "trophy")
-                            .font(.caption2)
-                            .foregroundColor(.gray)
+                            .font(DS.Typography.micro)
+                            .foregroundColor(.textSecondary)
                     }
                 }
             }
@@ -556,16 +556,16 @@ struct ImportedGameRow: View {
             
             if game.isImportedToLibrary {
                 Image(systemName: "checkmark.circle.fill")
-                    .foregroundColor(.gbGreen)
+                    .foregroundColor(.gbBrass)
             } else {
                 Button(action: onImport) {
                     Text("Ajouter")
-                        .font(.caption)
+                        .font(DS.Typography.caption)
                         .fontWeight(.medium)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
-                        .background(Color.gbGreen.opacity(0.2))
-                        .foregroundColor(.gbGreen)
+                        .background(Color.gbBrass.opacity(0.2))
+                        .foregroundColor(.gbBrass)
                         .cornerRadius(8)
                 }
             }
@@ -650,16 +650,16 @@ private struct LinkedAccountsFilterChip: View {
     var body: some View {
         Button(action: action) {
             Text(label)
-                .font(.caption)
+                .font(DS.Typography.caption)
                 .fontWeight(.medium)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
-                .background(isSelected ? Color.gbGreen.opacity(0.2) : Color.gbCard)
-                .foregroundColor(isSelected ? .gbGreen : .gray)
+                .background(isSelected ? Color.gbBrass.opacity(0.2) : Color.gbCard)
+                .foregroundColor(isSelected ? .gbBrass : .gray)
                 .cornerRadius(20)
                 .overlay(
                     RoundedRectangle(cornerRadius: 20)
-                        .stroke(isSelected ? Color.gbGreen : Color.clear, lineWidth: 1)
+                        .stroke(isSelected ? Color.gbBrass : Color.clear, lineWidth: 1)
                 )
         }
     }

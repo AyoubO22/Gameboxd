@@ -368,34 +368,32 @@ class SecurityManager: ObservableObject {
     // MARK: - Input Validation (Prevent Injection Attacks)
     
     /// Validate and sanitize user input
+    /// Cleans free text before storing it: drops NUL and invisible control characters
+    /// (keeping line breaks and tabs) and caps the length.
+    ///
+    /// No HTML escaping: nothing in the app renders HTML, and escaping at storage time
+    /// corrupted text ("l'écriture" was saved as "l&#x27;écriture", then escaped again on
+    /// every save). Escape at the point of rendering if HTML output is ever added.
     func sanitizeInput(_ input: String) -> String {
-        // Remove potential XSS/injection characters
-        var sanitized = input
-        
-        // HTML entities — ampersand MUST be replaced first to avoid
-        // double-encoding (e.g. "<" → "&lt;" → "&amp;lt;" if & ran later).
-        let replacements: [(String, String)] = [
-            ("&", "&amp;"),
-            ("<", "&lt;"),
-            (">", "&gt;"),
-            ("\"", "&quot;"),
-            ("'", "&#x27;"),
-            ("/", "&#x2F;")
-        ]
+        let kept = input.unicodeScalars.filter { scalar in
+            scalar == "\n" || scalar == "\t" || !CharacterSet.controlCharacters.contains(scalar)
+        }
+        return String(String.UnicodeScalarView(kept).prefix(10_000))
+    }
 
-        for (char, replacement) in replacements {
-            sanitized = sanitized.replacingOccurrences(of: char, with: replacement)
+    /// Undoes the HTML entities older versions wrote into reviews and notes
+    /// (possibly several layers deep, one per save).
+    static func unescapeLegacyEntities(_ text: String) -> String {
+        guard text.contains("&") else { return text }
+        let entities = [("&lt;", "<"), ("&gt;", ">"), ("&quot;", "\""), ("&#x27;", "'"), ("&#x2F;", "/"), ("&amp;", "&")]
+        var current = text
+        for _ in 0..<8 {
+            var next = current
+            for (entity, char) in entities { next = next.replacingOccurrences(of: entity, with: char) }
+            if next == current { break }
+            current = next
         }
-        
-        // Remove null bytes
-        sanitized = sanitized.replacingOccurrences(of: "\0", with: "")
-        
-        // Limit length to prevent buffer overflow
-        if sanitized.count > 10000 {
-            sanitized = String(sanitized.prefix(10000))
-        }
-        
-        return sanitized
+        return current
     }
     
     /// Validate email format

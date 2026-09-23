@@ -18,11 +18,11 @@ enum GameStatus: String, CaseIterable, Codable {
     
     var color: Color {
         switch self {
-        case .wantToPlay: return Color(hex: "5B8DEF")
-        case .playing: return .gbGreen
-        case .completed: return Color(hex: "FF8A3D")
-        case .shelved: return Color(hex: "FF5C5C")
-        case .platinum: return Color(hex: "B98EFF")
+        case .wantToPlay: return Color(hex: "8EA9C9")   // bleu poussière
+        case .playing: return .gbBrass
+        case .completed: return Color(hex: "93B874")    // sauge
+        case .shelved: return Color(hex: "D9695A")      // brique
+        case .platinum: return Color(hex: "BCA5DB")     // lilas
         case .none: return .textTertiary
         }
     }
@@ -151,6 +151,8 @@ struct Game: Identifiable, Hashable, Codable {
     let platform: String
     let releaseYear: String
     var coverImageURL: String?
+    /// Official portrait box art (IGDB). nil = not looked up yet, "" = looked up, none found.
+    var boxArtURL: String?
     let coverColorHex: String
     var rating: Int // 0 à 5
     var subRatings: SubRatings
@@ -175,6 +177,13 @@ struct Game: Identifiable, Hashable, Codable {
     var playthroughCount: Int
     var notes: String
     
+    /// The picture to show for this game: the portrait box art when we have it,
+    /// else RAWG's landscape image.
+    var artURL: URL? {
+        if let boxArtURL, !boxArtURL.isEmpty, let url = URL(string: boxArtURL) { return url }
+        return coverImageURL.flatMap(URL.init(string:))
+    }
+
     // Computed property pour la couleur
     var coverColor: Color {
         Color(hex: coverColorHex)
@@ -188,6 +197,7 @@ struct Game: Identifiable, Hashable, Codable {
         platform: String,
         releaseYear: String,
         coverImageURL: String? = nil,
+        boxArtURL: String? = nil,
         coverColor: Color,
         rating: Int = 0,
         subRatings: SubRatings = SubRatings(),
@@ -218,6 +228,7 @@ struct Game: Identifiable, Hashable, Codable {
         self.platform = platform
         self.releaseYear = releaseYear
         self.coverImageURL = coverImageURL
+        self.boxArtURL = boxArtURL
         self.coverColorHex = coverColor.toHex()
         self.rating = rating
         self.subRatings = subRatings
@@ -253,6 +264,7 @@ struct Game: Identifiable, Hashable, Codable {
         platform = try c.decodeIfPresent(String.self, forKey: .platform) ?? ""
         releaseYear = try c.decodeIfPresent(String.self, forKey: .releaseYear) ?? ""
         coverImageURL = try c.decodeIfPresent(String.self, forKey: .coverImageURL)
+        boxArtURL = try c.decodeIfPresent(String.self, forKey: .boxArtURL)
         coverColorHex = try c.decodeIfPresent(String.self, forKey: .coverColorHex) ?? "808080"
         rating = try c.decodeIfPresent(Int.self, forKey: .rating) ?? 0
         subRatings = (try? c.decodeIfPresent(SubRatings.self, forKey: .subRatings)) ?? SubRatings()

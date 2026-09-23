@@ -40,7 +40,7 @@ struct ProfileView: View {
                     NavigationLink(destination: YearInReviewView()) {
                         HStack(spacing: DS.Spacing.md) {
                             Image(systemName: "calendar.badge.clock")
-                                .font(.title2)
+                                .font(DS.Typography.title)
                                 .foregroundStyle(Color.accent)
 
                             VStack(alignment: .leading, spacing: 2) {
@@ -69,13 +69,13 @@ struct ProfileView: View {
                     Button(action: { showingLogoutConfirm = true }) {
                         HStack {
                             Image(systemName: "rectangle.portrait.and.arrow.right")
-                                .font(.title3)
+                                .font(DS.Typography.title3)
                             Text("Déconnexion")
                                 .font(DS.Typography.headline)
                         }
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .foregroundStyle(Color(hex: "FF5C5C"))
+                        .foregroundStyle(Color(hex: "D9695A"))
                         .contentShape(Rectangle())
                     }
                     .padding(.horizontal)
@@ -117,11 +117,11 @@ struct ProfileNavigationSection: View {
     var body: some View {
         VStack(spacing: 0) {
             NavigationLink(destination: StatisticsView()) {
-                ProfileNavRow(icon: "chart.bar.fill", title: "Statistiques", subtitle: "Graphiques détaillés", color: Color(hex: "5B8DEF"))
+                ProfileNavRow(icon: "chart.bar.fill", title: "Statistiques", subtitle: "Graphiques détaillés", color: Color(hex: "8EA9C9"))
             }
             Divider().overlay(Color.gbBorder)
             NavigationLink(destination: AchievementsView()) {
-                ProfileNavRow(icon: "trophy.fill", title: "Succès", subtitle: "Tes badges", color: Color(hex: "FF8A3D"))
+                ProfileNavRow(icon: "trophy.fill", title: "Succès", subtitle: "Tes badges", color: Color(hex: "E3A24C"))
             }
             Divider().overlay(Color.gbBorder)
             NavigationLink(destination: GoalsView()) {
@@ -129,7 +129,7 @@ struct ProfileNavigationSection: View {
             }
             Divider().overlay(Color.gbBorder)
             NavigationLink(destination: BacklogView()) {
-                ProfileNavRow(icon: "tray.full.fill", title: "Backlog", subtitle: "À quoi jouer?", color: Color(hex: "FF8A3D"))
+                ProfileNavRow(icon: "tray.full.fill", title: "Backlog", subtitle: "À quoi jouer?", color: Color(hex: "E3A24C"))
             }
             Divider().overlay(Color.gbBorder)
             NavigationLink(destination: RecommendationsView()) {
@@ -137,7 +137,7 @@ struct ProfileNavigationSection: View {
             }
             Divider().overlay(Color.gbBorder)
             NavigationLink(destination: SocialView()) {
-                ProfileNavRow(icon: "person.2.fill", title: "Social", subtitle: "Amis & Activité", color: Color(hex: "B98EFF"))
+                ProfileNavRow(icon: "person.2.fill", title: "Social", subtitle: "Amis & Activité", color: Color(hex: "BCA5DB"))
             }
             Divider().overlay(Color.gbBorder)
             NavigationLink(destination: LinkedAccountsView()) {
@@ -145,7 +145,7 @@ struct ProfileNavigationSection: View {
                     icon: "link.badge.plus",
                     title: "Comptes liés",
                     subtitle: "PlayStation, Steam",
-                    color: Color(hex: "5B8DEF"),
+                    color: Color(hex: "8EA9C9"),
                     count: store.linkedAccounts.isEmpty ? nil : store.linkedAccounts.count
                 )
             }
@@ -202,7 +202,7 @@ struct ProfileNavRow: View {
             }
             
             Image(systemName: "chevron.right")
-                .font(.caption)
+                .font(DS.Typography.caption)
                 .foregroundStyle(Color.textTertiary)
         }
         .padding(.horizontal, DS.Spacing.md)
@@ -228,7 +228,7 @@ struct ProfileHeaderView: View {
                             .aspectRatio(contentMode: .fill)
                     } placeholder: {
                         Circle()
-                            .fill(Color.gbGreen.gradient)
+                            .fill(Color.gbBrass.gradient)
                             .overlay(
                                 Text(store.userProfile.avatarEmoji)
                                     .font(.system(size: 50))
@@ -238,7 +238,7 @@ struct ProfileHeaderView: View {
                     .clipShape(Circle())
                 } else {
                     Circle()
-                        .fill(Color.gbGreen.gradient)
+                        .fill(Color.gbBrass.gradient)
                         .frame(width: 100, height: 100)
 
                     Text(store.userProfile.avatarEmoji)
@@ -256,11 +256,11 @@ struct ProfileHeaderView: View {
                 // Auth provider badge
                 if store.userProfile.authProvider == "apple" {
                     Image(systemName: "apple.logo")
-                        .font(.caption)
+                        .font(DS.Typography.caption)
                         .foregroundStyle(Color.textTertiary)
                 } else if store.userProfile.authProvider == "google" {
                     Image(systemName: "g.circle.fill")
-                        .font(.caption)
+                        .font(DS.Typography.caption)
                         .foregroundStyle(Color.textTertiary)
                 }
             }
@@ -314,7 +314,7 @@ struct YearlyGoalCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
-                Text("OBJECTIF \(String(Calendar.current.component(.year, from: Date())))")
+                Text("Objectif \(String(Calendar.current.component(.year, from: Date())))")
                     .font(DS.Typography.label)
                     .foregroundStyle(Color.textTertiary)
 
@@ -374,12 +374,12 @@ struct QuickStatsGrid: View {
             GridItem(.flexible()),
             GridItem(.flexible())
         ], spacing: DS.Spacing.xs) {
-            MetricCard(value: "\(store.totalGames)", label: "Jeux", icon: "gamecontroller.fill", tint: Color(hex: "5B8DEF"))
-            MetricCard(value: store.totalPlayTimeFormatted, label: "Temps joué", icon: "clock.fill", tint: Color(hex: "FF8A3D"))
+            MetricCard(value: "\(store.totalGames)", label: "Jeux", icon: "gamecontroller.fill", tint: Color(hex: "8EA9C9"))
+            MetricCard(value: store.totalPlayTimeFormatted, label: "Temps joué", icon: "clock.fill", tint: Color(hex: "E3A24C"))
             MetricCard(value: String(format: "%.1f", store.averageRating), label: "Note moy.", icon: "star.fill", tint: .accent)
-            MetricCard(value: "\(store.gamesCount(for: .completed) + store.gamesCount(for: .platinum))", label: "Terminés", icon: "checkmark.circle.fill", tint: Color(hex: "FF8A3D"))
+            MetricCard(value: "\(store.gamesCount(for: .completed) + store.gamesCount(for: .platinum))", label: "Terminés", icon: "checkmark.circle.fill", tint: Color(hex: "E3A24C"))
             MetricCard(value: "\(store.gamesCount(for: .playing))", label: "En cours", icon: "play.fill", tint: .accent)
-            MetricCard(value: "\(store.backlog.count)", label: "Backlog", icon: "tray.full.fill", tint: Color(hex: "B98EFF"))
+            MetricCard(value: "\(store.backlog.count)", label: "Backlog", icon: "tray.full.fill", tint: Color(hex: "BCA5DB"))
         }
         .padding(.horizontal)
     }
@@ -433,7 +433,7 @@ struct FavoriteGameCard: View {
     var body: some View {
         VStack(spacing: 8) {
             Group {
-                if let coverURL = game.coverImageURL, let url = URL(string: coverURL) {
+                if let url = game.artURL {
                     CachedAsyncImage(url: url) { image in
                         image.resizable().aspectRatio(contentMode: .fill)
                     } placeholder: {
@@ -467,7 +467,7 @@ struct AddFavoriteSlot: View {
                 .frame(width: 100, height: 133)
                 .overlay(
                     Image(systemName: "plus")
-                        .font(.title2)
+                        .font(DS.Typography.title)
                         .foregroundStyle(Color.textTertiary)
                 )
 
@@ -504,7 +504,7 @@ struct MyListsSection: View {
                                 .frame(width: 120, height: 80)
                                 .overlay(
                                     Image(systemName: "plus")
-                                        .font(.title2)
+                                        .font(DS.Typography.title)
                                         .foregroundStyle(Color.textTertiary)
                                 )
 
@@ -568,13 +568,12 @@ struct YearInReviewView: View {
                 // Main Stats
                 VStack(spacing: 8) {
                     Text("\(selectedYear)")
-                        .font(.system(size: 60, weight: .bold, design: .rounded))
+                        .font(DS.Typography.display(64))
                         .foregroundStyle(Color.accent)
                     
-                    Text("EN REVUE")
-                        .font(DS.Typography.label)
-                        .foregroundStyle(Color.textTertiary)
-                        .tracking(4)
+                    Text("Ton année en jeux")
+                        .font(DS.Typography.body)
+                        .foregroundStyle(Color.textSecondary)
                 }
                 .padding(.vertical, 20)
                 
@@ -632,7 +631,7 @@ struct YearInReviewView: View {
                                 HStack {
                                     ForEach(1...favorite.rating, id: \.self) { _ in
                                         Image(systemName: "star.fill")
-                                            .font(.caption)
+                                            .font(DS.Typography.caption)
                                             .foregroundStyle(Color.accent)
                                     }
                                 }

@@ -34,17 +34,17 @@ struct ShareCardView: View {
                     // Style Picker
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Style")
-                            .font(.headline)
-                            .foregroundColor(.white)
+                            .font(DS.Typography.headline)
+                            .foregroundColor(.textPrimary)
                         
                         HStack(spacing: 12) {
                             ForEach(ShareCardStyle.allCases, id: \.self) { style in
                                 Button(action: { selectedStyle = style }) {
                                     Text(style.rawValue)
-                                        .font(.subheadline)
+                                        .font(DS.Typography.body)
                                         .padding(.horizontal, 16)
                                         .padding(.vertical, 10)
-                                        .background(selectedStyle == style ? Color.gbGreen : Color.gbCard)
+                                        .background(selectedStyle == style ? Color.gbBrass : Color.gbCard)
                                         .foregroundColor(selectedStyle == style ? .gbDark : .gray)
                                         .cornerRadius(20)
                                 }
@@ -62,7 +62,7 @@ struct ShareCardView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Color.gbGreen.gradient)
+                        .background(Color.gbBrass.gradient)
                         .foregroundColor(.gbDark)
                         .cornerRadius(16)
                     }
@@ -76,7 +76,7 @@ struct ShareCardView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Fermer") { dismiss() }
-                        .foregroundColor(.gray)
+                        .foregroundColor(.textSecondary)
                 }
             }
             .sheet(isPresented: $showingShareSheet) {
@@ -132,7 +132,7 @@ struct GameShareCard: View {
             
             VStack(spacing: 20) {
                 // Cover
-                if let coverURL = game.coverImageURL, let url = URL(string: coverURL) {
+                if let url = game.artURL {
                     CachedAsyncImage(url: url) { image in
                         image.resizable().aspectRatio(contentMode: .fill)
                     } placeholder: {
@@ -150,7 +150,7 @@ struct GameShareCard: View {
                 
                 // Title
                 Text(game.title)
-                    .font(.title2)
+                    .font(DS.Typography.title)
                     .fontWeight(.bold)
                     .foregroundColor(textColor)
                     .multilineTextAlignment(.center)
@@ -161,7 +161,7 @@ struct GameShareCard: View {
                     HStack(spacing: 4) {
                         ForEach(1...5, id: \.self) { star in
                             Image(systemName: star <= game.rating ? "star.fill" : "star")
-                                .font(.title3)
+                                .font(DS.Typography.title3)
                                 .foregroundColor(.yellow)
                         }
                     }
@@ -170,7 +170,7 @@ struct GameShareCard: View {
                 // Review Preview
                 if !game.review.isEmpty {
                     Text("\"\(game.review)\"")
-                        .font(.subheadline)
+                        .font(DS.Typography.body)
                         .italic()
                         .foregroundColor(textColor.opacity(0.8))
                         .multilineTextAlignment(.center)
@@ -183,9 +183,9 @@ struct GameShareCard: View {
                 // Branding
                 HStack(spacing: 6) {
                     Image(systemName: "gamecontroller.fill")
-                        .font(.caption)
+                        .font(DS.Typography.caption)
                     Text("Gameboxd")
-                        .font(.caption)
+                        .font(DS.Typography.caption)
                         .fontWeight(.medium)
                 }
                 .foregroundColor(textColor.opacity(0.5))

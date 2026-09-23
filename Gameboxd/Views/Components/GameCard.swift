@@ -17,7 +17,7 @@ struct GameCard: View {
             // Cover — poster-first, one radius, no colored drop shadow
             ZStack(alignment: .bottomLeading) {
                 Group {
-                    if let imageURL = game.coverImageURL, let url = URL(string: imageURL) {
+                    if let url = game.artURL {
                         CachedAsyncImage(url: url) { image in
                             image
                                 .resizable()
@@ -32,7 +32,7 @@ struct GameCard: View {
                             .fill(game.coverColor.gradient)
                             .overlay(
                                 Image(systemName: "gamecontroller.fill")
-                                    .font(.title)
+                                    .font(DS.Typography.title)
                                     .foregroundStyle(Color.textTertiary)
                             )
                     }
@@ -65,10 +65,10 @@ struct GameCard: View {
 
                 if game.isFavorite {
                     Image(systemName: "heart.fill")
-                        .font(.caption2)
+                        .font(DS.Typography.micro)
                         .padding(6)
                         .background(Color.gbDark.opacity(0.7))
-                        .foregroundStyle(Color(hex: "FF5C5C"))
+                        .foregroundStyle(Color(hex: "D9695A"))
                         .clipShape(Circle())
                         .padding(6)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
@@ -128,7 +128,7 @@ struct CompactGameCard: View {
         HStack(spacing: DS.Spacing.sm) {
             // Thumbnail
             Group {
-                if let imageURL = game.coverImageURL, let url = URL(string: imageURL) {
+                if let url = game.artURL {
                     CachedAsyncImage(url: url) { image in
                         image.resizable().aspectRatio(contentMode: .fill)
                     } placeholder: {
@@ -177,7 +177,7 @@ struct CompactGameCard: View {
 
             // Chevron
             Image(systemName: "chevron.right")
-                .font(.caption)
+                .font(DS.Typography.caption)
                 .foregroundStyle(Color.textTertiary)
         }
         .cardStyle()

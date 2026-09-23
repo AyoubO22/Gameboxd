@@ -80,9 +80,9 @@ struct AchievementsView: View {
                     
                     // Toggle
                     Toggle("Débloqués uniquement", isOn: $showingUnlockedOnly)
-                        .toggleStyle(SwitchToggleStyle(tint: .gbGreen))
+                        .toggleStyle(SwitchToggleStyle(tint: .gbBrass))
                         .padding(.horizontal)
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
                 }
                 
                 // Achievements Grid
@@ -116,7 +116,7 @@ struct AchievementProgressHeader: View {
             // Trophy Icon
             ZStack {
                 Circle()
-                    .fill(Color.gbGreen.gradient)
+                    .fill(Color.gbBrass.gradient)
                     .frame(width: 80, height: 80)
                 
                 Image(systemName: "trophy.fill")
@@ -126,12 +126,12 @@ struct AchievementProgressHeader: View {
             
             // Count
             Text("\(unlocked)/\(total)")
-                .font(.system(size: 32, weight: .bold, design: .rounded))
-                .foregroundColor(.white)
+                .font(DS.Typography.display(38))
+                .foregroundColor(.textPrimary)
             
             Text("Succès débloqués")
-                .font(.subheadline)
-                .foregroundColor(.gray)
+                .font(DS.Typography.body)
+                .foregroundColor(.textSecondary)
             
             // Progress Bar
             GeometryReader { geometry in
@@ -141,7 +141,7 @@ struct AchievementProgressHeader: View {
                         .frame(height: 12)
                     
                     RoundedRectangle(cornerRadius: 10)
-                        .fill(Color.gbGreen.gradient)
+                        .fill(Color.gbBrass.gradient)
                         .frame(width: geometry.size.width * progress, height: 12)
                 }
             }
@@ -149,8 +149,8 @@ struct AchievementProgressHeader: View {
             .padding(.horizontal, 40)
             
             Text("\(Int(progress * 100))%")
-                .font(.caption)
-                .foregroundColor(.gbGreen)
+                .font(DS.Typography.caption)
+                .foregroundColor(.gbBrass)
         }
         .padding()
         .background(Color.gbCard)
@@ -166,8 +166,8 @@ struct RecentAchievementsSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Récemment débloqués")
-                .font(.headline)
-                .foregroundColor(.white)
+                .font(DS.Typography.headline)
+                .foregroundColor(.textPrimary)
                 .padding(.horizontal)
             
             ScrollView(.horizontal, showsIndicators: false) {
@@ -193,14 +193,14 @@ struct RecentAchievementBadge: View {
                     .frame(width: 60, height: 60)
                 
                 Image(systemName: achievement.category.icon)
-                    .font(.title2)
-                    .foregroundColor(.white)
+                    .font(DS.Typography.title)
+                    .foregroundColor(.textPrimary)
             }
 
             Text(achievement.title)
-                .font(.caption)
+                .font(DS.Typography.caption)
                 .fontWeight(.medium)
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
                 .lineLimit(1)
         }
         .frame(width: 80)
@@ -231,14 +231,14 @@ struct CategoryFilterButton: View {
             HStack(spacing: 6) {
                 if let icon = icon {
                     Image(systemName: icon)
-                        .font(.caption)
+                        .font(DS.Typography.caption)
                 }
                 Text(title)
-                    .font(.subheadline)
+                    .font(DS.Typography.body)
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
-            .background(isSelected ? Color.gbGreen : Color.gbCard)
+            .background(isSelected ? Color.gbBrass : Color.gbCard)
             .foregroundColor(isSelected ? .gbDark : .gray)
             .cornerRadius(20)
         }
@@ -275,13 +275,13 @@ struct AchievementCard: View {
                     
                     if achievement.isUnlocked {
                         Image(systemName: achievement.category.icon)
-                            .font(.title2)
-                            .foregroundColor(.white)
+                            .font(DS.Typography.title)
+                            .foregroundColor(.textPrimary)
                             .rotationEffect(.degrees(animateUnlock ? 360 : 0))
                     } else {
                         Image(systemName: "lock.fill")
-                            .font(.title3)
-                            .foregroundColor(.gray)
+                            .font(DS.Typography.title3)
+                            .foregroundColor(.textSecondary)
                     }
                     
                     // Shimmer effect
@@ -299,15 +299,15 @@ struct AchievementCard: View {
                 
                 // Title
                 Text(achievement.title)
-                    .font(.subheadline)
+                    .font(DS.Typography.body)
                     .fontWeight(.semibold)
                     .foregroundColor(achievement.isUnlocked ? .white : .gray)
                     .lineLimit(1)
                 
                 // Description
                 Text(achievement.description)
-                    .font(.caption2)
-                    .foregroundColor(.gray)
+                    .font(DS.Typography.micro)
+                    .foregroundColor(.textSecondary)
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
                 
@@ -318,8 +318,8 @@ struct AchievementCard: View {
                         .frame(height: 4)
                     
                     Text("\(achievement.currentProgress)/\(achievement.requirement)")
-                        .font(.caption2)
-                        .foregroundColor(.gray)
+                        .font(DS.Typography.micro)
+                        .foregroundColor(.textSecondary)
                 }
             }
             .padding()
@@ -384,33 +384,33 @@ struct AchievementDetailSheet: View {
                     if achievement.isUnlocked {
                         Image(systemName: achievement.category.icon)
                             .font(.system(size: 50))
-                            .foregroundColor(.white)
+                            .foregroundColor(.textPrimary)
                     } else {
                         Image(systemName: "lock.fill")
                             .font(.system(size: 40))
-                            .foregroundColor(.gray)
+                            .foregroundColor(.textSecondary)
                     }
                 }
                 
                 // Title
                 Text(achievement.title)
-                    .font(.title)
+                    .font(DS.Typography.title)
                     .fontWeight(.bold)
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
                 
                 // Category
                 Text(achievement.category.rawValue)
-                    .font(.subheadline)
+                    .font(DS.Typography.body)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
                     .background(Color.gbCard)
-                    .foregroundColor(.gbGreen)
+                    .foregroundColor(.gbBrass)
                     .cornerRadius(20)
                 
                 // Description
                 Text(achievement.description)
-                    .font(.body)
-                    .foregroundColor(.gray)
+                    .font(DS.Typography.bodyLarge)
+                    .foregroundColor(.textSecondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 40)
                 
@@ -419,27 +419,27 @@ struct AchievementDetailSheet: View {
                     if let date = achievement.unlockedDate {
                         VStack(spacing: 4) {
                             Text("Débloqué le")
-                                .font(.caption)
-                                .foregroundColor(.gray)
+                                .font(DS.Typography.caption)
+                                .foregroundColor(.textSecondary)
                             Text(date, style: .date)
-                                .font(.subheadline)
+                                .font(DS.Typography.body)
                                 .fontWeight(.medium)
-                                .foregroundColor(.white)
+                                .foregroundColor(.textPrimary)
                         }
                     }
                 } else {
                     VStack(spacing: 12) {
                         Text("Progression")
-                            .font(.caption)
-                            .foregroundColor(.gray)
+                            .font(DS.Typography.caption)
+                            .foregroundColor(.textSecondary)
                         
                         ProgressView(value: achievement.progressPercentage)
                             .progressViewStyle(LinearProgressViewStyle(tint: color))
                             .frame(width: 200)
                         
                         Text("\(achievement.currentProgress)/\(achievement.requirement)")
-                            .font(.headline)
-                            .foregroundColor(.white)
+                            .font(DS.Typography.headline)
+                            .foregroundColor(.textPrimary)
                     }
                 }
                 
@@ -451,7 +451,7 @@ struct AchievementDetailSheet: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Fermer") { dismiss() }
-                        .foregroundColor(.gbGreen)
+                        .foregroundColor(.gbBrass)
                 }
             }
         }

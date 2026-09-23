@@ -144,16 +144,16 @@ struct RecommendationSectionView: View {
             // Header
             HStack {
                 Image(systemName: section.icon)
-                    .foregroundColor(.gbGreen)
+                    .foregroundColor(.gbBrass)
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(section.title)
-                        .font(.headline)
-                        .foregroundColor(.white)
+                        .font(DS.Typography.headline)
+                        .foregroundColor(.textPrimary)
                     
                     Text(section.reason)
-                        .font(.caption)
-                        .foregroundColor(.gray)
+                        .font(DS.Typography.caption)
+                        .foregroundColor(.textSecondary)
                 }
                 
                 Spacer()
@@ -188,7 +188,7 @@ struct RecommendationGameCard: View {
         VStack(alignment: .leading, spacing: 8) {
             // Cover
             ZStack(alignment: .topTrailing) {
-                if let coverURL = game.coverImageURL, let url = URL(string: coverURL) {
+                if let url = game.artURL {
                     CachedAsyncImage(url: url) { image in
                         image.resizable().aspectRatio(contentMode: .fill)
                     } placeholder: {
@@ -207,7 +207,7 @@ struct RecommendationGameCard: View {
                 // In Library Badge
                 if isInLibrary {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.gbGreen)
+                        .foregroundColor(.gbBrass)
                         .background(Circle().fill(Color.gbDark))
                         .padding(6)
                 }
@@ -215,26 +215,26 @@ struct RecommendationGameCard: View {
             
             // Title
             Text(game.title)
-                .font(.caption)
+                .font(DS.Typography.caption)
                 .fontWeight(.medium)
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
                 .lineLimit(2)
                 .frame(width: 130, alignment: .leading)
             
             // Platform & Rating
             HStack {
                 Text(game.platform)
-                    .font(.caption2)
-                    .foregroundColor(.gray)
+                    .font(DS.Typography.micro)
+                    .foregroundColor(.textSecondary)
                 
                 Spacer()
                 
                 if game.rating > 0 {
                     HStack(spacing: 2) {
                         Image(systemName: "star.fill")
-                            .font(.caption2)
+                            .font(DS.Typography.micro)
                         Text("\(game.rating)")
-                            .font(.caption2)
+                            .font(DS.Typography.micro)
                     }
                     .foregroundColor(.yellow)
                 }
@@ -251,12 +251,12 @@ struct LoadingRecommendationsView: View {
             Spacer()
             
             ProgressView()
-                .progressViewStyle(CircularProgressViewStyle(tint: .gbGreen))
+                .progressViewStyle(CircularProgressViewStyle(tint: .gbBrass))
                 .scaleEffect(1.5)
             
             Text("Analyse de tes goûts...")
-                .font(.subheadline)
-                .foregroundColor(.gray)
+                .font(DS.Typography.body)
+                .foregroundColor(.textSecondary)
             
             Spacer()
         }

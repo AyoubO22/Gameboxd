@@ -43,10 +43,12 @@ struct SettingsView: View {
             
             // Data Section
             Section {
-                NavigationLink(destination: iCloudSyncView()) {
-                    SettingsRow(icon: "icloud.fill", title: "Synchronisation iCloud", color: .blue)
-                }
-                
+                // iCloudSyncView is hidden: iCloud Key-Value Storage needs a paid Apple
+                // Developer account. Add the capability, then restore this link:
+                // NavigationLink(destination: iCloudSyncView()) {
+                //     SettingsRow(icon: "icloud.fill", title: "Synchronisation iCloud", color: .blue)
+                // }
+
                 Button(action: exportData) {
                     SettingsRow(icon: "square.and.arrow.up.fill", title: "Exporter mes données", color: .green)
                 }
@@ -93,7 +95,7 @@ struct SettingsView: View {
                 
                 if let url = URL(string: "https://rawg.io") {
                     Link(destination: url) {
-                        SettingsRow(icon: "globe", title: "Données fournies par RAWG", color: .gbGreen)
+                        SettingsRow(icon: "globe", title: "Données fournies par RAWG", color: .gbBrass)
                     }
                 }
             } header: {
@@ -107,11 +109,11 @@ struct SettingsView: View {
                     Spacer()
                     VStack(spacing: 4) {
                         Text("Gameboxd")
-                            .font(.headline)
-                            .foregroundColor(.gray)
+                            .font(DS.Typography.headline)
+                            .foregroundColor(.textSecondary)
                         Text("Version 1.0.0")
-                            .font(.caption)
-                            .foregroundColor(.gray.opacity(0.7))
+                            .font(DS.Typography.caption)
+                            .foregroundColor(.textSecondary.opacity(0.7))
                     }
                     Spacer()
                 }
@@ -192,14 +194,14 @@ struct SettingsRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.body)
-                .foregroundColor(.white)
+                .font(DS.Typography.bodyLarge)
+                .foregroundColor(.textPrimary)
                 .frame(width: 28, height: 28)
                 .background(color)
                 .cornerRadius(6)
             
             Text(title)
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
             
             Spacer()
         }
@@ -222,13 +224,13 @@ struct AppIconPickerView: View {
                                 .frame(width: 80, height: 80)
                                 .overlay(
                                     Image(systemName: "gamecontroller.fill")
-                                        .font(.largeTitle)
-                                        .foregroundColor(.gbGreen)
+                                        .font(DS.Typography.largeTitle)
+                                        .foregroundColor(.gbBrass)
                                 )
                             
                             Text(iconName.replacingOccurrences(of: "AppIcon-", with: ""))
-                                .font(.caption)
-                                .foregroundColor(.white)
+                                .font(DS.Typography.caption)
+                                .foregroundColor(.textPrimary)
                         }
                     }
                 }
@@ -258,7 +260,7 @@ struct NotificationsSettingsView: View {
         List {
             Section {
                 Toggle("Rappels backlog", isOn: $backlogReminders)
-                    .toggleStyle(SwitchToggleStyle(tint: .gbGreen))
+                    .toggleStyle(SwitchToggleStyle(tint: .gbBrass))
                 
                 if backlogReminders {
                     Stepper("Rappeler après \(backlogReminderDays) jours", value: $backlogReminderDays, in: 3...30)
@@ -272,7 +274,7 @@ struct NotificationsSettingsView: View {
             
             Section {
                 Toggle("Succès débloqués", isOn: $store.achievementAlerts)
-                    .toggleStyle(SwitchToggleStyle(tint: .gbGreen))
+                    .toggleStyle(SwitchToggleStyle(tint: .gbBrass))
             } header: {
                 Text("Succès")
             }
@@ -281,7 +283,7 @@ struct NotificationsSettingsView: View {
             Section {
                 HStack {
                     Text("Statut")
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
                     Spacer()
                     Text(notificationStatusText)
                         .foregroundColor(notificationStatusColor)
@@ -294,12 +296,12 @@ struct NotificationsSettingsView: View {
                             UIApplication.shared.open(url)
                         }
                     }
-                    .foregroundColor(.gbGreen)
+                    .foregroundColor(.gbBrass)
                 } else if notificationStatus == .notDetermined {
                     Button("Demander l'autorisation") {
                         requestNotificationPermission()
                     }
-                    .foregroundColor(.gbGreen)
+                    .foregroundColor(.gbBrass)
                 }
                 
                 if notificationStatus == .authorized {
@@ -316,7 +318,7 @@ struct NotificationsSettingsView: View {
         .scrollContentBackground(.hidden)
         .background(Color.gbDark.ignoresSafeArea())
         .navigationTitle("Notifications")
-        .foregroundColor(.white)
+        .foregroundColor(.textPrimary)
         .onChange(of: backlogReminders) { _, _ in updateBacklogReminder() }
         .onChange(of: backlogReminderDays) { _, _ in updateBacklogReminder() }
         .onAppear {
@@ -448,7 +450,7 @@ struct CustomTagsView: View {
                             .frame(width: 30)
                         
                         Text(tag.name)
-                            .foregroundColor(.white)
+                            .foregroundColor(.textPrimary)
                         
                         Spacer()
                     }
@@ -462,7 +464,7 @@ struct CustomTagsView: View {
             // Add New Tag
             Section {
                 TextField("Nom du tag", text: $newTagName)
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
                 
                 ColorPicker("Couleur", selection: $newTagColor)
                 
@@ -475,7 +477,7 @@ struct CustomTagsView: View {
                 Button("Ajouter le tag") {
                     addTag()
                 }
-                .foregroundColor(.gbGreen)
+                .foregroundColor(.gbBrass)
                 .disabled(newTagName.isEmpty)
             } header: {
                 Text("Nouveau tag")
@@ -492,16 +494,16 @@ struct CustomTagsView: View {
                                 .frame(width: 30)
                             
                             Text(tag.name)
-                                .foregroundColor(.white)
+                                .foregroundColor(.textPrimary)
                             
                             Spacer()
                             
                             if store.customTags.contains(where: { $0.name == tag.name }) {
                                 Image(systemName: "checkmark")
-                                    .foregroundColor(.gbGreen)
+                                    .foregroundColor(.gbBrass)
                             } else {
                                 Image(systemName: "plus")
-                                    .foregroundColor(.gray)
+                                    .foregroundColor(.textSecondary)
                             }
                         }
                     }
@@ -542,7 +544,7 @@ struct AboutView: View {
                 // App Icon
                 ZStack {
                     Circle()
-                        .fill(Color.gbGreen.gradient)
+                        .fill(Color.gbBrass.gradient)
                         .frame(width: 100, height: 100)
                     
                     Image(systemName: "gamecontroller.fill")
@@ -551,32 +553,32 @@ struct AboutView: View {
                 }
                 
                 Text("Gameboxd")
-                    .font(.largeTitle)
+                    .font(DS.Typography.largeTitle)
                     .fontWeight(.bold)
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
                 
                 Text("Version 1.0.0")
-                    .font(.subheadline)
-                    .foregroundColor(.gray)
+                    .font(DS.Typography.body)
+                    .foregroundColor(.textSecondary)
                 
                 Text("Ton journal de jeux vidéo personnel. Track tes jeux, note tes expériences, et découvre de nouveaux titres.")
-                    .font(.body)
-                    .foregroundColor(.gray)
+                    .font(DS.Typography.bodyLarge)
+                    .foregroundColor(.textSecondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 40)
                 
                 // Credits
                 VStack(spacing: 16) {
                     Text("Crédits")
-                        .font(.headline)
-                        .foregroundColor(.white)
+                        .font(DS.Typography.headline)
+                        .foregroundColor(.textPrimary)
                     
                     VStack(spacing: 8) {
                         Text("Données de jeux par RAWG.io")
                         Text("Développé en SwiftUI")
                     }
-                    .font(.caption)
-                    .foregroundColor(.gray)
+                    .font(DS.Typography.caption)
+                    .foregroundColor(.textSecondary)
                 }
                 .padding(.top)
                 
@@ -643,24 +645,24 @@ struct iCloudSyncView: View {
                             .frame(width: 50, height: 50)
                         
                         Image(systemName: syncStatus.icon)
-                            .font(.title2)
+                            .font(DS.Typography.title)
                             .foregroundColor(syncStatus.color)
                             .symbolEffect(.pulse, isActive: syncStatus == .syncing)
                     }
                     
                     VStack(alignment: .leading, spacing: 4) {
                         Text(iCloudEnabled ? "iCloud activé" : "iCloud désactivé")
-                            .font(.headline)
-                            .foregroundColor(.white)
+                            .font(DS.Typography.headline)
+                            .foregroundColor(.textPrimary)
                         
                         if let lastSync = lastSyncDate {
                             Text("Dernière sync: \(lastSync.formatted(date: .abbreviated, time: .shortened))")
-                                .font(.caption)
-                                .foregroundColor(.gray)
+                                .font(DS.Typography.caption)
+                                .foregroundColor(.textSecondary)
                         } else {
                             Text("Jamais synchronisé")
-                                .font(.caption)
-                                .foregroundColor(.gray)
+                                .font(DS.Typography.caption)
+                                .foregroundColor(.textSecondary)
                         }
                     }
                     
@@ -673,11 +675,11 @@ struct iCloudSyncView: View {
             // Settings Section
             Section {
                 Toggle("Activer iCloud", isOn: $iCloudEnabled)
-                    .toggleStyle(SwitchToggleStyle(tint: .gbGreen))
+                    .toggleStyle(SwitchToggleStyle(tint: .gbBrass))
                 
                 if iCloudEnabled {
                     Toggle("Synchronisation automatique", isOn: $autoSync)
-                        .toggleStyle(SwitchToggleStyle(tint: .gbGreen))
+                        .toggleStyle(SwitchToggleStyle(tint: .gbBrass))
                 }
             } header: {
                 Text("Paramètres")
@@ -693,7 +695,7 @@ struct iCloudSyncView: View {
                             Text("Synchroniser maintenant")
                         }
                     }
-                    .foregroundColor(.gbGreen)
+                    .foregroundColor(.gbBrass)
                     
                     Button(action: uploadToiCloud) {
                         HStack {
@@ -727,8 +729,8 @@ struct iCloudSyncView: View {
                     }
                     
                     Text("La synchronisation iCloud permet de garder tes jeux, sessions et statistiques synchronisés sur tous tes appareils Apple connectés au même compte iCloud.")
-                        .font(.caption)
-                        .foregroundColor(.gray)
+                        .font(DS.Typography.caption)
+                        .foregroundColor(.textSecondary)
                 }
                 .padding(.vertical, 8)
             } header: {
@@ -750,7 +752,7 @@ struct iCloudSyncView: View {
         .scrollContentBackground(.hidden)
         .background(Color.gbDark.ignoresSafeArea())
         .navigationTitle("iCloud Sync")
-        .foregroundColor(.white)
+        .foregroundColor(.textPrimary)
         .onAppear {
             loadSyncSettings()
         }
@@ -811,10 +813,10 @@ struct DataInfoRow: View {
     var body: some View {
         HStack {
             Text(title)
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
             Spacer()
             Text("\(count)")
-                .foregroundColor(.gray)
+                .foregroundColor(.textSecondary)
         }
     }
 }

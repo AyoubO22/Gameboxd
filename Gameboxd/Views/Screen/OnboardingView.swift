@@ -17,7 +17,7 @@ struct OnboardingView: View {
             title: "Bienvenue sur Gameboxd",
             subtitle: "Ton journal de jeux vidéo personnel",
             icon: "gamecontroller.fill",
-            color: .gbGreen,
+            color: .gbBrass,
             features: [
                 "Catalogue ta collection",
                 "Note et critique tes jeux",
@@ -61,7 +61,7 @@ struct OnboardingView: View {
             title: "Prêt à jouer ?",
             subtitle: "Commence ton aventure",
             icon: "rocket.fill",
-            color: .gbGreen,
+            color: .gbBrass,
             features: []
         )
     ]
@@ -78,7 +78,7 @@ struct OnboardingView: View {
                         Button("Passer") {
                             completeOnboarding()
                         }
-                        .foregroundColor(.gray)
+                        .foregroundColor(.textSecondary)
                         .padding()
                     }
                 }
@@ -99,7 +99,7 @@ struct OnboardingView: View {
                     HStack(spacing: 8) {
                         ForEach(Array(pages.indices), id: \.self) { index in
                             Circle()
-                                .fill(index == currentPage ? Color.gbGreen : Color.gray.opacity(0.3))
+                                .fill(index == currentPage ? Color.gbBrass : Color.gray.opacity(0.3))
                                 .frame(width: index == currentPage ? 10 : 8, height: index == currentPage ? 10 : 8)
                                 .animation(.spring(response: 0.3), value: currentPage)
                         }
@@ -123,7 +123,7 @@ struct OnboardingView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Color.gbGreen.gradient)
+                        .background(Color.gbBrass.gradient)
                         .foregroundColor(.gbDark)
                         .cornerRadius(16)
                     }
@@ -169,21 +169,21 @@ struct OnboardingPageView: View {
                 
                 Image(systemName: page.icon)
                     .font(.system(size: 50))
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
             }
             .scaleEffect(isLastPage ? 1.2 : 1.0)
             
             // Title
             Text(page.title)
-                .font(.title)
+                .font(DS.Typography.title)
                 .fontWeight(.bold)
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
                 .multilineTextAlignment(.center)
             
             // Subtitle
             Text(page.subtitle)
-                .font(.subheadline)
-                .foregroundColor(.gray)
+                .font(DS.Typography.body)
+                .foregroundColor(.textSecondary)
                 .multilineTextAlignment(.center)
             
             // Features
@@ -192,8 +192,8 @@ struct OnboardingPageView: View {
                     ForEach(page.features, id: \.self) { feature in
                         HStack(spacing: 12) {
                             Text(feature)
-                                .font(.body)
-                                .foregroundColor(.white)
+                                .font(DS.Typography.bodyLarge)
+                                .foregroundColor(.textPrimary)
                         }
                     }
                 }

@@ -157,6 +157,10 @@ class RAWGService: ObservableObject {
 
     private static let apiDateFormatter: DateFormatter = {
         let formatter = DateFormatter()
+        // Fixed locale/calendar: RAWG expects Gregorian years even on devices
+        // using the Buddhist or Japanese calendar.
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.calendar = Calendar(identifier: .gregorian)
         formatter.dateFormat = "yyyy-MM-dd"
         return formatter
     }()
@@ -164,143 +168,88 @@ class RAWGService: ObservableObject {
     var hasValidAPIKey: Bool {
         !RAWGConfig.apiKey.isEmpty
     }
+
+    /// Builds the request with URLQueryItem (so "&", "+", "#" in a search are
+    /// encoded), checks the HTTP status and decodes the body.
+    private func fetch<T: Decodable>(_ path: String, _ query: [String: String] = [:]) async throws -> T {
+        guard hasValidAPIKey else { throw URLError(.userAuthenticationRequired) }
+        guard var components = URLComponents(string: RAWGConfig.baseURL + path) else { throw URLError(.badURL) }
+        components.queryItems = [URLQueryItem(name: "key", value: RAWGConfig.apiKey)]
+            + query.map { URLQueryItem(name: $0.key, value: $0.value) }
+        guard let url = components.url else { throw URLError(.badURL) }
+
+        let (data, response) = try await session.data(from: url)
+        if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
+            throw URLError(.badServerResponse)
+        }
+        return try decoder.decode(T.self, from: data)
+    }
+
+    private func dateRange(from start: Date, to end: Date) -> String {
+        "\(Self.apiDateFormatter.string(from: start)),\(Self.apiDateFormatter.string(from: end))"
+    }
     
     // MARK: - Search Games
     func searchGames(query: String, page: Int = 1, pageSize: Int = 20) async throws -> [RAWGGame] {
         guard hasValidAPIKey else { return [] }
-        
-        let encodedQuery = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query
-        let urlString = "\(RAWGConfig.baseURL)/games?key=\(RAWGConfig.apiKey)&search=\(encodedQuery)&page=\(page)&page_size=\(pageSize)"
-        
-        guard let url = URL(string: urlString) else {
-            throw URLError(.badURL)
-        }
-        
-        let (data, _) = try await session.data(from: url)
-        let response = try decoder.decode(RAWGGameResponse.self, from: data)
+        let response: RAWGGameResponse = try await fetch("/games", ["search": query, "page": "\(page)", "page_size": "\(pageSize)"])
         return response.results
     }
     
     // MARK: - Get Game Details
     func getGameDetails(id: Int) async throws -> RAWGGameDetail {
-        guard hasValidAPIKey else { throw URLError(.userAuthenticationRequired) }
-        
-        let urlString = "\(RAWGConfig.baseURL)/games/\(id)?key=\(RAWGConfig.apiKey)"
-        guard let url = URL(string: urlString) else {
-            throw URLError(.badURL)
-        }
-        
-        let (data, _) = try await session.data(from: url)
-        return try decoder.decode(RAWGGameDetail.self, from: data)
+        try await fetch("/games/\(id)")
     }
     
     // MARK: - Get Screenshots
     func getScreenshots(gameId: Int) async throws -> [RAWGScreenshot] {
         guard hasValidAPIKey else { return [] }
-        
-        let urlString = "\(RAWGConfig.baseURL)/games/\(gameId)/screenshots?key=\(RAWGConfig.apiKey)"
-        guard let url = URL(string: urlString) else {
-            throw URLError(.badURL)
-        }
-        
-        let (data, _) = try await session.data(from: url)
-        let response = try decoder.decode(RAWGScreenshotsResponse.self, from: data)
+        let response: RAWGScreenshotsResponse = try await fetch("/games/\(gameId)/screenshots")
         return response.results
     }
     
     // MARK: - Get Trending Games
     func getTrendingGames(page: Int = 1) async throws -> [RAWGGame] {
-        guard hasValidAPIKey else { return [] }
-
-        let endDate = Self.apiDateFormatter.string(from: Date())
-        guard let start = Calendar.current.date(byAdding: .month, value: -1, to: Date()) else { return [] }
-        let startDate = Self.apiDateFormatter.string(from: start)
-        
-        let urlString = "\(RAWGConfig.baseURL)/games?key=\(RAWGConfig.apiKey)&dates=\(startDate),\(endDate)&ordering=-added&page=\(page)&page_size=10"
-        guard let url = URL(string: urlString) else {
-            throw URLError(.badURL)
-        }
-        
-        let (data, _) = try await session.data(from: url)
-        let response = try decoder.decode(RAWGGameResponse.self, from: data)
+        guard hasValidAPIKey,
+              let start = Calendar.current.date(byAdding: .month, value: -1, to: Date()) else { return [] }
+        let response: RAWGGameResponse = try await fetch("/games", ["dates": dateRange(from: start, to: Date()), "ordering": "-added", "page": "\(page)", "page_size": "10"])
         return response.results
     }
     
     // MARK: - Get New Releases
     func getNewReleases(page: Int = 1) async throws -> [RAWGGame] {
-        guard hasValidAPIKey else { return [] }
-
-        let today = Self.apiDateFormatter.string(from: Date())
-        guard let past = Calendar.current.date(byAdding: .month, value: -2, to: Date()) else { return [] }
-        let pastDate = Self.apiDateFormatter.string(from: past)
-        
-        let urlString = "\(RAWGConfig.baseURL)/games?key=\(RAWGConfig.apiKey)&dates=\(pastDate),\(today)&ordering=-released&page=\(page)&page_size=10"
-        guard let url = URL(string: urlString) else {
-            throw URLError(.badURL)
-        }
-        
-        let (data, _) = try await session.data(from: url)
-        let response = try decoder.decode(RAWGGameResponse.self, from: data)
+        guard hasValidAPIKey,
+              let start = Calendar.current.date(byAdding: .month, value: -2, to: Date()) else { return [] }
+        let response: RAWGGameResponse = try await fetch("/games", ["dates": dateRange(from: start, to: Date()), "ordering": "-released", "page": "\(page)", "page_size": "10"])
         return response.results
     }
     
     // MARK: - Get Top Rated
     func getTopRated(page: Int = 1) async throws -> [RAWGGame] {
         guard hasValidAPIKey else { return [] }
-        
-        let urlString = "\(RAWGConfig.baseURL)/games?key=\(RAWGConfig.apiKey)&ordering=-rating&page=\(page)&page_size=10&metacritic=80,100"
-        guard let url = URL(string: urlString) else {
-            throw URLError(.badURL)
-        }
-        
-        let (data, _) = try await session.data(from: url)
-        let response = try decoder.decode(RAWGGameResponse.self, from: data)
+        let response: RAWGGameResponse = try await fetch("/games", ["ordering": "-rating", "page": "\(page)", "page_size": "10", "metacritic": "80,100"])
         return response.results
     }
     
     // MARK: - Get Upcoming Games
     func getUpcomingGames(page: Int = 1) async throws -> [RAWGGame] {
-        guard hasValidAPIKey else { return [] }
-
-        let today = Self.apiDateFormatter.string(from: Date())
-        guard let future = Calendar.current.date(byAdding: .year, value: 1, to: Date()) else { return [] }
-        let futureDate = Self.apiDateFormatter.string(from: future)
-        
-        let urlString = "\(RAWGConfig.baseURL)/games?key=\(RAWGConfig.apiKey)&dates=\(today),\(futureDate)&ordering=released&page=\(page)&page_size=10"
-        guard let url = URL(string: urlString) else {
-            throw URLError(.badURL)
-        }
-        
-        let (data, _) = try await session.data(from: url)
-        let response = try decoder.decode(RAWGGameResponse.self, from: data)
+        guard hasValidAPIKey,
+              let end = Calendar.current.date(byAdding: .year, value: 1, to: Date()) else { return [] }
+        let response: RAWGGameResponse = try await fetch("/games", ["dates": dateRange(from: Date(), to: end), "ordering": "released", "page": "\(page)", "page_size": "10"])
         return response.results
     }
     
     // MARK: - Get Similar Games
     func getSimilarGames(gameId: Int) async throws -> [RAWGGame] {
         guard hasValidAPIKey else { return [] }
-        
-        let urlString = "\(RAWGConfig.baseURL)/games/\(gameId)/suggested?key=\(RAWGConfig.apiKey)&page_size=6"
-        guard let url = URL(string: urlString) else {
-            throw URLError(.badURL)
-        }
-        
-        let (data, _) = try await session.data(from: url)
-        let response = try decoder.decode(RAWGGameResponse.self, from: data)
+        let response: RAWGGameResponse = try await fetch("/games/\(gameId)/suggested", ["page_size": "6"])
         return response.results
     }
     
     // MARK: - Get Games by Genre
     func getGamesByGenre(genreSlug: String, page: Int = 1) async throws -> [RAWGGame] {
         guard hasValidAPIKey else { return [] }
-        
-        let urlString = "\(RAWGConfig.baseURL)/games?key=\(RAWGConfig.apiKey)&genres=\(genreSlug)&ordering=-rating&page=\(page)&page_size=20"
-        guard let url = URL(string: urlString) else {
-            throw URLError(.badURL)
-        }
-        
-        let (data, _) = try await session.data(from: url)
-        let response = try decoder.decode(RAWGGameResponse.self, from: data)
+        let response: RAWGGameResponse = try await fetch("/games", ["genres": genreSlug, "ordering": "-rating", "page": "\(page)", "page_size": "20"])
         return response.results
     }
 }

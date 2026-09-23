@@ -197,19 +197,12 @@ extension AppleSignInService: ASAuthorizationControllerDelegate {
 extension AppleSignInService: ASAuthorizationControllerPresentationContextProviding {
     func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
         
-        if let scene = UIApplication.shared.connectedScenes
-            .compactMap({ $0 as? UIWindowScene })
-            .first,
-           let window = scene.keyWindow {
-            return window
-        }
-        
-        // fallback iOS 26+
+        // The user tapped a button to get here, so a window scene always exists.
         guard let scene = UIApplication.shared.connectedScenes
             .compactMap({ $0 as? UIWindowScene })
             .first else {
-            return UIWindow()
+            preconditionFailure("Sign in with Apple requires an active window scene")
         }
-        return UIWindow(windowScene: scene)
+        return scene.keyWindow ?? UIWindow(windowScene: scene)
     }
 }

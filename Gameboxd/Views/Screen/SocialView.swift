@@ -12,35 +12,33 @@ struct SocialView: View {
     @State private var selectedTab = 0
     
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                // Tab Selector
-                Picker("Section", selection: $selectedTab) {
-                    Text("Activité").tag(0)
-                    Text("Amis").tag(1)
-                }
-                .pickerStyle(.segmented)
-                .padding()
-                .background(Color.gbDark)
-                
-                // Content
-                switch selectedTab {
-                case 0:
-                    ActivityFeedView()
-                case 1:
-                    FriendsListView()
-                default:
-                    EmptyView()
-                }
+        VStack(spacing: 0) {
+            // Tab Selector
+            Picker("Section", selection: $selectedTab) {
+                Text("Activité").tag(0)
+                Text("Amis").tag(1)
             }
-            .background(Color.gbDark.ignoresSafeArea())
-            .navigationTitle("Social")
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    NavigationLink(destination: FindFriendsView()) {
-                        Image(systemName: "person.badge.plus")
-                            .foregroundColor(.gbGreen)
-                    }
+            .pickerStyle(.segmented)
+            .padding()
+            .background(Color.gbDark)
+            
+            // Content
+            switch selectedTab {
+            case 0:
+                ActivityFeedView()
+            case 1:
+                FriendsListView()
+            default:
+                EmptyView()
+            }
+        }
+        .background(Color.gbDark.ignoresSafeArea())
+        .navigationTitle("Social")
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                NavigationLink(destination: FindFriendsView()) {
+                    Image(systemName: "person.badge.plus")
+                        .foregroundColor(.gbGreen)
                 }
             }
         }
@@ -103,6 +101,7 @@ struct EmptyActivityView: View {
 
 struct ActivityCard: View {
     let activity: ActivityItem
+    @State private var isLiked = false
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -191,22 +190,13 @@ struct ActivityCard: View {
             
             // Actions
             HStack(spacing: 20) {
-                Button(action: {}) {
+                Button(action: { isLiked.toggle() }) {
                     HStack(spacing: 4) {
-                        Image(systemName: "heart")
+                        Image(systemName: isLiked ? "heart.fill" : "heart")
                         Text("J'aime")
                     }
                     .font(.caption)
-                    .foregroundColor(.gray)
-                }
-                
-                Button(action: {}) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "bubble.right")
-                        Text("Commenter")
-                    }
-                    .font(.caption)
-                    .foregroundColor(.gray)
+                    .foregroundColor(isLiked ? .gbGreen : .gray)
                 }
                 
                 Spacer()
@@ -335,6 +325,18 @@ struct FindFriendsView: View {
         Friend(username: "SpeedRunner", avatarEmoji: "🏃", gamesCount: 45, isFollowing: false)
     ]
     
+    private var filteredSuggestions: [Friend] {
+        guard !searchText.isEmpty else { return suggestedUsers }
+        return suggestedUsers.filter { $0.username.localizedCaseInsensitiveContains(searchText) }
+    }
+
+    /// Stable across launches (String.hashValue is randomly seeded per launch).
+    private var friendCode: String {
+        let name = store.userProfile.username
+        let checksum = name.unicodeScalars.reduce(0) { ($0 &* 31 &+ Int($1.value)) % 10_000 }
+        return "GBOXD-\(name.prefix(4).uppercased())-\(checksum)"
+    }
+    
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
@@ -356,7 +358,7 @@ struct FindFriendsView: View {
                         .font(.headline)
                         .foregroundColor(.white)
                     
-                    ForEach(suggestedUsers) { user in
+                    ForEach(filteredSuggestions) { user in
                         SuggestedUserRow(user: user)
                     }
                 }
@@ -367,7 +369,7 @@ struct FindFriendsView: View {
                         .font(.headline)
                         .foregroundColor(.white)
                     
-                    Text("GBOXD-\(store.userProfile.username.prefix(4).uppercased())-\(abs(store.userProfile.username.hashValue) % 10000)")
+                    Text(friendCode)
                         .font(.system(.title3, design: .monospaced))
                         .fontWeight(.bold)
                         .foregroundColor(.gbGreen)
@@ -375,7 +377,10 @@ struct FindFriendsView: View {
                         .background(Color.gbCard)
                         .cornerRadius(12)
                     
-                    Button(action: {}) {
+                    Button(action: {
+                        UIPasteboard.general.string = friendCode
+                        HapticManager.notification(.success)
+                    }) {
                         HStack {
                             Image(systemName: "doc.on.doc")
                             Text("Copier")
@@ -396,8 +401,12 @@ struct FindFriendsView: View {
 }
 
 struct SuggestedUserRow: View {
+    @EnvironmentObject var store: GameStore
     let user: Friend
-    @State private var isFollowing = false
+
+    private var isFollowing: Bool {
+        store.friends.contains { $0.username == user.username }
+    }
     
     var body: some View {
         HStack(spacing: 12) {
@@ -422,7 +431,13 @@ struct SuggestedUserRow: View {
             
             Spacer()
             
-            Button(action: { isFollowing.toggle() }) {
+            Button(action: {
+                if let friend = store.friends.first(where: { $0.username == user.username }) {
+                    store.removeFriend(friend)
+                } else {
+                    store.addFriend(user)
+                }
+            }) {
                 Text(isFollowing ? "Suivi ✓" : "Suivre")
                     .font(.subheadline)
                     .fontWeight(.medium)
@@ -441,6 +456,6 @@ struct SuggestedUserRow: View {
 
 // MARK: - Preview
 #Preview {
-    SocialView()
+    NavigationStack { SocialView() }
         .environmentObject(GameStore())
 }

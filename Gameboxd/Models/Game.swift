@@ -18,12 +18,12 @@ enum GameStatus: String, CaseIterable, Codable {
     
     var color: Color {
         switch self {
-        case .wantToPlay: return .blue
+        case .wantToPlay: return Color(hex: "5B8DEF")
         case .playing: return .gbGreen
-        case .completed: return .orange
-        case .shelved: return .red
-        case .platinum: return .purple
-        case .none: return .gray
+        case .completed: return Color(hex: "FF8A3D")
+        case .shelved: return Color(hex: "FF5C5C")
+        case .platinum: return Color(hex: "B98EFF")
+        case .none: return .textTertiary
         }
     }
     
@@ -145,7 +145,7 @@ struct SubRatings: Codable, Hashable {
 
 // MARK: - Game Model
 struct Game: Identifiable, Hashable, Codable {
-    let id: UUID
+    var id: UUID
     let title: String
     let developer: String
     let platform: String
@@ -242,7 +242,42 @@ struct Game: Identifiable, Hashable, Codable {
         self.playthroughCount = playthroughCount
         self.notes = notes
     }
-    
+
+    // Tolerant decoding: a field added later, or an enum case renamed, must not
+    // make the whole saved library fail to load. Only id and title are required.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        title = try c.decode(String.self, forKey: .title)
+        developer = try c.decodeIfPresent(String.self, forKey: .developer) ?? ""
+        platform = try c.decodeIfPresent(String.self, forKey: .platform) ?? ""
+        releaseYear = try c.decodeIfPresent(String.self, forKey: .releaseYear) ?? ""
+        coverImageURL = try c.decodeIfPresent(String.self, forKey: .coverImageURL)
+        coverColorHex = try c.decodeIfPresent(String.self, forKey: .coverColorHex) ?? "808080"
+        rating = try c.decodeIfPresent(Int.self, forKey: .rating) ?? 0
+        subRatings = (try? c.decodeIfPresent(SubRatings.self, forKey: .subRatings)) ?? SubRatings()
+        status = (try? c.decodeIfPresent(GameStatus.self, forKey: .status)) ?? .wantToPlay
+        review = try c.decodeIfPresent(String.self, forKey: .review) ?? ""
+        isSpoiler = try c.decodeIfPresent(Bool.self, forKey: .isSpoiler) ?? false
+        playTime = try c.decodeIfPresent(String.self, forKey: .playTime) ?? ""
+        playTimeMinutes = try c.decodeIfPresent(Int.self, forKey: .playTimeMinutes) ?? 0
+        completionPercentage = try c.decodeIfPresent(Int.self, forKey: .completionPercentage) ?? 0
+        difficulty = try? c.decodeIfPresent(GameDifficulty.self, forKey: .difficulty)
+        moodTags = ((try? c.decodeIfPresent([String].self, forKey: .moodTags)) ?? []).compactMap(MoodTag.init(rawValue:))
+        priority = (try? c.decodeIfPresent(BacklogPriority.self, forKey: .priority)) ?? .medium
+        isFavorite = try c.decodeIfPresent(Bool.self, forKey: .isFavorite) ?? false
+        startedDate = try c.decodeIfPresent(Date.self, forKey: .startedDate)
+        completedDate = try c.decodeIfPresent(Date.self, forKey: .completedDate)
+        rawgId = try c.decodeIfPresent(Int.self, forKey: .rawgId)
+        genres = try c.decodeIfPresent([String].self, forKey: .genres) ?? []
+        metacriticScore = try c.decodeIfPresent(Int.self, forKey: .metacriticScore)
+        estimatedPlaytime = try c.decodeIfPresent(Int.self, forKey: .estimatedPlaytime)
+        description = try c.decodeIfPresent(String.self, forKey: .description)
+        screenshotURLs = try c.decodeIfPresent([String].self, forKey: .screenshotURLs) ?? []
+        playthroughCount = try c.decodeIfPresent(Int.self, forKey: .playthroughCount) ?? 1
+        notes = try c.decodeIfPresent(String.self, forKey: .notes) ?? ""
+    }
+
     // Formatted play time
     var formattedPlayTime: String {
         if playTimeMinutes > 0 {

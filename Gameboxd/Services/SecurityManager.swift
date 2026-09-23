@@ -316,6 +316,42 @@ class SecurityManager: ObservableObject {
         return hash.map { String(format: "%02x", $0) }.joined()
     }
     
+    // MARK: - Local Profile Credentials
+    //
+    // There is no account server: an email/password "account" is a profile that
+    // lives on this device only. The password is stored as a PBKDF2 hash in the
+    // Keychain so login actually checks it.
+
+    private static let localCredentialsKey = "local_profile_credentials"
+
+    private struct LocalCredentials: Codable {
+        let email: String
+        let salt: Data
+        let hash: Data
+    }
+
+    private func passwordHash(_ password: String, salt: Data) -> Data {
+        deriveKey(from: password, salt: salt).withUnsafeBytes { Data($0) }
+    }
+
+    func saveLocalCredentials(email: String, password: String) throws {
+        var salt = Data(count: 16)
+        _ = salt.withUnsafeMutableBytes { SecRandomCopyBytes(kSecRandomDefault, 16, $0.baseAddress!) }
+        let credentials = LocalCredentials(email: email.lowercased(), salt: salt, hash: passwordHash(password, salt: salt))
+        try storeInKeychain(key: Self.localCredentialsKey, data: JSONEncoder().encode(credentials))
+    }
+
+    var hasLocalCredentials: Bool {
+        (try? retrieveFromKeychain(key: Self.localCredentialsKey)) != nil
+    }
+
+    func verifyLocalCredentials(email: String, password: String) -> Bool {
+        guard let data = try? retrieveFromKeychain(key: Self.localCredentialsKey),
+              let credentials = try? JSONDecoder().decode(LocalCredentials.self, from: data) else { return false }
+        return credentials.email == email.lowercased()
+            && passwordHash(password, salt: credentials.salt) == credentials.hash
+    }
+
     /// Generate secure random salt
     func generateSalt(length: Int = 32) -> String {
         var bytes = [UInt8](repeating: 0, count: length)

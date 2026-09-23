@@ -11,80 +11,83 @@ struct GoalsView: View {
     @EnvironmentObject var store: GameStore
     @State private var showingAddGoal = false
     
+    /// Goals from past months stop updating, so only this month's are "active".
+    private var currentGoals: [MonthlyGoal] {
+        store.monthlyGoals.filter { Calendar.current.isDate($0.month, equalTo: Date(), toGranularity: .month) }
+    }
+    
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 20) {
-                    // Current Month Header
-                    MonthHeaderView()
-                    
-                    // Active Goals
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            Text("Objectifs actifs")
-                                .font(.headline)
-                                .foregroundColor(.white)
-                            
-                            Spacer()
-                            
-                            Button(action: { showingAddGoal = true }) {
-                                Image(systemName: "plus.circle.fill")
-                                    .foregroundColor(.gbGreen)
-                            }
-                        }
-                        .padding(.horizontal)
+        ScrollView {
+            VStack(spacing: 20) {
+                // Current Month Header
+                MonthHeaderView()
+                
+                // Active Goals
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Text("Objectifs actifs")
+                            .font(.headline)
+                            .foregroundColor(.white)
                         
-                        if store.monthlyGoals.isEmpty {
-                            EmptyGoalsView(onAdd: { showingAddGoal = true })
-                        } else {
-                            ForEach(store.monthlyGoals) { goal in
-                                GoalCard(goal: goal)
-                                    .padding(.horizontal)
-                            }
+                        Spacer()
+                        
+                        Button(action: { showingAddGoal = true }) {
+                            Image(systemName: "plus.circle.fill")
+                                .foregroundColor(.gbGreen)
                         }
                     }
+                    .padding(.horizontal)
                     
-                    // Suggested Goals
+                    if currentGoals.isEmpty {
+                        EmptyGoalsView(onAdd: { showingAddGoal = true })
+                    } else {
+                        ForEach(currentGoals) { goal in
+                            GoalCard(goal: goal)
+                                .padding(.horizontal)
+                        }
+                    }
+                }
+                
+                // Suggested Goals
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Suggestions")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .padding(.horizontal)
+                    
+                    ForEach(GoalSuggestions.all, id: \.title) { suggestion in
+                        SuggestedGoalCard(suggestion: suggestion) {
+                            addGoal(from: suggestion)
+                        }
+                        .padding(.horizontal)
+                    }
+                }
+                
+                // Past Goals Summary
+                if !store.completedGoals.isEmpty {
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("Suggestions")
+                        Text("Objectifs accomplis")
                             .font(.headline)
                             .foregroundColor(.white)
                             .padding(.horizontal)
                         
-                        ForEach(GoalSuggestions.all, id: \.title) { suggestion in
-                            SuggestedGoalCard(suggestion: suggestion) {
-                                addGoal(from: suggestion)
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 12) {
+                                ForEach(store.completedGoals.prefix(5)) { goal in
+                                    CompletedGoalBadge(goal: goal)
+                                }
                             }
                             .padding(.horizontal)
                         }
                     }
-                    
-                    // Past Goals Summary
-                    if !store.completedGoals.isEmpty {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Objectifs accomplis")
-                                .font(.headline)
-                                .foregroundColor(.white)
-                                .padding(.horizontal)
-                            
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 12) {
-                                    ForEach(store.completedGoals.prefix(5)) { goal in
-                                        CompletedGoalBadge(goal: goal)
-                                    }
-                                }
-                                .padding(.horizontal)
-                            }
-                        }
-                    }
                 }
-                .padding(.vertical)
             }
-            .background(Color.gbDark.ignoresSafeArea())
-            .navigationTitle("Objectifs")
-            .sheet(isPresented: $showingAddGoal) {
-                AddGoalSheet()
-            }
+            .padding(.vertical)
+        }
+        .background(Color.gbDark.ignoresSafeArea())
+        .navigationTitle("Objectifs")
+        .sheet(isPresented: $showingAddGoal) {
+            AddGoalSheet()
         }
     }
     
@@ -210,14 +213,9 @@ struct GoalCard: View {
     func daysRemainingInMonth() -> Int {
         let calendar = Calendar.current
         let today = Date()
-        guard let range = calendar.range(of: .day, in: .month, for: today),
-              let lastDay = calendar.date(from: DateComponents(
-                year: calendar.component(.year, from: today),
-                month: calendar.component(.month, from: today),
-                day: range.count
-              )) else { return 0 }
-        
-        return calendar.dateComponents([.day], from: today, to: lastDay).day ?? 0
+        guard let range = calendar.range(of: .day, in: .month, for: today) else { return 0 }
+        // Whole calendar days left, today included (the last day of the month shows 1).
+        return range.count - calendar.component(.day, from: today) + 1
     }
 }
 
@@ -388,6 +386,6 @@ struct AddGoalSheet: View {
 
 // MARK: - Preview
 #Preview {
-    GoalsView()
+    NavigationStack { GoalsView() }
         .environmentObject(GameStore())
 }

@@ -28,14 +28,19 @@ enum DS {
 
     // MARK: - Typography
     enum Typography {
-        static let largeTitle: Font = .largeTitle.weight(.bold)
-        static let title: Font = .title2.weight(.semibold)
+        static let largeTitle: Font = .system(.largeTitle, design: .rounded, weight: .bold)
+        static let title: Font = .system(.title3, design: .rounded, weight: .bold)
         static let headline: Font = .headline.weight(.semibold)
         static let body: Font = .subheadline
         static let bodyMedium: Font = .subheadline.weight(.medium)
         static let caption: Font = .caption
         static let captionMedium: Font = .caption.weight(.medium)
         static let micro: Font = .caption2
+
+        /// Big numbers (stat tiles, hero counters).
+        static let stat: Font = .system(.title2, design: .monospaced, weight: .bold)
+        /// Small monospaced uppercase data labels/tags.
+        static let label: Font = .system(.caption2, design: .monospaced, weight: .medium)
     }
 
     // MARK: - Semantic Colors
@@ -61,6 +66,10 @@ struct CardStyle: ViewModifier {
             .padding(DS.Spacing.md)
             .background(Color.surfacePrimary)
             .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                    .stroke(Color.gbBorder, lineWidth: 1)
+            )
     }
 }
 
@@ -86,14 +95,23 @@ extension View {
 
 struct SectionHeader: View {
     let title: String
+    var subtitle: String? = nil
     var trailing: String? = nil
     var trailingAction: (() -> Void)? = nil
 
     var body: some View {
         HStack(alignment: .firstTextBaseline) {
-            Text(title)
-                .font(DS.Typography.title)
-                .foregroundStyle(Color.textPrimary)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(DS.Typography.title)
+                    .foregroundStyle(Color.textPrimary)
+
+                if let subtitle = subtitle {
+                    Text(subtitle)
+                        .font(DS.Typography.caption)
+                        .foregroundStyle(Color.textSecondary)
+                }
+            }
 
             Spacer()
 
@@ -143,6 +161,7 @@ struct TagPill: View {
     let label: String
     var icon: String? = nil
     var isSelected: Bool = false
+    var tint: Color = .accent
     var onRemove: (() -> Void)? = nil
 
     var body: some View {
@@ -164,9 +183,12 @@ struct TagPill: View {
         }
         .padding(.horizontal, DS.Spacing.sm)
         .padding(.vertical, DS.Spacing.xs)
-        .background(isSelected ? Color.accent.opacity(0.15) : Color.surfaceSecondary)
-        .foregroundStyle(isSelected ? Color.accent : Color.textSecondary)
+        .background(isSelected ? tint.opacity(0.16) : Color.surfacePrimary)
+        .foregroundStyle(isSelected ? tint : Color.textSecondary)
         .clipShape(Capsule())
+        .overlay(
+            Capsule().stroke(isSelected ? tint.opacity(0.4) : Color.gbBorder, lineWidth: 1)
+        )
     }
 }
 
@@ -174,25 +196,31 @@ struct MetricCard: View {
     let value: String
     let label: String
     let icon: String
+    var tint: Color = .accent
+    var compact: Bool = false
 
     var body: some View {
         VStack(spacing: DS.Spacing.xs) {
             Image(systemName: icon)
                 .font(.body)
-                .foregroundStyle(Color.accent)
+                .foregroundStyle(tint)
 
             Text(value)
-                .font(.title2.weight(.bold).monospacedDigit())
+                .font(compact ? DS.Typography.headline.monospacedDigit() : DS.Typography.stat)
                 .foregroundStyle(Color.textPrimary)
 
-            Text(label)
-                .font(DS.Typography.micro)
+            Text(label.uppercased())
+                .font(DS.Typography.label)
                 .foregroundStyle(Color.textTertiary)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, DS.Spacing.md)
+        .padding(.vertical, compact ? DS.Spacing.sm : DS.Spacing.md)
         .background(Color.surfacePrimary)
         .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                .stroke(Color.gbBorder, lineWidth: 1)
+        )
     }
 }
 
@@ -213,8 +241,52 @@ struct PrimaryButton: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, DS.Spacing.md)
             .background(Color.accent)
-            .foregroundStyle(Color.white)
+            .foregroundStyle(Color.gbDark)
             .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
+        }
+    }
+}
+
+/// Capsule-row segmented control replacing native `.pickerStyle(.segmented)`,
+/// which doesn't take the app's colors. Preserves selection semantics for
+/// VoiceOver via `.isSelected`.
+struct PillSegmentedControl<T: Hashable>: View {
+    let options: [T]
+    @Binding var selection: T
+    let label: (T) -> String
+
+    @Namespace private var namespace
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: DS.Spacing.xs) {
+                ForEach(options, id: \.self) { option in
+                    let isSelected = option == selection
+                    Button(action: {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            selection = option
+                        }
+                    }) {
+                        Text(label(option))
+                            .font(DS.Typography.captionMedium)
+                            .foregroundStyle(isSelected ? Color.gbDark : Color.textSecondary)
+                            .padding(.horizontal, DS.Spacing.sm)
+                            .padding(.vertical, DS.Spacing.xs)
+                            .background {
+                                if isSelected {
+                                    Capsule()
+                                        .fill(Color.accent)
+                                        .matchedGeometryEffect(id: "pillSegment", in: namespace)
+                                } else {
+                                    Capsule()
+                                        .stroke(Color.gbBorder, lineWidth: 1)
+                                }
+                            }
+                    }
+                    .accessibilityAddTraits(isSelected ? .isSelected : [])
+                }
+            }
+            .padding(.horizontal, 1)
         }
     }
 }

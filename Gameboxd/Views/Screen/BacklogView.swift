@@ -23,79 +23,77 @@ struct BacklogView: View {
     }
     
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                // Random Picker Card
-                RandomPickerCard(
-                    onSpin: spinWheel,
-                    isSpinning: isSpinning,
-                    selectedGame: randomGame
-                )
-                .padding()
-                
-                // Priority Filter
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 10) {
+        VStack(spacing: 0) {
+            // Random Picker Card
+            RandomPickerCard(
+                onSpin: spinWheel,
+                isSpinning: isSpinning,
+                selectedGame: randomGame
+            )
+            .padding()
+            
+            // Priority Filter
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    PriorityFilterChip(
+                        label: "Tous",
+                        count: store.backlog.count,
+                        isSelected: selectedPriority == nil,
+                        color: .gray
+                    ) {
+                        selectedPriority = nil
+                    }
+                    
+                    ForEach(GamePriority.allCases, id: \.self) { priority in
                         PriorityFilterChip(
-                            label: "Tous",
-                            count: store.backlog.count,
-                            isSelected: selectedPriority == nil,
-                            color: .gray
+                            label: priority.rawValue,
+                            count: store.backlog.filter { $0.priority == priority }.count,
+                            isSelected: selectedPriority == priority,
+                            color: priority.color
                         ) {
-                            selectedPriority = nil
+                            selectedPriority = priority
                         }
-                        
-                        ForEach(GamePriority.allCases, id: \.self) { priority in
-                            PriorityFilterChip(
-                                label: priority.rawValue,
-                                count: store.backlog.filter { $0.priority == priority }.count,
-                                isSelected: selectedPriority == priority,
-                                color: priority.color
-                            ) {
-                                selectedPriority = priority
+                    }
+                }
+                .padding(.horizontal)
+            }
+            .padding(.vertical, 8)
+            
+            // Backlog List
+            if filteredBacklog.isEmpty {
+                VStack(spacing: 16) {
+                    Spacer()
+                    Image(systemName: "tray")
+                        .font(.system(size: 50))
+                        .foregroundColor(.gray.opacity(0.3))
+                    Text("Backlog vide")
+                        .font(.headline)
+                        .foregroundColor(.gray)
+                    Text("Ajoute des jeux avec le statut\n\"À jouer\" pour les voir ici")
+                        .font(.subheadline)
+                        .foregroundColor(.gray.opacity(0.7))
+                        .multilineTextAlignment(.center)
+                    Spacer()
+                }
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 12) {
+                        ForEach(filteredBacklog) { game in
+                            NavigationLink(destination: GameDetailView(game: game)) {
+                                BacklogGameRow(game: game)
                             }
                         }
                     }
-                    .padding(.horizontal)
-                }
-                .padding(.vertical, 8)
-                
-                // Backlog List
-                if filteredBacklog.isEmpty {
-                    VStack(spacing: 16) {
-                        Spacer()
-                        Image(systemName: "tray")
-                            .font(.system(size: 50))
-                            .foregroundColor(.gray.opacity(0.3))
-                        Text("Backlog vide")
-                            .font(.headline)
-                            .foregroundColor(.gray)
-                        Text("Ajoute des jeux avec le statut\n\"À jouer\" pour les voir ici")
-                            .font(.subheadline)
-                            .foregroundColor(.gray.opacity(0.7))
-                            .multilineTextAlignment(.center)
-                        Spacer()
-                    }
-                } else {
-                    ScrollView {
-                        LazyVStack(spacing: 12) {
-                            ForEach(filteredBacklog) { game in
-                                NavigationLink(destination: GameDetailView(game: game)) {
-                                    BacklogGameRow(game: game)
-                                }
-                            }
-                        }
-                        .padding()
-                    }
+                    .padding()
                 }
             }
-            .background(Color.gbDark.ignoresSafeArea())
-            .navigationTitle("Backlog")
-            .navigationBarTitleDisplayMode(.large)
-            .onDisappear {
-                spinTimer?.invalidate()
-                spinTimer = nil
-            }
+        }
+        .background(Color.gbDark.ignoresSafeArea())
+        .navigationTitle("Backlog")
+        .navigationBarTitleDisplayMode(.large)
+        .onDisappear {
+            spinTimer?.invalidate()
+            spinTimer = nil
         }
     }
     
@@ -380,6 +378,6 @@ struct BacklogGameRow: View {
 
 // MARK: - Preview
 #Preview {
-    BacklogView()
+    NavigationStack { BacklogView() }
         .environmentObject(GameStore())
 }

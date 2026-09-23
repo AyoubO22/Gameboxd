@@ -1,35 +1,24 @@
 import SwiftUI
 
-// MARK: - Theme Manager
-final class ThemeManager {
-    static let shared = ThemeManager()
-    var currentTheme: AppTheme = .default
-    
-    private init() {
-        if let raw = UserDefaults.standard.string(forKey: "gameboxd_theme"),
-           let theme = AppTheme(rawValue: raw) {
-            currentTheme = theme
-        }
-    }
-}
-
 extension Color {
-    // Dynamic theme colors
-    static var gbGreen: Color { ThemeManager.shared.currentTheme.accentColor }
-    static var gbDark: Color { ThemeManager.shared.currentTheme.darkColor }
-    static var gbCard: Color { ThemeManager.shared.currentTheme.cardColor }
-    
+    // Palette (hardcoded — single design, no per-user theming)
+    static let gbGreen = Color(hex: "D4FF3F")
+    static let gbDark = Color(hex: "0A0B0D")
+    static let gbCard = Color(hex: "16181C")
+    static let gbSurface2 = Color(hex: "1E2126")
+    static let gbBorder = Color(hex: "23262B")
+
     // Couleur pour le texte secondaire
-    static let gbTextSecondary = Color.gray
+    static let gbTextSecondary = Color(hex: "9BA1A9")
 
     // MARK: - Semantic Design System Colors
-    static var accent: Color { ThemeManager.shared.currentTheme.accentColor }
-    static var textPrimary: Color { .white }
-    static var textSecondary: Color { .gray }
-    static var textTertiary: Color { Color.gray.opacity(0.5) }
-    static var surfacePrimary: Color { ThemeManager.shared.currentTheme.cardColor }
-    static var surfaceSecondary: Color { ThemeManager.shared.currentTheme.darkColor }
-    static var separator: Color { Color.gray.opacity(0.3) }
+    static let accent = Color.gbGreen
+    static let textPrimary = Color(hex: "F5F6F2")
+    static let textSecondary = Color.gbTextSecondary
+    static let textTertiary = Color(hex: "5C6167")
+    static let surfacePrimary = Color.gbCard
+    static let surfaceSecondary = Color.gbSurface2
+    static let separator = Color.gbBorder
     
     // MARK: - Hex Conversion (pour Codable)
     

@@ -1,5 +1,4 @@
 import SwiftUI
-import SwiftData
 import UserNotifications
 
 // Allow notifications to show even when app is in foreground
@@ -21,31 +20,12 @@ struct GameboxdApp: App {
     // alive for the app's lifetime since UNUserNotificationCenter holds it weakly.
     private let notificationDelegate = NotificationDelegate()
 
-    let modelContainer: ModelContainer
-
     init() {
         let memoryCapacity = 4 * 1024 * 1024
         let diskCapacity = 50 * 1024 * 1024
         URLCache.shared = URLCache(memoryCapacity: memoryCapacity, diskCapacity: diskCapacity)
 
-        // Set up SwiftData ModelContainer
-        let schema = Schema([
-            SDGame.self, SDPlaySession.self, SDGameList.self,
-            SDUserProfile.self, SDAchievement.self, SDCustomTag.self,
-            SDFriend.self, SDActivityItem.self, SDGameNotification.self,
-            SDMonthlyGoal.self, SDLinkedAccount.self, SDImportedGame.self
-        ])
-        do {
-            modelContainer = try ModelContainer(for: schema)
-        } catch {
-            fatalError("Failed to create ModelContainer: \(error)")
-        }
-
-        // Must be set after all stored properties are initialized
         UNUserNotificationCenter.current().delegate = notificationDelegate
-
-        // Run one-time migration from UserDefaults
-        MigrationService.migrateIfNeeded(into: modelContainer.mainContext)
     }
 
     var body: some Scene {
@@ -69,6 +49,5 @@ struct GameboxdApp: App {
                     }
             }
         }
-        .modelContainer(modelContainer)
     }
 }

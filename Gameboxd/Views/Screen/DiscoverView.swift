@@ -9,8 +9,8 @@ import SwiftUI
 
 struct DiscoverView: View {
     @EnvironmentObject var store: GameStore
-    @State private var selectedCategory = 0
-    
+    @State private var randomPick: Game?
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -19,7 +19,13 @@ struct DiscoverView: View {
                     if !RAWGService.shared.hasValidAPIKey {
                         APIKeyWarningView()
                     }
-                    
+
+                    // Hero: top trending game
+                    if let hero = store.trendingGames.first {
+                        DiscoverHeroCard(game: hero)
+                            .padding(.horizontal)
+                    }
+
                     // Trending Section
                     DiscoverSection(
                         title: "Tendances",
@@ -53,7 +59,7 @@ struct DiscoverView: View {
                     )
                     
                     // Random Backlog Pick
-                    if let randomGame = store.randomBacklogPick() {
+                    if let randomGame = randomPick {
                         RandomPickSection(game: randomGame)
                     }
                 }
@@ -61,6 +67,13 @@ struct DiscoverView: View {
             }
             .background(Color.gbDark.ignoresSafeArea())
             .navigationTitle("Découvrir")
+            .onAppear {
+                // Pick once per visit (not in body, which re-rolls on every store update);
+                // re-pick if the game left the backlog.
+                if randomPick == nil || !store.backlog.contains(where: { $0.id == randomPick?.id }) {
+                    randomPick = store.randomBacklogPick()
+                }
+            }
             .task {
                 if store.trendingGames.isEmpty {
                     await store.loadDiscoverData()
@@ -73,33 +86,83 @@ struct DiscoverView: View {
     }
 }
 
+// MARK: - Discover Hero Card
+struct DiscoverHeroCard: View {
+    let game: Game
+
+    var body: some View {
+        NavigationLink(destination: GameDetailView(game: game)) {
+            ZStack(alignment: .bottomLeading) {
+                Group {
+                    if let imageURL = game.coverImageURL, let url = URL(string: imageURL) {
+                        CachedAsyncImage(url: url) { image in
+                            image.resizable().aspectRatio(contentMode: .fill)
+                        } placeholder: {
+                            Rectangle().fill(game.coverColor.gradient)
+                        }
+                    } else {
+                        Rectangle().fill(game.coverColor.gradient)
+                    }
+                }
+                .aspectRatio(16/9, contentMode: .fill)
+                .frame(maxWidth: .infinity)
+                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                        .fill(LinearGradient(colors: [.gbDark.opacity(0.05), .gbDark.opacity(0.9)], startPoint: .top, endPoint: .bottom))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                        .stroke(Color.gbBorder, lineWidth: 1)
+                )
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("TENDANCE")
+                        .font(DS.Typography.label)
+                        .foregroundStyle(Color.accent)
+                    Text(game.title)
+                        .font(DS.Typography.largeTitle)
+                        .foregroundStyle(Color.textPrimary)
+                        .lineLimit(2)
+                }
+                .padding(DS.Spacing.md)
+            }
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 // MARK: - API Key Warning
 struct APIKeyWarningView: View {
     var body: some View {
-        VStack(spacing: 12) {
+        HStack(spacing: DS.Spacing.md) {
             Image(systemName: "key.fill")
-                .font(.largeTitle)
-                .foregroundColor(.orange)
-            
-            Text("Clé API manquante")
-                .font(.headline)
-                .foregroundColor(.white)
-            
-            Text("Ajoute ta clé RAWG.io dans RAWGService.swift pour voir les vrais jeux")
-                .font(.caption)
-                .foregroundColor(.gray)
-                .multilineTextAlignment(.center)
-            
-            if let url = URL(string: "https://rawg.io/apidocs") {
-                Link("Obtenir une clé gratuite", destination: url)
-                    .font(.caption)
-                    .foregroundColor(.gbGreen)
+                .font(.title2)
+                .foregroundStyle(Color(hex: "FF8A3D"))
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Clé API manquante")
+                    .font(DS.Typography.headline)
+                    .foregroundStyle(Color.textPrimary)
+
+                Text("Ajoute ta clé RAWG.io dans RAWGService.swift pour voir les vrais jeux")
+                    .font(DS.Typography.caption)
+                    .foregroundStyle(Color.textSecondary)
+
+                if let url = URL(string: "https://rawg.io/apidocs") {
+                    Link("Obtenir une clé gratuite", destination: url)
+                        .font(DS.Typography.captionMedium)
+                        .foregroundStyle(Color.accent)
+                }
             }
+
+            Spacer()
         }
-        .padding()
-        .frame(maxWidth: .infinity)
-        .background(Color.gbCard)
-        .cornerRadius(12)
+        .cardStyle()
+        .overlay(
+            RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                .stroke(Color(hex: "FF8A3D").opacity(0.4), lineWidth: 1)
+        )
         .padding(.horizontal)
     }
 }
@@ -110,22 +173,12 @@ struct DiscoverSection: View {
     let subtitle: String
     let games: [Game]
     let isLoading: Bool
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // Header
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.title2)
-                    .fontWeight(.bold)
-                    .foregroundColor(.white)
-                
-                Text(subtitle)
-                    .font(.caption)
-                    .foregroundColor(.gray)
-            }
-            .padding(.horizontal)
-            
+            SectionHeader(title: title, subtitle: subtitle)
+                .padding(.horizontal)
+
             // Content
             if isLoading {
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -163,74 +216,83 @@ struct DiscoverGameCard: View {
         VStack(alignment: .leading, spacing: 8) {
             // Cover Image
             ZStack(alignment: .topTrailing) {
-                if let imageURL = game.coverImageURL, let url = URL(string: imageURL) {
-                    CachedAsyncImage(url: url) { image in
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                    } placeholder: {
+                Group {
+                    if let imageURL = game.coverImageURL, let url = URL(string: imageURL) {
+                        CachedAsyncImage(url: url) { image in
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                        } placeholder: {
+                            Rectangle()
+                                .fill(game.coverColor.gradient)
+                                .overlay(ProgressView().tint(.textSecondary))
+                        }
+                    } else {
                         Rectangle()
                             .fill(game.coverColor.gradient)
-                            .overlay(ProgressView().tint(.white))
                     }
-                } else {
-                    Rectangle()
-                        .fill(game.coverColor.gradient)
                 }
-                
+                .frame(width: 132, height: 176)
+                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                        .stroke(Color.gbBorder, lineWidth: 1)
+                )
+
                 // Metacritic badge
                 if let score = game.metacriticScore {
                     Text("\(score)")
-                        .font(.caption2)
-                        .fontWeight(.bold)
-                        .padding(4)
-                        .background(metacriticColor(score))
-                        .foregroundColor(.white)
-                        .cornerRadius(4)
+                        .font(DS.Typography.label)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background(DS.Colors.score(score).opacity(0.2))
+                        .background(Color.gbDark.opacity(0.85))
+                        .foregroundStyle(DS.Colors.score(score))
+                        .clipShape(Capsule())
                         .padding(6)
                 }
-                
+
                 // In Library badge
                 if store.isInLibrary(game) {
                     VStack {
                         Spacer()
                         HStack {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(.gbGreen)
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(Color.gbDark)
+                                .padding(5)
+                                .background(Color.accent)
+                                .clipShape(Circle())
                                 .padding(6)
                             Spacer()
                         }
                     }
                 }
             }
-            .frame(width: 140, height: 180)
-            .cornerRadius(10)
-            .clipped()
-            
+
             // Title
             Text(game.title)
-                .font(.subheadline)
-                .fontWeight(.semibold)
-                .foregroundColor(.white)
+                .font(DS.Typography.bodyMedium)
+                .foregroundStyle(Color.textPrimary)
                 .lineLimit(2)
                 .multilineTextAlignment(.leading)
-            
+
             // Info
             HStack(spacing: 4) {
                 Text(game.releaseYear)
-                    .font(.caption2)
-                    .foregroundColor(.gray)
-                
+                    .font(DS.Typography.label)
+                    .foregroundStyle(Color.textTertiary)
+
                 Text("•")
-                    .foregroundColor(.gray)
-                
+                    .foregroundStyle(Color.textTertiary)
+
                 Text(game.platform)
-                    .font(.caption2)
-                    .foregroundColor(.gbGreen)
+                    .font(DS.Typography.label)
+                    .foregroundStyle(Color.textSecondary)
                     .lineLimit(1)
             }
         }
-        .frame(width: 140)
+        .frame(width: 132)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(game.title), \(game.platform)")
         .accessibilityHint("Ouvre la fiche du jeu")
@@ -243,17 +305,17 @@ struct ShimmerCard: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            RoundedRectangle(cornerRadius: 10)
-                .fill(Color.gbCard)
-                .frame(width: 140, height: 180)
-            
-            RoundedRectangle(cornerRadius: 4)
-                .fill(Color.gbCard)
-                .frame(width: 120, height: 14)
-            
-            RoundedRectangle(cornerRadius: 4)
-                .fill(Color.gbCard)
-                .frame(width: 80, height: 10)
+            RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                .fill(Color.gbSurface2)
+                .frame(width: 132, height: 176)
+
+            RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
+                .fill(Color.gbSurface2)
+                .frame(width: 112, height: 14)
+
+            RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
+                .fill(Color.gbSurface2)
+                .frame(width: 76, height: 10)
         }
         .opacity(isAnimating ? 0.5 : 1.0)
         .animation(.easeInOut(duration: 0.8).repeatForever(), value: isAnimating)
@@ -264,86 +326,61 @@ struct ShimmerCard: View {
 // MARK: - Empty Discover Section
 struct EmptyDiscoverSection: View {
     var body: some View {
-        HStack {
-            Spacer()
-            VStack(spacing: 8) {
-                Image(systemName: "gamecontroller")
-                    .font(.title)
-                    .foregroundColor(.gray.opacity(0.5))
-                Text("Aucun jeu disponible")
-                    .font(.caption)
-                    .foregroundColor(.gray)
-            }
-            .padding(.vertical, 40)
-            Spacer()
-        }
-        .background(Color.gbCard.opacity(0.5))
-        .cornerRadius(12)
-        .padding(.horizontal)
+        EmptyState(icon: "gamecontroller", title: "Aucun jeu disponible")
+            .frame(height: 160)
+            .cardStyle()
+            .padding(.horizontal)
     }
 }
 
 // MARK: - Random Pick Section
 struct RandomPickSection: View {
     let game: Game
-    @State private var isExpanded = false
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Pas d'inspiration ?")
-                    .font(.title2)
-                    .fontWeight(.bold)
-                    .foregroundColor(.white)
-                
-                Spacer()
-            }
-            .padding(.horizontal)
-            
+            SectionHeader(title: "Pas d'inspiration ?")
+                .padding(.horizontal)
+
             NavigationLink(destination: GameDetailView(game: game)) {
-                HStack(spacing: 16) {
+                HStack(spacing: DS.Spacing.md) {
                     // Cover
-                    if let imageURL = game.coverImageURL, let url = URL(string: imageURL) {
-                        CachedAsyncImage(url: url) { image in
-                            image.resizable().aspectRatio(contentMode: .fill)
-                        } placeholder: {
+                    Group {
+                        if let imageURL = game.coverImageURL, let url = URL(string: imageURL) {
+                            CachedAsyncImage(url: url) { image in
+                                image.resizable().aspectRatio(contentMode: .fill)
+                            } placeholder: {
+                                Rectangle().fill(game.coverColor.gradient)
+                            }
+                        } else {
                             Rectangle().fill(game.coverColor.gradient)
                         }
-                        .frame(width: 80, height: 100)
-                        .cornerRadius(8)
-                    } else {
-                        Rectangle()
-                            .fill(game.coverColor.gradient)
-                            .frame(width: 80, height: 100)
-                            .cornerRadius(8)
                     }
-                    
+                    .frame(width: 72, height: 96)
+                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                            .stroke(Color.gbBorder, lineWidth: 1)
+                    )
+
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Joue à...")
-                            .font(.caption)
-                            .foregroundColor(.gray)
-                        
+                        Text("JOUE À…")
+                            .font(DS.Typography.label)
+                            .foregroundStyle(Color.textTertiary)
+
                         Text(game.title)
-                            .font(.headline)
-                            .foregroundColor(.white)
-                        
-                        HStack {
-                            Image(systemName: game.priority.color == .red ? "flame.fill" : "clock")
-                                .foregroundColor(game.priority.color)
-                            Text(game.priority.rawValue)
-                                .font(.caption)
-                                .foregroundColor(game.priority.color)
-                        }
+                            .font(DS.Typography.headline)
+                            .foregroundStyle(Color.textPrimary)
+
+                        TagPill(label: game.priority.rawValue, icon: game.priority.color == .red ? "flame.fill" : "clock", isSelected: true, tint: game.priority.color)
                     }
-                    
+
                     Spacer()
-                    
+
                     Image(systemName: "chevron.right")
-                        .foregroundColor(.gray)
+                        .foregroundStyle(Color.textTertiary)
                 }
-                .padding()
-                .background(Color.gbCard)
-                .cornerRadius(12)
+                .cardStyle()
             }
             .padding(.horizontal)
         }

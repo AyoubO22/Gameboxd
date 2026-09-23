@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import CryptoKit
 
 // MARK: - Image Cache
 final class ImageCache {
@@ -29,10 +30,10 @@ final class ImageCache {
     }
     
     private func diskPath(for url: URL) -> URL {
-        let filename = url.absoluteString.data(using: .utf8)!.base64EncodedString()
-            .replacingOccurrences(of: "/", with: "_")
-            .prefix(200)
-        return cacheDirectory.appendingPathComponent(String(filename))
+        // Full-URL hash: truncated base64 made long URLs sharing a prefix collide.
+        let filename = SHA256.hash(data: Data(url.absoluteString.utf8))
+            .map { String(format: "%02x", $0) }.joined()
+        return cacheDirectory.appendingPathComponent(filename)
     }
     
     func memoryImage(for url: URL) -> UIImage? {
@@ -82,9 +83,6 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
     let placeholder: () -> Placeholder
     
     @State private var loadedImage: UIImage?
-    @State private var isLoading = false
-    @State private var hasFailed = false
-    @State private var retryCount = 0
     private let maxRetries = 2
     
     init(
@@ -95,6 +93,9 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
         self.url = url
         self.content = content
         self.placeholder = placeholder
+        // Synchronous memory hit, so snapshot renderers (ImageRenderer), which never
+        // run .task, still draw an already-loaded cover.
+        _loadedImage = State(initialValue: url.flatMap { ImageCache.shared.memoryImage(for: $0) })
     }
     
     var body: some View {
@@ -110,72 +111,38 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
                 }
             }
             .clipped()
-            .onAppear {
-                if !isLoading && loadedImage == nil {
-                    loadImage()
-                }
-            }
-            .onChange(of: url) { oldURL, newURL in
-                if newURL != oldURL {
-                    loadedImage = nil
-                    retryCount = 0
-                    hasFailed = false
-                    isLoading = false
-                    loadImage()
-                }
+            // Keyed on url: a URL change cancels the old load, so a slow stale
+            // response can never overwrite the new image.
+            .task(id: url) {
+                await loadImage(url)
             }
     }
     
-    private func loadImage() {
-        guard let url = url else { return }
+    private func loadImage(_ url: URL?) async {
+        guard let url else { loadedImage = nil; return }
 
-        // Check memory cache synchronously
         if let cached = ImageCache.shared.memoryImage(for: url) {
             loadedImage = cached
             return
         }
+        loadedImage = nil
 
-        guard !isLoading else { return }
-        isLoading = true
+        if let diskCached = await ImageCache.shared.diskImage(for: url) {
+            if !Task.isCancelled { loadedImage = diskCached }
+            return
+        }
 
-        Task {
-            // Check disk cache asynchronously
-            if let diskCached = await ImageCache.shared.diskImage(for: url) {
-                loadedImage = diskCached
-                isLoading = false
-                return
+        for attempt in 0...maxRetries {
+            if attempt > 0 {
+                try? await Task.sleep(nanoseconds: UInt64(500_000_000 * attempt))
             }
-
-            do {
-                let (data, response) = try await URLSession.shared.data(from: url)
-                
-                guard let httpResponse = response as? HTTPURLResponse,
-                      httpResponse.statusCode == 200,
-                      let image = UIImage(data: data) else {
-                    throw URLError(.badServerResponse)
-                }
-                
-                // Cache the image
+            guard !Task.isCancelled else { return }
+            if let (data, response) = try? await URLSession.shared.data(from: url),
+               (response as? HTTPURLResponse)?.statusCode == 200,
+               let image = UIImage(data: data) {
                 ImageCache.shared.store(image, for: url)
-                
-                await MainActor.run {
-                    loadedImage = image
-                    isLoading = false
-                }
-            } catch {
-                await MainActor.run {
-                    isLoading = false
-                    if retryCount < maxRetries {
-                        retryCount += 1
-                        // Retry after a short delay
-                        Task {
-                            try? await Task.sleep(nanoseconds: UInt64(500_000_000 * retryCount))
-                            loadImage()
-                        }
-                    } else {
-                        hasFailed = true
-                    }
-                }
+                if !Task.isCancelled { loadedImage = image }
+                return
             }
         }
     }

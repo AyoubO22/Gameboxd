@@ -32,9 +32,8 @@ class GameStore: ObservableObject {
     @Published var isLoadingUpcoming = false
     @Published var isSearching = false
     
-    // NEW: Achievements, Themes, Social
+    // NEW: Achievements, Social
     @Published var achievements: [Achievement] = []
-    @Published var currentTheme: AppTheme = .default
     @Published var customTags: [CustomTag] = []
     @Published var friends: [Friend] = []
     @Published var activityFeed: [ActivityItem] = []
@@ -46,9 +45,9 @@ class GameStore: ObservableObject {
     @Published var completedGoals: [MonthlyGoal] = []
     
     // Notification Settings
-    @Published var releaseReminders: Bool = true
-    @Published var weeklyDigest: Bool = false
-    @Published var achievementAlerts: Bool = true
+    @Published var achievementAlerts: Bool = UserDefaults.standard.object(forKey: StorageKeys.achievementAlerts) as? Bool ?? true {
+        didSet { UserDefaults.standard.set(achievementAlerts, forKey: StorageKeys.achievementAlerts) }
+    }
     
     // Linked Gaming Accounts
     @Published var linkedAccounts: [LinkedAccount] = []
@@ -68,11 +67,8 @@ class GameStore: ObservableObject {
         static let userProfile = "gameboxd_user_profile"
         static let isLoggedIn = "gameboxd_is_logged_in"
         static let achievements = "gameboxd_achievements"
-        static let currentTheme = "gameboxd_theme"
         static let customTags = "gameboxd_custom_tags"
         static let friends = "gameboxd_friends"
-        static let releaseReminders = "gameboxd_release_reminders"
-        static let weeklyDigest = "gameboxd_weekly_digest"
         static let achievementAlerts = "gameboxd_achievement_alerts"
         static let monthlyGoals = "gameboxd_monthly_goals"
         static let completedGoals = "gameboxd_completed_goals"
@@ -84,10 +80,10 @@ class GameStore: ObservableObject {
     init() {
         isLoggedIn = UserDefaults.standard.bool(forKey: StorageKeys.isLoggedIn)
         loadAllData()
-        loadSettings()
         initializeAchievements()
         updateGoalProgress()
         syncWidgetData()
+        setICloudObservation(UserDefaults.standard.bool(forKey: "icloud_enabled"))
         // Discover data is loaded lazily in DiscoverView.onAppear
     }
     
@@ -110,35 +106,9 @@ class GameStore: ObservableObject {
         userProfile.authProvider = "email"
         userProfile.authProviderUserId = ""
         userProfile.avatarURL = nil
+        saveUserProfile()
         isLoggedIn = false
         UserDefaults.standard.set(false, forKey: StorageKeys.isLoggedIn)
-    }
-    
-    // MARK: - Settings
-    
-    private func loadSettings() {
-        releaseReminders = UserDefaults.standard.object(forKey: StorageKeys.releaseReminders) as? Bool ?? true
-        weeklyDigest = UserDefaults.standard.bool(forKey: StorageKeys.weeklyDigest)
-        achievementAlerts = UserDefaults.standard.object(forKey: StorageKeys.achievementAlerts) as? Bool ?? true
-        
-        if let themeRaw = UserDefaults.standard.string(forKey: StorageKeys.currentTheme),
-           let theme = AppTheme(rawValue: themeRaw) {
-            currentTheme = theme
-            ThemeManager.shared.currentTheme = theme
-        }
-    }
-    
-    func saveSettings() {
-        UserDefaults.standard.set(releaseReminders, forKey: StorageKeys.releaseReminders)
-        UserDefaults.standard.set(weeklyDigest, forKey: StorageKeys.weeklyDigest)
-        UserDefaults.standard.set(achievementAlerts, forKey: StorageKeys.achievementAlerts)
-    }
-    
-    func setTheme(_ theme: AppTheme) {
-        currentTheme = theme
-        ThemeManager.shared.currentTheme = theme
-        UserDefaults.standard.set(theme.rawValue, forKey: StorageKeys.currentTheme)
-        objectWillChange.send()
     }
     
     // MARK: - Persistence
@@ -156,26 +126,39 @@ class GameStore: ObservableObject {
         loadImportedGames()
     }
     
+    /// Decodes a stored value. If the bytes exist but can't be decoded, they are
+    /// copied to a backup key first, so the next save can't silently destroy them.
+    private func load<T: Decodable>(_ type: T.Type, key: String) -> T? {
+        guard let data = UserDefaults.standard.data(forKey: key) else { return nil }
+        do {
+            return try JSONDecoder().decode(T.self, from: data)
+        } catch {
+            UserDefaults.standard.set(data, forKey: key + "_unreadable_backup")
+            print("Failed to decode \(key), raw data backed up: \(error)")
+            return nil
+        }
+    }
+
     private func loadGames() {
-        if let data = UserDefaults.standard.data(forKey: StorageKeys.myGames),
-           let decoded = try? JSONDecoder().decode([Game].self, from: data) {
+        if let decoded = load([Game].self, key: StorageKeys.myGames) {
             myGames = decoded
         }
         // A fresh install starts with an empty library — no seeded demo games.
     }
     
-    private func saveGames() {
+    private func saveGames(syncWidget: Bool = true) {
         if let encoded = try? JSONEncoder().encode(myGames) {
             UserDefaults.standard.set(encoded, forKey: StorageKeys.myGames)
         }
         checkAchievements()
         updateGoalProgress()
-        syncWidgetData()
+        if syncWidget {
+            syncWidgetData()
+        }
     }
     
     private func loadPlaySessions() {
-        if let data = UserDefaults.standard.data(forKey: StorageKeys.playSessions),
-           let decoded = try? JSONDecoder().decode([PlaySession].self, from: data) {
+        if let decoded = load([PlaySession].self, key: StorageKeys.playSessions) {
             playSessions = decoded
         }
     }
@@ -187,8 +170,7 @@ class GameStore: ObservableObject {
     }
     
     private func loadGameLists() {
-        if let data = UserDefaults.standard.data(forKey: StorageKeys.gameLists),
-           let decoded = try? JSONDecoder().decode([GameList].self, from: data) {
+        if let decoded = load([GameList].self, key: StorageKeys.gameLists) {
             gameLists = decoded
         } else {
             // Create default lists
@@ -207,24 +189,24 @@ class GameStore: ObservableObject {
     }
     
     private func loadUserProfile() {
-        if let data = UserDefaults.standard.data(forKey: StorageKeys.userProfile),
-           let decoded = try? JSONDecoder().decode(UserProfile.self, from: data) {
+        if let decoded = load(UserProfile.self, key: StorageKeys.userProfile) {
             userProfile = decoded
         }
     }
     
-    func saveUserProfile() {
+    func saveUserProfile(syncWidget: Bool = true) {
         if let encoded = try? JSONEncoder().encode(userProfile) {
             UserDefaults.standard.set(encoded, forKey: StorageKeys.userProfile)
         }
-        syncWidgetData()
+        if syncWidget {
+            syncWidgetData()
+        }
     }
     
     // MARK: - Linked Accounts
     
     private func loadLinkedAccounts() {
-        if let data = UserDefaults.standard.data(forKey: StorageKeys.linkedAccounts),
-           let decoded = try? JSONDecoder().decode([LinkedAccount].self, from: data) {
+        if let decoded = load([LinkedAccount].self, key: StorageKeys.linkedAccounts) {
             linkedAccounts = decoded
         }
     }
@@ -236,8 +218,7 @@ class GameStore: ObservableObject {
     }
     
     private func loadImportedGames() {
-        if let data = UserDefaults.standard.data(forKey: StorageKeys.importedGames),
-           let decoded = try? JSONDecoder().decode([ImportedGame].self, from: data) {
+        if let decoded = load([ImportedGame].self, key: StorageKeys.importedGames) {
             importedGames = decoded
         }
     }
@@ -264,10 +245,7 @@ class GameStore: ObservableObject {
                 importedGameCount: games.count
             )
             
-            linkedAccounts.append(account)
-            importedGames.append(contentsOf: games)
-            saveLinkedAccounts()
-            saveImportedGames()
+            storeLinkedAccount(account, games: games)
             
         case .playstation:
             let (games, profile) = try await psnService.syncLibrary(psnId: platformId)
@@ -283,11 +261,19 @@ class GameStore: ObservableObject {
                 level: profile.trophySummary?.level
             )
             
-            linkedAccounts.append(account)
-            importedGames.append(contentsOf: games)
-            saveLinkedAccounts()
-            saveImportedGames()
+            storeLinkedAccount(account, games: games)
         }
+    }
+
+    /// Replaces any existing account for the same platform and only adds imported
+    /// games that aren't already there, so unlink + relink doesn't duplicate.
+    private func storeLinkedAccount(_ account: LinkedAccount, games: [ImportedGame]) {
+        linkedAccounts.removeAll { $0.platform == account.platform }
+        linkedAccounts.append(account)
+        let existing = Set(importedGames.filter { $0.platform == account.platform }.map(\.platformGameId))
+        importedGames.append(contentsOf: games.filter { !existing.contains($0.platformGameId) })
+        saveLinkedAccounts()
+        saveImportedGames()
     }
     
     /// Sync an existing linked account to fetch new games
@@ -423,19 +409,25 @@ class GameStore: ObservableObject {
         isLoadingUpcoming = false
     }
     
+    private var latestSearchQuery = ""
+
     func searchGamesOnline(query: String) async {
+        latestSearchQuery = query
         guard !query.isEmpty else {
             searchResults = []
+            isSearching = false
             return
         }
         isSearching = true
         do {
             let games = try await rawgService.searchGames(query: query)
+            // A slower, older request must not overwrite newer results.
+            guard query == latestSearchQuery else { return }
             searchResults = games.map { $0.toGame() }
         } catch {
             print("Error searching: \(error)")
         }
-        isSearching = false
+        if query == latestSearchQuery { isSearching = false }
     }
     
     func fetchSimilarGames(for game: Game) async -> [Game] {
@@ -468,62 +460,55 @@ class GameStore: ObservableObject {
     // MARK: - Game CRUD
     
     func updateGame(_ game: Game) {
-        var sanitizedGame = game
-        sanitizedGame.review = securityManager.sanitizeInput(game.review)
-        sanitizedGame.notes = securityManager.sanitizeInput(game.notes)
-        if let index = myGames.firstIndex(where: { $0.id == game.id }) {
-            myGames[index] = sanitizedGame
-        } else {
-            var newGame = sanitizedGame
-            if newGame.status == .none {
-                newGame = Game(
-                    id: newGame.id,
-                    title: newGame.title,
-                    developer: newGame.developer,
-                    platform: newGame.platform,
-                    releaseYear: newGame.releaseYear,
-                    coverImageURL: newGame.coverImageURL,
-                    coverColor: newGame.coverColor,
-                    rating: newGame.rating,
-                    subRatings: newGame.subRatings,
-                    status: .wantToPlay,
-                    review: newGame.review,
-                    isSpoiler: newGame.isSpoiler,
-                    playTime: newGame.playTime,
-                    playTimeMinutes: newGame.playTimeMinutes,
-                    completionPercentage: newGame.completionPercentage,
-                    difficulty: newGame.difficulty,
-                    moodTags: newGame.moodTags,
-                    priority: newGame.priority,
-                    isFavorite: newGame.isFavorite,
-                    startedDate: Date(),
-                    completedDate: newGame.completedDate,
-                    rawgId: newGame.rawgId,
-                    genres: newGame.genres,
-                    metacriticScore: newGame.metacriticScore,
-                    estimatedPlaytime: newGame.estimatedPlaytime,
-                    description: newGame.description,
-                    screenshotURLs: newGame.screenshotURLs,
-                    playthroughCount: newGame.playthroughCount,
-                    notes: newGame.notes
-                )
-            }
-            myGames.append(newGame)
+        var updated = game
+        updated.review = securityManager.sanitizeInput(game.review)
+        updated.notes = securityManager.sanitizeInput(game.notes)
+
+        // Match by id, or by RAWG id so a fresh copy from Discover/Search updates
+        // the owned game instead of adding a duplicate.
+        let index = myGames.firstIndex { $0.id == game.id || (game.rawgId != nil && $0.rawgId == game.rawgId) }
+
+        if index == nil {
+            if updated.status == .none { updated.status = .wantToPlay }
+            if updated.startedDate == nil { updated.startedDate = Date() }
         }
-        
+        if (updated.status == .completed || updated.status == .platinum) && updated.completedDate == nil {
+            updated.completedDate = Date()
+        }
+
+        if let index {
+            updated.id = myGames[index].id
+            myGames[index] = updated
+        } else {
+            myGames.append(updated)
+        }
+
         // Sync favorite state with userProfile
-        syncFavoriteIds(for: sanitizedGame)
-        
+        syncFavoriteIds(for: updated, syncWidget: false)
+
         saveGames()
     }
     
     func deleteGame(at offsets: IndexSet) {
-        myGames.remove(atOffsets: offsets)
-        saveGames()
+        removeGames(ids: Set(offsets.map { myGames[$0].id }))
     }
     
     func deleteGame(_ game: Game) {
-        myGames.removeAll { $0.id == game.id }
+        removeGames(ids: [game.id])
+    }
+
+    /// Removes games and everything that points at them: their diary sessions,
+    /// list memberships and pinned-favorite slots.
+    private func removeGames(ids: Set<UUID>) {
+        myGames.removeAll { ids.contains($0.id) }
+        playSessions.removeAll { ids.contains($0.gameId) }
+        for i in gameLists.indices {
+            gameLists[i].gameIds.removeAll { ids.contains($0) }
+        }
+        userProfile.favoriteGameIds.removeAll { ids.contains($0) }
+        savePlaySessions()
+        saveGameLists()
+        saveUserProfile(syncWidget: false)
         saveGames()
     }
     
@@ -540,21 +525,21 @@ class GameStore: ObservableObject {
                 userProfile.favoriteGameIds.removeAll { $0 == game.id }
             }
             
-            saveGames()
+            saveGames(syncWidget: false)
             saveUserProfile()
         }
     }
-    
-    private func syncFavoriteIds(for game: Game) {
+
+    private func syncFavoriteIds(for game: Game, syncWidget: Bool = true) {
         if game.isFavorite {
             if !userProfile.favoriteGameIds.contains(game.id) && userProfile.favoriteGameIds.count < 4 {
                 userProfile.favoriteGameIds.append(game.id)
-                saveUserProfile()
+                saveUserProfile(syncWidget: syncWidget)
             }
         } else {
             if userProfile.favoriteGameIds.contains(game.id) {
                 userProfile.favoriteGameIds.removeAll { $0 == game.id }
-                saveUserProfile()
+                saveUserProfile(syncWidget: syncWidget)
             }
         }
     }
@@ -588,7 +573,9 @@ class GameStore: ObservableObject {
     // MARK: - Play Session Methods
     
     func addPlaySession(_ session: PlaySession) {
-        playSessions.insert(session, at: 0)
+        // Keep newest-first by session date, so back-dated entries land in place.
+        let index = playSessions.firstIndex { $0.date < session.date } ?? playSessions.endIndex
+        playSessions.insert(session, at: index)
         
         // Update game's total play time
         if let index = myGames.firstIndex(where: { $0.id == session.gameId }) {
@@ -640,9 +627,12 @@ class GameStore: ObservableObject {
     }
     
     func addGameToList(_ game: Game, list: GameList) {
+        // A list can only point at library games; add it first if needed.
+        if libraryGame(for: game) == nil { updateGame(game) }
+        guard let owned = libraryGame(for: game) else { return }
         if let index = gameLists.firstIndex(where: { $0.id == list.id }) {
-            if !gameLists[index].gameIds.contains(game.id) {
-                gameLists[index].gameIds.append(game.id)
+            if !gameLists[index].gameIds.contains(owned.id) {
+                gameLists[index].gameIds.append(owned.id)
                 gameLists[index].updatedDate = Date()
                 saveGameLists()
             }
@@ -825,8 +815,7 @@ class GameStore: ObservableObject {
     }
     
     private func loadAchievements() {
-        if let data = UserDefaults.standard.data(forKey: StorageKeys.achievements),
-           let decoded = try? JSONDecoder().decode([Achievement].self, from: data) {
+        if let decoded = load([Achievement].self, key: StorageKeys.achievements) {
             achievements = decoded
         }
     }
@@ -969,8 +958,7 @@ class GameStore: ObservableObject {
     // MARK: - Custom Tags
     
     private func loadCustomTags() {
-        if let data = UserDefaults.standard.data(forKey: StorageKeys.customTags),
-           let decoded = try? JSONDecoder().decode([CustomTag].self, from: data) {
+        if let decoded = load([CustomTag].self, key: StorageKeys.customTags) {
             customTags = decoded
         }
     }
@@ -994,8 +982,7 @@ class GameStore: ObservableObject {
     // MARK: - Friends & Social
     
     private func loadFriends() {
-        if let data = UserDefaults.standard.data(forKey: StorageKeys.friends),
-           let decoded = try? JSONDecoder().decode([Friend].self, from: data) {
+        if let decoded = load([Friend].self, key: StorageKeys.friends) {
             friends = decoded
         }
     }
@@ -1009,12 +996,10 @@ class GameStore: ObservableObject {
     // MARK: - Monthly Goals
     
     private func loadMonthlyGoals() {
-        if let data = UserDefaults.standard.data(forKey: StorageKeys.monthlyGoals),
-           let decoded = try? JSONDecoder().decode([MonthlyGoal].self, from: data) {
+        if let decoded = load([MonthlyGoal].self, key: StorageKeys.monthlyGoals) {
             monthlyGoals = decoded
         }
-        if let data = UserDefaults.standard.data(forKey: StorageKeys.completedGoals),
-           let decoded = try? JSONDecoder().decode([MonthlyGoal].self, from: data) {
+        if let decoded = load([MonthlyGoal].self, key: StorageKeys.completedGoals) {
             completedGoals = decoded
         }
     }
@@ -1179,22 +1164,6 @@ class GameStore: ObservableObject {
         }
     }
     
-    func scheduleReleaseReminder(for game: Game, on date: Date) {
-        guard releaseReminders else { return }
-        
-        let content = UNMutableNotificationContent()
-        content.title = "Sortie aujourd'hui!"
-        content.body = "\(game.title) sort aujourd'hui!"
-        content.sound = .default
-        
-        let calendar = Calendar.current
-        let components = calendar.dateComponents([.year, .month, .day, .hour], from: date)
-        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
-        
-        let request = UNNotificationRequest(identifier: "release_\(game.id)", content: content, trigger: trigger)
-        UNUserNotificationCenter.current().add(request)
-    }
-    
     private func sendAchievementNotification(_ achievement: Achievement) {
         let content = UNMutableNotificationContent()
         content.title = "Succès débloqué!"
@@ -1291,6 +1260,10 @@ class GameStore: ObservableObject {
         friends = []
         activityFeed = []
         achievements = []
+        monthlyGoals = []
+        completedGoals = []
+        linkedAccounts = []
+        importedGames = []
         
         // Reset profile but keep username
         let username = userProfile.username
@@ -1304,47 +1277,104 @@ class GameStore: ObservableObject {
             StorageKeys.gameLists,
             StorageKeys.customTags,
             StorageKeys.friends,
-            StorageKeys.achievements
+            StorageKeys.achievements,
+            StorageKeys.monthlyGoals,
+            StorageKeys.completedGoals,
+            StorageKeys.linkedAccounts,
+            StorageKeys.importedGames
         ]
         
         for key in keys {
             UserDefaults.standard.removeObject(forKey: key)
         }
         
-        // Reinitialize achievements
+        // Recreate the default lists and achievements
+        loadGameLists()
         initializeAchievements()
         saveAchievements()
         saveUserProfile()
     }
     
+    // MARK: - iCloud (key-value store)
+
+    private var iCloudObserver: NSObjectProtocol?
+
+    /// One observer for the app's lifetime; removed when sync is turned off.
+    func setICloudObservation(_ enabled: Bool) {
+        if let iCloudObserver { NotificationCenter.default.removeObserver(iCloudObserver) }
+        iCloudObserver = nil
+        guard enabled else { return }
+        iCloudObserver = NotificationCenter.default.addObserver(
+            forName: NSUbiquitousKeyValueStore.didChangeExternallyNotification,
+            object: NSUbiquitousKeyValueStore.default,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { _ = self?.mergeFromICloud() }
+        }
+        NSUbiquitousKeyValueStore.default.synchronize()
+    }
+
+    func uploadToICloud() {
+        let kv = NSUbiquitousKeyValueStore.default
+        let encoder = JSONEncoder()
+        if let data = try? encoder.encode(myGames) { kv.set(data, forKey: "icloud_games") }
+        if let data = try? encoder.encode(playSessions) { kv.set(data, forKey: "icloud_sessions") }
+        if let data = try? encoder.encode(gameLists) { kv.set(data, forKey: "icloud_lists") }
+        if let data = try? encoder.encode(monthlyGoals) { kv.set(data, forKey: "icloud_goals") }
+        kv.synchronize()
+    }
+
+    /// Adds games, sessions, lists and goals from iCloud that this device doesn't
+    /// have yet. Returns how many items were added.
+    @discardableResult
+    func mergeFromICloud() -> Int {
+        let kv = NSUbiquitousKeyValueStore.default
+        kv.synchronize()
+        func remote<T: Decodable & Identifiable>(_ key: String, missingFrom local: [T]) -> [T] where T.ID == UUID {
+            guard let data = kv.data(forKey: key),
+                  let items = try? JSONDecoder().decode([T].self, from: data) else { return [] }
+            let localIds = Set(local.map(\.id))
+            return items.filter { !localIds.contains($0.id) }
+        }
+        let newGames = remote("icloud_games", missingFrom: myGames)
+        let newSessions = remote("icloud_sessions", missingFrom: playSessions)
+        let newLists = remote("icloud_lists", missingFrom: gameLists)
+        let newGoals = remote("icloud_goals", missingFrom: monthlyGoals)
+
+        let count = newGames.count + newSessions.count + newLists.count + newGoals.count
+        guard count > 0 else { return 0 }
+        myGames += newGames
+        playSessions = (playSessions + newSessions).sorted { $0.date > $1.date }
+        gameLists += newLists
+        monthlyGoals += newGoals
+        savePlaySessions()
+        saveGameLists()
+        saveMonthlyGoals()
+        saveGames()
+        return count
+    }
+
     // MARK: - Widget Sync
+
+    private func makeWidgetGame(from game: Game) -> SharedDataProvider.WidgetGame {
+        SharedDataProvider.WidgetGame(
+            title: game.title,
+            coverURL: game.coverImageURL,
+            platform: game.platform,
+            playTimeMinutes: game.playTimeMinutes,
+            status: game.status.rawValue
+        )
+    }
 
     /// Pushes the latest widget-relevant snapshot into the shared App Group store
     /// and asks WidgetKit to reload its timelines.
     ///
-    /// Safe no-op when the App Group is not configured (e.g. the widget extension
-    /// target has not been added yet): `SharedDataProvider.updateWidgetData`
-    /// returns early when the suite cannot be opened.
+    /// Note: the GameboxdWidget extension is not a build target yet and there is no
+    /// App Group entitlement, so today this writes to an app-local suite that no
+    /// widget reads. It starts working once the target + App Group are added.
     private func syncWidgetData() {
-        let currentWidgetGame = myGames.first { $0.status == .playing }.map { game in
-            SharedDataProvider.WidgetGame(
-                title: game.title,
-                coverURL: game.coverImageURL,
-                platform: game.platform,
-                playTimeMinutes: game.playTimeMinutes,
-                status: game.status.rawValue
-            )
-        }
-
-        let backlogWidgetGames = backlog.prefix(20).map { game in
-            SharedDataProvider.WidgetGame(
-                title: game.title,
-                coverURL: game.coverImageURL,
-                platform: game.platform,
-                playTimeMinutes: game.playTimeMinutes,
-                status: game.status.rawValue
-            )
-        }
+        let currentWidgetGame = myGames.first { $0.status == .playing }.map(makeWidgetGame)
+        let backlogWidgetGames = backlog.prefix(20).map(makeWidgetGame)
 
         SharedDataProvider.updateWidgetData(
             currentGame: currentWidgetGame,

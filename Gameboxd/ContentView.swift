@@ -9,6 +9,7 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject var store: GameStore
+    @Environment(TimerManager.self) private var timerManager
     @State private var showingAchievementToast = false
     @State private var toastAchievement: Achievement?
     @State private var achievementQueue: [Achievement] = []
@@ -24,6 +25,12 @@ struct ContentView: View {
                 }
             }
             .animation(.easeInOut, value: store.isLoggedIn)
+
+            if store.isLoggedIn {
+                PlayTimerOverlay(timerManager: timerManager, onStop: logTimedSession)
+                    // ponytail: fixed offset to clear the tab bar; measure it if the tab bar changes
+                    .padding(.bottom, 56)
+            }
 
             // Achievement Toast Overlay
             VStack {
@@ -47,14 +54,35 @@ struct ContentView: View {
                 }
             }
         }
-        .onChange(of: store.isLoggedIn) { _, isLoggedIn in
-            if isLoggedIn && store.userProfile.needsUsernameSetup {
-                showingUsernameSetup = true
-            }
+        .onChange(of: store.isLoggedIn) { _, _ in
+            checkUsernameSetup()
         }
+        // Also on launch: if the app was killed mid-setup, isLoggedIn is already
+        // true and onChange never fires.
+        .onAppear(perform: checkUsernameSetup)
         .sheet(isPresented: $showingUsernameSetup) {
             UsernameSetupView()
                 .environmentObject(store)
+        }
+    }
+
+    /// Stops the live timer and records it as a diary session.
+    func logTimedSession() {
+        guard let game = timerManager.activeGame else { return }
+        let minutes = timerManager.stop()
+        store.addPlaySession(PlaySession(
+            gameId: game.id,
+            gameTitle: game.title,
+            gameCoverURL: game.coverImageURL,
+            gameCoverColor: game.coverColor,
+            duration: minutes
+        ))
+        HapticManager.notification(.success)
+    }
+
+    func checkUsernameSetup() {
+        if store.isLoggedIn && store.userProfile.needsUsernameSetup {
+            showingUsernameSetup = true
         }
     }
 

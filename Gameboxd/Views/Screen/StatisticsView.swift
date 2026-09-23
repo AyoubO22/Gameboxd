@@ -243,38 +243,21 @@ struct ChartContainer: View {
 struct GamesPerMonthChart: View {
     let games: [Game]
     
+    /// The last 6 calendar months, oldest first, matched on year and month so
+    /// games from other years never land in the same-named month.
     var monthlyData: [(month: String, count: Int)] {
         let calendar = Calendar.current
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "MMM"
         
-        var data: [String: Int] = [:]
-        
-        // Get last 6 months
-        for i in 0..<6 {
-            if let date = calendar.date(byAdding: .month, value: -i, to: Date()) {
-                let monthName = dateFormatter.string(from: date)
-                data[monthName] = 0
-            }
+        return (0..<6).reversed().compactMap { offset in
+            guard let date = calendar.date(byAdding: .month, value: -offset, to: Date()) else { return nil }
+            let count = games.filter { game in
+                guard let started = game.startedDate else { return false }
+                return calendar.isDate(started, equalTo: date, toGranularity: .month)
+            }.count
+            return (month: dateFormatter.string(from: date), count: count)
         }
-        
-        // Count games per month based on startedDate
-        for game in games {
-            if let startedDate = game.startedDate {
-                let monthName = dateFormatter.string(from: startedDate)
-                if data[monthName] != nil {
-                    data[monthName]! += 1
-                }
-            }
-        }
-        
-        // Convert to array and sort using the already-created formatter
-        return data.map { (month: $0.key, count: $0.value) }
-            .sorted {
-                let date1 = dateFormatter.date(from: $0.month) ?? Date.distantPast
-                let date2 = dateFormatter.date(from: $1.month) ?? Date.distantPast
-                return date1 < date2
-            }
     }
     
     var body: some View {

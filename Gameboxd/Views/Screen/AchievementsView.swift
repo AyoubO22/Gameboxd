@@ -30,6 +30,15 @@ struct AchievementsView: View {
         store.achievements.filter { $0.isUnlocked }.count
     }
     
+    /// Unlocked in the last 7 days, newest first. (store.recentlyUnlockedAchievements
+    /// is a toast queue that ContentView drains immediately, so it can't drive this.)
+    private var recentlyUnlocked: [Achievement] {
+        let weekAgo = Date().addingTimeInterval(-7 * 86_400)
+        return store.achievements
+            .filter { ($0.unlockedDate ?? .distantPast) > weekAgo }
+            .sorted { ($0.unlockedDate ?? .distantPast) > ($1.unlockedDate ?? .distantPast) }
+    }
+    
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
@@ -40,8 +49,8 @@ struct AchievementsView: View {
                 )
                 
                 // Recently Unlocked
-                if !store.recentlyUnlockedAchievements.isEmpty {
-                    RecentAchievementsSection(achievements: store.recentlyUnlockedAchievements)
+                if !recentlyUnlocked.isEmpty {
+                    RecentAchievementsSection(achievements: recentlyUnlocked)
                 }
                 
                 // Filters

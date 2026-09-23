@@ -165,6 +165,11 @@ struct EditProfileView: View {
         .background(Color.gbDark.ignoresSafeArea())
         .navigationTitle("Modifier le profil")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Annuler") { dismiss() }
+            }
+        }
         .onAppear {
             loadProfile()
         }
@@ -192,10 +197,9 @@ struct EditProfileView: View {
             showingSaved = true
         }
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            withAnimation {
-                showingSaved = false
-            }
+        // Brief confirmation, then close the sheet.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            dismiss()
         }
     }
 }

@@ -310,7 +310,7 @@ struct CreateListView: View {
                                         .frame(width: 40, height: 40)
                                         .overlay(
                                             Circle()
-                                                .stroke(Color.white, lineWidth: selectedColor == color ? 3 : 0)
+                                                .stroke(Color.white, lineWidth: selectedColor.toHex() == color.toHex() ? 3 : 0)
                                         )
                                 }
                             }
@@ -378,9 +378,10 @@ struct AddGameToListView: View {
     @State private var searchText = ""
     
     var availableGames: [Game] {
-        let gamesNotInList = store.myGames.filter { game in
-            !list.gameIds.contains(game.id)
-        }
+        // Read the live list, not the snapshot passed in, so a game disappears
+        // from here as soon as it's added.
+        let inList = Set(store.gameLists.first { $0.id == list.id }?.gameIds ?? list.gameIds)
+        let gamesNotInList = store.myGames.filter { !inList.contains($0.id) }
         
         if searchText.isEmpty {
             return gamesNotInList
@@ -394,6 +395,7 @@ struct AddGameToListView: View {
             List(availableGames) { game in
                 Button(action: {
                     store.addGameToList(game, list: list)
+                    HapticManager.notification(.success)
                 }) {
                     HStack {
                         if let coverURL = game.coverImageURL, let url = URL(string: coverURL) {

@@ -13,27 +13,30 @@ struct RecommendationsView: View {
     @State private var isLoading = true
     
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                if isLoading {
-                    LoadingRecommendationsView()
-                } else {
-                    LazyVStack(spacing: 24) {
-                        ForEach(recommendations) { section in
-                            RecommendationSectionView(section: section)
-                        }
+        ScrollView {
+            if isLoading {
+                LoadingRecommendationsView()
+            } else {
+                LazyVStack(spacing: 24) {
+                    ForEach(recommendations) { section in
+                        RecommendationSectionView(section: section)
                     }
-                    .padding(.vertical)
                 }
+                .padding(.vertical)
             }
-            .background(Color.gbDark.ignoresSafeArea())
-            .navigationTitle("Pour toi")
-            .onAppear {
-                generateRecommendations()
+        }
+        .background(Color.gbDark.ignoresSafeArea())
+        .navigationTitle("Pour toi")
+        .task {
+            // Recommendations are built from Discover data; fetch it if Discover
+            // hasn't been opened yet this session.
+            if store.trendingGames.isEmpty && store.topRated.isEmpty {
+                await store.loadDiscoverData()
             }
-            .refreshable {
-                await refreshRecommendations()
-            }
+            generateRecommendations()
+        }
+        .refreshable {
+            await refreshRecommendations()
         }
     }
     
@@ -55,7 +58,8 @@ struct RecommendationsView: View {
         }
         
         // Similar to highly rated games
-        if let favoriteGame = store.myGames.max(by: { $0.rating < $1.rating }) {
+        if let favoriteGame = store.myGames.max(by: { $0.rating < $1.rating }),
+           favoriteGame.rating > 0, !store.topRated.isEmpty {
             sections.append(RecommendationSection(
                 title: "Si tu as aimé \(favoriteGame.title)",
                 icon: "sparkles",
@@ -91,7 +95,7 @@ struct RecommendationsView: View {
         }
         
         // Upcoming games in favorite genres
-        if store.topGenres.first != nil {
+        if store.topGenres.first != nil, !store.upcomingGames.isEmpty {
             sections.append(RecommendationSection(
                 title: "Prochainement",
                 icon: "calendar",
@@ -101,9 +105,7 @@ struct RecommendationsView: View {
         }
         
         // Hidden gems (less popular but highly rated)
-        let hiddenGems = store.topRated.filter { game in
-            !store.myGames.contains { $0.title == game.title }
-        }
+        let hiddenGems = store.topRated.filter { !store.isInLibrary($0) }
         if !hiddenGems.isEmpty {
             sections.append(RecommendationSection(
                 title: "Pépites à découvrir",
@@ -263,6 +265,6 @@ struct LoadingRecommendationsView: View {
 
 // MARK: - Preview
 #Preview {
-    RecommendationsView()
+    NavigationStack { RecommendationsView() }
         .environmentObject(GameStore())
 }

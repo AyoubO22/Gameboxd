@@ -180,7 +180,7 @@ class PlayStationService {
     /// Links a PlayStation account using PSN ID (Online ID)
     /// In production, this would trigger the OAuth web flow
     ///
-    /// For testing/development: accepts PSN Online ID and simulates the auth
+    /// Throws `.notConfigured` until a Sony OAuth client is registered.
     /// For production: use ASWebAuthenticationSession with Sony's OAuth endpoint
     func authenticate(psnId: String) async throws -> PSNProfileResponse {
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -201,23 +201,9 @@ class PlayStationService {
         // return try await getProfile()
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         
-        // Simulated profile for development
-        return PSNProfileResponse(
-            onlineId: psnId,
-            aboutMe: nil,
-            avatarUrl: nil,
-            plus: 1,
-            trophySummary: PSNTrophySummary(
-                level: 12,
-                progress: 45,
-                earnedTrophies: PSNTrophyCounts(
-                    bronze: 120,
-                    silver: 45,
-                    gold: 12,
-                    platinum: 3
-                )
-            )
-        )
+        // No Sony OAuth client is registered, so there is nothing real to link.
+        // Fail clearly instead of returning a made-up profile.
+        throw PlayStationServiceError.notConfigured
     }
     
     /// Authenticate with NPSSO token (advanced users / development)
@@ -230,9 +216,7 @@ class PlayStationService {
         // Step 2: Exchange code for access token
         // let tokenResponse = try await exchangeCodeForTokens(code: authCode)
         
-        // Placeholder:
-        self.accessToken = "psn_simulated_\(UUID().uuidString)"
-        self.tokenExpiration = Date().addingTimeInterval(3600)
+        throw PlayStationServiceError.notConfigured
     }
     
     // MARK: - Game Library

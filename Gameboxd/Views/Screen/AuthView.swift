@@ -20,7 +20,6 @@ struct AuthView: View {
     @State private var username = ""
     @State private var showingError = false
     @State private var errorMessage = ""
-    @State private var isLoading = false
     @State private var isSocialLoading = false
     
     var body: some View {
@@ -60,6 +59,12 @@ struct AuthView: View {
                     }
                     .pickerStyle(.segmented)
                     .padding(.horizontal, 40)
+
+                    Text("Profil local : tes identifiants restent sur cet appareil, aucun compte en ligne n'est créé.")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 40)
                     
                     // Form
                     VStack(spacing: 16) {
@@ -100,33 +105,17 @@ struct AuthView: View {
                     
                     // Action Button
                     Button(action: handleAuth) {
-                        HStack {
-                            if isLoading {
-                                ProgressView()
-                                    .tint(.gbDark)
-                            } else {
-                                Text(isLogin ? "Se connecter" : "Créer un compte")
-                                    .fontWeight(.semibold)
-                            }
-                        }
+                        Text(isLogin ? "Se connecter" : "Créer un profil local")
+                            .fontWeight(.semibold)
                         .frame(maxWidth: .infinity)
                         .padding()
                         .background(Color.gbGreen)
                         .foregroundColor(.gbDark)
                         .cornerRadius(12)
                     }
-                    .disabled(isLoading || !isFormValid)
+                    .disabled(!isFormValid)
                     .opacity(isFormValid ? 1 : 0.6)
                     .padding(.horizontal, 24)
-                    
-                    // Forgot password (login only)
-                    if isLogin {
-                        Button(action: {}) {
-                            Text("Mot de passe oublié ?")
-                                .font(.subheadline)
-                                .foregroundColor(.gbGreen)
-                        }
-                    }
                     
                     // Social login
                     VStack(spacing: 16) {
@@ -200,36 +189,38 @@ struct AuthView: View {
     }
     
     func handleAuth() {
-        isLoading = true
-        
-        // Simulate authentication delay
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            isLoading = false
-            
-            if isLogin {
-                // Login logic
-                if email.isEmpty || password.isEmpty {
-                    errorMessage = "Veuillez remplir tous les champs"
-                    showingError = true
-                } else {
-                    // Success - update profile and mark as logged in
-                    store.userProfile.username = email.components(separatedBy: "@").first ?? "Joueur"
-                    store.setLoggedIn(true)
-                }
-            } else {
-                // Registration logic
-                if password != confirmPassword {
-                    errorMessage = "Les mots de passe ne correspondent pas"
-                    showingError = true
-                } else if password.count < 6 {
-                    errorMessage = "Le mot de passe doit contenir au moins 6 caractères"
-                    showingError = true
-                } else {
-                    // Success - create account
-                    store.userProfile.username = username
-                    store.setLoggedIn(true)
-                }
+        let trimmedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        if isLogin {
+            guard securityManager.hasLocalCredentials else {
+                errorMessage = "Aucun profil local sur cet appareil. Crée-le dans l'onglet Inscription."
+                showingError = true
+                return
             }
+            guard securityManager.verifyLocalCredentials(email: trimmedEmail, password: password) else {
+                errorMessage = "Email ou mot de passe incorrect."
+                showingError = true
+                return
+            }
+            store.userProfile.email = trimmedEmail
+            store.userProfile.authProvider = "email"
+            store.setLoggedIn(true)
+        } else {
+            guard password == confirmPassword else {
+                errorMessage = "Les mots de passe ne correspondent pas"
+                showingError = true
+                return
+            }
+            do {
+                try securityManager.saveLocalCredentials(email: trimmedEmail, password: password)
+            } catch {
+                errorMessage = "Impossible d'enregistrer le profil : \(error.localizedDescription)"
+                showingError = true
+                return
+            }
+            store.userProfile.username = username.trimmingCharacters(in: .whitespacesAndNewlines)
+            store.userProfile.email = trimmedEmail
+            store.userProfile.authProvider = "email"
+            store.setLoggedIn(true)
         }
     }
     

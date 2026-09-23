@@ -11,87 +11,77 @@ import Foundation
 struct GameCard: View {
     let game: Game
     @State private var isPressed = false
-    
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            // Cover Image or Color
-            ZStack(alignment: .topTrailing) {
-                if let imageURL = game.coverImageURL, let url = URL(string: imageURL) {
-                    CachedAsyncImage(url: url) { image in
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(minWidth: 0, maxWidth: .infinity)
-                            .aspectRatio(3/4, contentMode: .fit)
-                            .clipped()
-                            .cornerRadius(8)
-                    } placeholder: {
+        VStack(alignment: .leading, spacing: DS.Spacing.xs) {
+            // Cover — poster-first, one radius, no colored drop shadow
+            ZStack(alignment: .bottomLeading) {
+                Group {
+                    if let imageURL = game.coverImageURL, let url = URL(string: imageURL) {
+                        CachedAsyncImage(url: url) { image in
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                        } placeholder: {
+                            Rectangle()
+                                .fill(game.coverColor.gradient)
+                                .overlay(ProgressView().tint(.textSecondary))
+                        }
+                    } else {
                         Rectangle()
                             .fill(game.coverColor.gradient)
-                            .aspectRatio(3/4, contentMode: .fit)
-                            .cornerRadius(8)
                             .overlay(
-                                ProgressView()
-                                    .tint(.white.opacity(0.7))
-                            )
-                    }
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                    )
-                    .shadow(color: game.coverColor.opacity(0.3), radius: 8, x: 0, y: 4)
-                } else {
-                    Rectangle()
-                        .fill(game.coverColor.gradient)
-                        .aspectRatio(3/4, contentMode: .fit)
-                        .cornerRadius(8)
-                        .overlay(
-                            VStack {
                                 Image(systemName: "gamecontroller.fill")
                                     .font(.title)
-                                    .foregroundColor(.white.opacity(0.5))
-                            }
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                        )
-                        .shadow(color: game.coverColor.opacity(0.3), radius: 8, x: 0, y: 4)
+                                    .foregroundStyle(Color.textTertiary)
+                            )
+                    }
                 }
-                
-                // Badges overlay
-                VStack(alignment: .trailing, spacing: 4) {
-                    // Status badge
-                    if game.status != .none {
+                .aspectRatio(3/4, contentMode: .fit)
+                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                        .stroke(Color.gbBorder, lineWidth: 1)
+                )
+
+                // Status capsule
+                if game.status != .none {
+                    HStack(spacing: 3) {
                         Image(systemName: game.status.icon)
-                            .font(.caption)
-                            .padding(6)
-                            .background(game.status.color)
-                            .foregroundColor(.white)
-                            .clipShape(Circle())
+                            .font(.system(size: 8))
+                        Text(game.status.rawValue)
+                            .font(DS.Typography.label)
+                            .lineLimit(1)
                     }
-                    
-                    // Favorite badge
-                    if game.isFavorite {
-                        Image(systemName: "heart.fill")
-                            .font(.caption)
-                            .padding(6)
-                            .background(.red)
-                            .foregroundColor(.white)
-                            .clipShape(Circle())
-                    }
+                    .foregroundStyle(game.status.color)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(game.status.color.opacity(0.16))
+                    .background(Color.gbDark.opacity(0.85))
+                    .clipShape(Capsule())
+                    .overlay(Capsule().stroke(game.status.color.opacity(0.4), lineWidth: 1))
+                    .padding(6)
                 }
-                .padding(6)
+
+                if game.isFavorite {
+                    Image(systemName: "heart.fill")
+                        .font(.caption2)
+                        .padding(6)
+                        .background(Color.gbDark.opacity(0.7))
+                        .foregroundStyle(Color(hex: "FF5C5C"))
+                        .clipShape(Circle())
+                        .padding(6)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                }
             }
-            
+
             // Title
             Text(game.title)
-                .font(.subheadline)
-                .fontWeight(.semibold)
+                .font(DS.Typography.bodyMedium)
                 .lineLimit(2)
                 .multilineTextAlignment(.leading)
-                .foregroundColor(.white)
-            
+                .foregroundStyle(Color.textPrimary)
+
             // Rating & Play Time
             HStack {
                 if game.rating > 0 {
@@ -101,34 +91,27 @@ struct GameCard: View {
                                 .font(.system(size: 8))
                         }
                     }
-                    .foregroundColor(.gbGreen)
+                    .foregroundStyle(Color.accent)
                 } else {
                     Text("Non noté")
-                        .font(.caption2)
-                        .foregroundColor(.gray)
+                        .font(DS.Typography.label)
+                        .foregroundStyle(Color.textTertiary)
                 }
-                
+
                 Spacer()
-                
+
                 // Completion or Play Time
                 if game.completionPercentage > 0 {
-                    HStack(spacing: 2) {
-                        Image(systemName: "percent")
-                            .font(.system(size: 6))
-                        Text("\(game.completionPercentage)")
-                            .font(.caption2)
-                    }
-                    .foregroundColor(.gbGreen)
+                    Text("\(game.completionPercentage)%")
+                        .font(DS.Typography.label)
+                        .foregroundStyle(Color.accent)
                 } else if !game.playTime.isEmpty {
                     Text(game.playTime)
-                        .font(.caption2)
-                        .foregroundColor(.gray)
+                        .font(DS.Typography.label)
+                        .foregroundStyle(Color.textTertiary)
                 }
             }
         }
-        .padding(10)
-        .background(Color.gbCard)
-        .cornerRadius(12)
         .scaleEffect(isPressed ? 0.95 : 1.0)
         .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
         .accessibilityElement(children: .combine)
@@ -140,38 +123,39 @@ struct GameCard: View {
 // MARK: - Compact Card for Lists
 struct CompactGameCard: View {
     let game: Game
-    
+
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: DS.Spacing.sm) {
             // Thumbnail
-            if let imageURL = game.coverImageURL, let url = URL(string: imageURL) {
-                CachedAsyncImage(url: url) { image in
-                    image.resizable().aspectRatio(contentMode: .fill)
-                } placeholder: {
+            Group {
+                if let imageURL = game.coverImageURL, let url = URL(string: imageURL) {
+                    CachedAsyncImage(url: url) { image in
+                        image.resizable().aspectRatio(contentMode: .fill)
+                    } placeholder: {
+                        Rectangle().fill(game.coverColor.gradient)
+                    }
+                } else {
                     Rectangle().fill(game.coverColor.gradient)
                 }
-                .frame(width: 50, height: 65)
-                .cornerRadius(6)
-                .clipped()
-            } else {
-                Rectangle()
-                    .fill(game.coverColor.gradient)
-                    .frame(width: 50, height: 65)
-                    .cornerRadius(6)
             }
-            
+            .frame(width: 44, height: 58)
+            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
+                    .stroke(Color.gbBorder, lineWidth: 1)
+            )
+
             // Info
             VStack(alignment: .leading, spacing: 4) {
                 Text(game.title)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.white)
+                    .font(DS.Typography.bodyMedium)
+                    .foregroundStyle(Color.textPrimary)
                     .lineLimit(1)
-                
+
                 Text(game.developer)
-                    .font(.caption)
-                    .foregroundColor(.gray)
-                
+                    .font(DS.Typography.caption)
+                    .foregroundStyle(Color.textSecondary)
+
                 HStack(spacing: 8) {
                     if game.rating > 0 {
                         HStack(spacing: 2) {
@@ -180,31 +164,23 @@ struct CompactGameCard: View {
                                     .font(.system(size: 8))
                             }
                         }
-                        .foregroundColor(.gbGreen)
+                        .foregroundStyle(Color.accent)
                     }
-                    
+
                     if game.status != .none {
-                        HStack(spacing: 2) {
-                            Image(systemName: game.status.icon)
-                                .font(.system(size: 8))
-                            Text(game.status.rawValue)
-                                .font(.caption2)
-                        }
-                        .foregroundColor(game.status.color)
+                        TagPill(label: game.status.rawValue, icon: game.status.icon, isSelected: true, tint: game.status.color)
                     }
                 }
             }
-            
+
             Spacer()
-            
+
             // Chevron
             Image(systemName: "chevron.right")
                 .font(.caption)
-                .foregroundColor(.gray)
+                .foregroundStyle(Color.textTertiary)
         }
-        .padding(12)
-        .background(Color.gbCard)
-        .cornerRadius(10)
+        .cardStyle()
     }
 }
 

@@ -22,17 +22,12 @@ struct DiaryView: View {
         NavigationStack {
             VStack(spacing: 0) {
                 // View Mode Picker
-                Picker("Mode", selection: $viewMode) {
-                    ForEach(DiaryViewMode.allCases, id: \.self) { mode in
-                        Text(mode.rawValue).tag(mode)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .padding()
-                .background(Color.gbDark)
-                
+                PillSegmentedControl(options: DiaryViewMode.allCases, selection: $viewMode) { $0.rawValue }
+                    .padding()
+                    .background(Color.gbDark)
+
                 if viewMode == .list {
-                    DiaryListView()
+                    DiaryListView(showingAddSession: $showingAddSession)
                 } else {
                     DiaryCalendarView(selectedDate: $selectedDate)
                 }
@@ -43,7 +38,7 @@ struct DiaryView: View {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: { showingAddSession = true }) {
                         Image(systemName: "plus.circle.fill")
-                            .foregroundColor(.gbGreen)
+                            .foregroundStyle(Color.accent)
                     }
                 }
             }
@@ -57,20 +52,21 @@ struct DiaryView: View {
 // MARK: - Diary List View
 struct DiaryListView: View {
     @EnvironmentObject var store: GameStore
-    
+    @Binding var showingAddSession: Bool
+
     var groupedSessions: [Date: [PlaySession]] {
         Dictionary(grouping: store.playSessions) { session in
             Calendar.current.startOfDay(for: session.date)
         }
     }
-    
+
     var sortedDates: [Date] {
         groupedSessions.keys.sorted(by: >)
     }
-    
+
     var body: some View {
         if store.playSessions.isEmpty {
-            EmptyDiaryView()
+            EmptyDiaryView(action: { showingAddSession = true })
         } else {
             let grouped = groupedSessions
             let dates = grouped.keys.sorted(by: >)
@@ -99,14 +95,14 @@ struct DiaryDateHeader: View {
     var body: some View {
         HStack {
             Text(date, style: .date)
-                .font(.headline)
-                .foregroundColor(.white)
-            
+                .font(DS.Typography.headline)
+                .foregroundStyle(Color.textPrimary)
+
             Spacer()
         }
         .padding(.vertical, 8)
         .padding(.horizontal, 12)
-        .background(Color.gbDark)
+        .background(.ultraThinMaterial)
     }
 }
 
@@ -123,56 +119,50 @@ struct PlaySessionCard: View {
                 // Header
                 HStack(spacing: 12) {
                     // Game Cover
-                    if let coverURL = session.gameCoverURL, let url = URL(string: coverURL) {
-                        CachedAsyncImage(url: url) { image in
-                            image.resizable().aspectRatio(contentMode: .fill)
-                        } placeholder: {
+                    Group {
+                        if let coverURL = session.gameCoverURL, let url = URL(string: coverURL) {
+                            CachedAsyncImage(url: url) { image in
+                                image.resizable().aspectRatio(contentMode: .fill)
+                            } placeholder: {
+                                Rectangle().fill(session.gameCoverColor.gradient)
+                            }
+                        } else {
                             Rectangle().fill(session.gameCoverColor.gradient)
                         }
-                        .frame(width: 50, height: 65)
-                        .cornerRadius(6)
-                    } else {
-                        Rectangle()
-                            .fill(session.gameCoverColor.gradient)
-                            .frame(width: 50, height: 65)
-                            .cornerRadius(6)
                     }
-                    
+                    .frame(width: 44, height: 58)
+                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
+                            .stroke(Color.gbBorder, lineWidth: 1)
+                    )
+
                     VStack(alignment: .leading, spacing: 4) {
                         Text(session.gameTitle)
-                            .font(.headline)
-                            .foregroundColor(.white)
+                            .font(DS.Typography.headline)
+                            .foregroundStyle(Color.textPrimary)
                             .lineLimit(1)
-                        
+
                         HStack(spacing: 8) {
                             // Duration
                             Label(session.formattedDuration, systemImage: "clock")
-                                .font(.caption)
-                                .foregroundColor(.gbGreen)
-                            
+                                .font(DS.Typography.label)
+                                .foregroundStyle(Color.accent)
+
                             // Time
                             Text(session.date, style: .time)
-                                .font(.caption)
-                                .foregroundColor(.gray)
+                                .font(DS.Typography.label)
+                                .foregroundStyle(Color.textTertiary)
                         }
-                    
+
                     // Mood tag
                     if let mood = session.mood {
-                        HStack(spacing: 4) {
-                            Image(systemName: mood.icon)
-                            Text(mood.rawValue)
-                        }
-                        .font(.caption2)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(mood.color.opacity(0.2))
-                        .foregroundColor(mood.color)
-                        .cornerRadius(10)
+                        TagPill(label: mood.rawValue, icon: mood.icon, isSelected: true, tint: mood.color)
                     }
                 }
-                
+
                 Spacer()
-                
+
                 // Rating if any
                 if let rating = session.rating, rating > 0 {
                     VStack {
@@ -182,11 +172,11 @@ struct PlaySessionCard: View {
                                     .font(.caption2)
                             }
                         }
-                        .foregroundColor(.gbGreen)
+                        .foregroundStyle(Color.accent)
                     }
                 }
             }
-            
+
             // Notes
             if !session.notes.isEmpty {
                 if session.isSpoiler && !showingSpoiler {
@@ -195,20 +185,18 @@ struct PlaySessionCard: View {
                             Image(systemName: "eye.slash")
                             Text("Voir le spoiler")
                         }
-                        .font(.caption)
-                        .foregroundColor(.orange)
+                        .font(DS.Typography.caption)
+                        .foregroundStyle(Color(hex: "FF8A3D"))
                     }
                 } else {
                     Text(session.notes)
-                        .font(.subheadline)
-                        .foregroundColor(.gray)
+                        .font(DS.Typography.body)
+                        .foregroundStyle(Color.textSecondary)
                         .lineLimit(3)
                 }
             }
         }
-        .padding()
-        .background(Color.gbCard)
-        .cornerRadius(12)
+        .cardStyle()
         }
         .buttonStyle(.plain)
         .sheet(isPresented: $showingDetail) {
@@ -235,44 +223,45 @@ struct PlaySessionDetailView: View {
                 VStack(spacing: 24) {
                     // Game Header
                     HStack(spacing: 16) {
-                        if let coverURL = session.gameCoverURL, let url = URL(string: coverURL) {
-                            CachedAsyncImage(url: url) { image in
-                                image.resizable().aspectRatio(contentMode: .fill)
-                            } placeholder: {
-                                Rectangle().fill(session.gameCoverColor.gradient)
+                        Group {
+                            if let coverURL = session.gameCoverURL, let url = URL(string: coverURL) {
+                                CachedAsyncImage(url: url) { image in
+                                    image.resizable().aspectRatio(contentMode: .fill)
+                                } placeholder: {
+                                    Rectangle().fill(session.gameCoverColor.gradient)
+                                }
+                            } else {
+                                Rectangle()
+                                    .fill(session.gameCoverColor.gradient)
+                                    .overlay(
+                                        Image(systemName: "gamecontroller.fill")
+                                            .foregroundStyle(Color.textTertiary)
+                                    )
                             }
-                            .frame(width: 80, height: 105)
-                            .cornerRadius(8)
-                        } else {
-                            Rectangle()
-                                .fill(session.gameCoverColor.gradient)
-                                .frame(width: 80, height: 105)
-                                .cornerRadius(8)
-                                .overlay(
-                                    Image(systemName: "gamecontroller.fill")
-                                        .foregroundColor(.white.opacity(0.5))
-                                )
                         }
-                        
+                        .frame(width: 80, height: 105)
+                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                                .stroke(Color.gbBorder, lineWidth: 1)
+                        )
+
                         VStack(alignment: .leading, spacing: 8) {
                             Text(session.gameTitle)
-                                .font(.title2)
-                                .fontWeight(.bold)
-                                .foregroundColor(.white)
-                            
+                                .font(DS.Typography.title)
+                                .foregroundStyle(Color.textPrimary)
+
                             if let game = game {
                                 Text(game.platform)
-                                    .font(.subheadline)
-                                    .foregroundColor(.gray)
+                                    .font(DS.Typography.body)
+                                    .foregroundStyle(Color.textSecondary)
                             }
                         }
-                        
+
                         Spacer()
                     }
-                    .padding()
-                    .background(Color.gbCard)
-                    .cornerRadius(12)
-                    
+                    .cardStyle()
+
                     // Session Info
                     VStack(spacing: 16) {
                         // Date & Time
@@ -281,56 +270,48 @@ struct PlaySessionDetailView: View {
                             title: "Date",
                             value: session.date.formatted(date: .long, time: .shortened)
                         )
-                        
-                        Divider().background(Color.gray.opacity(0.3))
-                        
+
+                        Divider().overlay(Color.gbBorder)
+
                         // Duration
                         SessionDetailRow(
                             icon: "clock.fill",
                             title: "Durée",
                             value: session.formattedDuration
                         )
-                        
+
                         // Mood
                         if let mood = session.mood {
-                            Divider().background(Color.gray.opacity(0.3))
-                            
+                            Divider().overlay(Color.gbBorder)
+
                             HStack {
                                 Image(systemName: "face.smiling")
-                                    .foregroundColor(.gbGreen)
+                                    .foregroundStyle(Color.accent)
                                     .frame(width: 24)
-                                
+
                                 Text("Ressenti")
-                                    .foregroundColor(.gray)
-                                
+                                    .foregroundStyle(Color.textSecondary)
+
                                 Spacer()
-                                
-                                HStack(spacing: 6) {
-                                    Image(systemName: mood.icon)
-                                    Text(mood.rawValue)
-                                }
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                                .background(mood.color.opacity(0.2))
-                                .foregroundColor(mood.color)
-                                .cornerRadius(20)
+
+                                TagPill(label: mood.rawValue, icon: mood.icon, isSelected: true, tint: mood.color)
                             }
                         }
-                        
+
                         // Rating
                         if let rating = session.rating, rating > 0 {
-                            Divider().background(Color.gray.opacity(0.3))
-                            
+                            Divider().overlay(Color.gbBorder)
+
                             HStack {
                                 Image(systemName: "star.fill")
-                                    .foregroundColor(.gbGreen)
+                                    .foregroundStyle(Color.accent)
                                     .frame(width: 24)
-                                
+
                                 Text("Note")
-                                    .foregroundColor(.gray)
-                                
+                                    .foregroundStyle(Color.textSecondary)
+
                                 Spacer()
-                                
+
                                 HStack(spacing: 2) {
                                     ForEach(1...rating, id: \.self) { _ in
                                         Image(systemName: "star.fill")
@@ -343,38 +324,35 @@ struct PlaySessionDetailView: View {
                                     }
                                     }
                                 }
-                                .foregroundColor(.gbGreen)
+                                .foregroundStyle(Color.accent)
                             }
                         }
                     }
-                    .padding()
-                    .background(Color.gbCard)
-                    .cornerRadius(12)
-                    
+                    .cardStyle()
+
                     // Notes Section
                     if !session.notes.isEmpty {
                         VStack(alignment: .leading, spacing: 12) {
                             HStack {
                                 Image(systemName: "note.text")
-                                    .foregroundColor(.gbGreen)
+                                    .foregroundStyle(Color.accent)
                                 Text("Notes")
-                                    .font(.headline)
-                                    .foregroundColor(.white)
-                                
+                                    .font(DS.Typography.headline)
+                                    .foregroundStyle(Color.textPrimary)
+
                                 if session.isSpoiler {
                                     Text("SPOILER")
-                                        .font(.caption2)
-                                        .fontWeight(.bold)
+                                        .font(DS.Typography.label)
                                         .padding(.horizontal, 8)
                                         .padding(.vertical, 4)
-                                        .background(Color.orange)
-                                        .foregroundColor(.white)
-                                        .cornerRadius(4)
+                                        .background(Color(hex: "FF8A3D"))
+                                        .foregroundStyle(Color.gbDark)
+                                        .clipShape(Capsule())
                                 }
-                                
+
                                 Spacer()
                             }
-                            
+
                             if session.isSpoiler && !showingSpoiler {
                                 Button(action: { showingSpoiler = true }) {
                                     HStack {
@@ -383,32 +361,30 @@ struct PlaySessionDetailView: View {
                                     }
                                     .frame(maxWidth: .infinity)
                                     .padding()
-                                    .background(Color.orange.opacity(0.2))
-                                    .foregroundColor(.orange)
-                                    .cornerRadius(8)
+                                    .background(Color(hex: "FF8A3D").opacity(0.16))
+                                    .foregroundStyle(Color(hex: "FF8A3D"))
+                                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
                                 }
                             } else {
                                 Text(session.notes)
-                                    .font(.body)
-                                    .foregroundColor(.white.opacity(0.9))
+                                    .font(DS.Typography.body)
+                                    .foregroundStyle(Color.textPrimary)
                             }
                         }
-                        .padding()
-                        .background(Color.gbCard)
-                        .cornerRadius(12)
+                        .cardStyle()
                     }
-                    
+
                     // Delete Button
                     Button(action: { showingDeleteConfirmation = true }) {
                         HStack {
                             Image(systemName: "trash")
                             Text("Supprimer cette session")
                         }
+                        .font(DS.Typography.headline)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Color.red.opacity(0.15))
-                        .foregroundColor(.red)
-                        .cornerRadius(12)
+                        .foregroundStyle(Color(hex: "FF5C5C"))
+                        .contentShape(Rectangle())
                     }
                 }
                 .padding()
@@ -419,7 +395,7 @@ struct PlaySessionDetailView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Fermer") { dismiss() }
-                        .foregroundColor(.gbGreen)
+                        .foregroundStyle(Color.accent)
                 }
             }
             .alert("Supprimer cette session ?", isPresented: $showingDeleteConfirmation) {
@@ -441,16 +417,16 @@ struct SessionDetailRow: View {
     var body: some View {
         HStack {
             Image(systemName: icon)
-                .foregroundColor(.gbGreen)
+                .foregroundStyle(Color.accent)
                 .frame(width: 24)
-            
+
             Text(title)
-                .foregroundColor(.gray)
-            
+                .foregroundStyle(Color.textSecondary)
+
             Spacer()
-            
+
             Text(value)
-                .foregroundColor(.white)
+                .foregroundStyle(Color.textPrimary)
                 .fontWeight(.medium)
         }
     }
@@ -483,27 +459,18 @@ struct DiaryCalendarView: View {
                     currentMonth: $currentMonth,
                     datesWithSessions: sessionDates
                 )
-                .padding()
-                .background(Color.gbCard)
-                .cornerRadius(12)
+                .cardStyle()
                 .padding(.horizontal)
 
                 // Sessions for selected date
                 if selectedSessions.isEmpty {
-                    VStack(spacing: 12) {
-                        Image(systemName: "calendar.badge.exclamationmark")
-                            .font(.largeTitle)
-                            .foregroundColor(.gray.opacity(0.5))
-                        Text("Aucune session ce jour")
-                            .font(.subheadline)
-                            .foregroundColor(.gray)
-                    }
-                    .frame(height: 150)
+                    EmptyState(icon: "calendar.badge.exclamationmark", title: "Aucune session ce jour")
+                        .frame(height: 150)
                 } else {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("\(selectedSessions.count) session(s)")
-                            .font(.headline)
-                            .foregroundColor(.white)
+                            .font(DS.Typography.headline)
+                            .foregroundStyle(Color.textPrimary)
                             .padding(.horizontal)
 
                         LazyVStack(spacing: 12) {
@@ -566,34 +533,43 @@ struct CustomCalendarView: View {
             HStack {
                 Button(action: previousMonth) {
                     Image(systemName: "chevron.left")
-                        .font(.title3)
-                        .foregroundColor(.gbGreen)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Color.accent)
+                        .frame(width: 32, height: 32)
+                        .background(Color.gbSurface2)
+                        .clipShape(Circle())
                         .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
-                
+                .accessibilityLabel("Mois précédent")
+
                 Spacer()
-                
+
                 Text(monthTitle.capitalized)
-                    .font(.headline)
-                    .foregroundColor(.white)
-                
+                    .font(DS.Typography.title)
+                    .foregroundStyle(Color.textPrimary)
+
                 Spacer()
-                
+
                 Button(action: nextMonth) {
                     Image(systemName: "chevron.right")
-                        .font(.title3)
-                        .foregroundColor(.gbGreen)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Color.accent)
+                        .frame(width: 32, height: 32)
+                        .background(Color.gbSurface2)
+                        .clipShape(Circle())
                         .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
+                .accessibilityLabel("Mois suivant")
             }
-            
+
             // Days of Week Header
             HStack {
                 ForEach(daysOfWeek, id: \.self) { day in
                     Text(day)
-                        .font(.caption)
-                        .fontWeight(.medium)
-                        .foregroundColor(.gray)
+                        .font(DS.Typography.label)
+                        .foregroundStyle(Color.textTertiary)
                         .frame(maxWidth: .infinity)
                 }
             }
@@ -650,26 +626,31 @@ struct CalendarDayCell: View {
         Button(action: action) {
             VStack(spacing: 4) {
                 ZStack {
-                    // Selection/Today background
+                    // Selection/Today/session background
                     if isSelected {
-                        Circle()
-                            .fill(Color.gbGreen)
-                            .frame(width: 36, height: 36)
-                    } else if isToday {
-                        Circle()
-                            .stroke(Color.gbGreen, lineWidth: 2)
-                            .frame(width: 36, height: 36)
+                        RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
+                            .fill(Color.accent)
+                            .frame(width: 34, height: 34)
+                    } else if hasSession {
+                        RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
+                            .fill(Color.gbSurface2)
+                            .frame(width: 34, height: 34)
                     }
-                    
+                    if isToday && !isSelected {
+                        RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
+                            .stroke(Color.accent, lineWidth: 1.5)
+                            .frame(width: 34, height: 34)
+                    }
+
                     Text(dayNumber)
-                        .font(.system(size: 16, weight: isSelected || isToday ? .bold : .regular))
-                        .foregroundColor(isSelected ? .gbDark : (isToday ? .gbGreen : .white))
+                        .font(.system(.callout, design: .monospaced, weight: isSelected || isToday ? .bold : .regular))
+                        .foregroundStyle(isSelected ? Color.gbDark : (isToday ? Color.accent : Color.textPrimary))
                 }
-                
-                // Green dot indicator for sessions
+
+                // Dot indicator for sessions
                 Circle()
-                    .fill(hasSession ? Color.gbGreen : Color.clear)
-                    .frame(width: 6, height: 6)
+                    .fill(hasSession ? Color.accent : Color.clear)
+                    .frame(width: 5, height: 5)
             }
         }
         .frame(height: 50)
@@ -678,23 +659,22 @@ struct CalendarDayCell: View {
 
 // MARK: - Empty Diary View
 struct EmptyDiaryView: View {
+    var action: () -> Void
+
     var body: some View {
         VStack(spacing: 20) {
             Spacer()
-            
-            Image(systemName: "book.closed")
-                .font(.system(size: 70))
-                .foregroundColor(.gray.opacity(0.3))
-            
-            Text("Ton journal est vide")
-                .font(.headline)
-                .foregroundColor(.gray)
-            
-            Text("Enregistre tes sessions de jeu\npour garder une trace de tes aventures")
-                .font(.subheadline)
-                .foregroundColor(.gray.opacity(0.7))
-                .multilineTextAlignment(.center)
-            
+
+            EmptyState(
+                icon: "book.closed",
+                title: "Ton journal est vide",
+                message: "Enregistre tes sessions de jeu pour garder une trace de tes aventures"
+            )
+            .frame(height: 180)
+
+            PrimaryButton(title: "Ajouter une session", icon: "plus.circle.fill", action: action)
+                .padding(.horizontal, 60)
+
             Spacer()
         }
     }
@@ -728,30 +708,29 @@ struct AddPlaySessionView: View {
                 Section("Jeu") {
                     if let game = selectedGame {
                         HStack {
-                            if let coverURL = game.coverImageURL, let url = URL(string: coverURL) {
-                                CachedAsyncImage(url: url) { image in
-                                    image.resizable().aspectRatio(contentMode: .fill)
-                                } placeholder: {
+                            Group {
+                                if let coverURL = game.coverImageURL, let url = URL(string: coverURL) {
+                                    CachedAsyncImage(url: url) { image in
+                                        image.resizable().aspectRatio(contentMode: .fill)
+                                    } placeholder: {
+                                        Rectangle().fill(game.coverColor.gradient)
+                                    }
+                                } else {
                                     Rectangle().fill(game.coverColor.gradient)
                                 }
-                                .frame(width: 40, height: 50)
-                                .cornerRadius(4)
-                            } else {
-                                Rectangle()
-                                    .fill(game.coverColor.gradient)
-                                    .frame(width: 40, height: 50)
-                                    .cornerRadius(4)
                             }
-                            
+                            .frame(width: 40, height: 50)
+                            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
+
                             Text(game.title)
-                                .foregroundColor(.white)
-                            
+                                .foregroundStyle(Color.textPrimary)
+
                             Spacer()
-                            
+
                             Button("Changer") {
                                 showingGamePicker = true
                             }
-                            .foregroundColor(.gbGreen)
+                            .foregroundStyle(Color.accent)
                         }
                     } else {
                         Button(action: { showingGamePicker = true }) {
@@ -759,15 +738,15 @@ struct AddPlaySessionView: View {
                                 Image(systemName: "plus.circle.fill")
                                 Text("Sélectionner un jeu")
                             }
-                            .foregroundColor(.gbGreen)
+                            .foregroundStyle(Color.accent)
                         }
                     }
                 }
-                
+
                 // Date & Time
                 Section("Date") {
                     DatePicker("Date et heure", selection: $date)
-                        .tint(.gbGreen)
+                        .tint(.accent)
                 }
                 
                 // Duration
@@ -797,26 +776,30 @@ struct AddPlaySessionView: View {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
                             ForEach(MoodTag.allCases, id: \.self) { tag in
-                                Button(action: { 
-                                    mood = mood == tag ? nil : tag 
+                                Button(action: {
+                                    mood = mood == tag ? nil : tag
                                 }) {
                                     VStack(spacing: 4) {
                                         Image(systemName: tag.icon)
                                             .font(.title3)
                                         Text(tag.rawValue)
-                                            .font(.caption2)
+                                            .font(DS.Typography.micro)
                                     }
                                     .frame(width: 70, height: 55)
-                                    .background(mood == tag ? tag.color.opacity(0.3) : Color.gbCard)
-                                    .foregroundColor(mood == tag ? tag.color : .gray)
-                                    .cornerRadius(10)
+                                    .background(mood == tag ? tag.color.opacity(0.16) : Color.gbSurface2)
+                                    .foregroundStyle(mood == tag ? tag.color : Color.textSecondary)
+                                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
+                                            .stroke(mood == tag ? tag.color.opacity(0.4) : Color.clear, lineWidth: 1)
+                                    )
                                 }
                             }
                         }
                     }
                     .listRowBackground(Color.clear)
                 }
-                
+
                 // Rating
                 Section("Note (optionnel)") {
                     HStack {
@@ -826,16 +809,16 @@ struct AddPlaySessionView: View {
                     }
                     .listRowBackground(Color.gbCard)
                 }
-                
+
                 // Notes
                 Section("Notes") {
                     TextField("Qu'as-tu fait pendant cette session ?", text: $notes, axis: .vertical)
                         .lineLimit(3...6)
-                    
+
                     Toggle(isOn: $isSpoiler) {
                         Label("Contient des spoilers", systemImage: "eye.slash")
                     }
-                    .tint(.orange)
+                    .tint(Color(hex: "FF8A3D"))
                 }
             }
             .scrollContentBackground(.hidden)
@@ -845,15 +828,15 @@ struct AddPlaySessionView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Annuler") { dismiss() }
-                        .foregroundColor(.gray)
+                        .foregroundStyle(Color.textSecondary)
                 }
-                
+
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Sauvegarder") {
                         saveSession()
                     }
                     .disabled(!canSave)
-                    .foregroundColor(canSave ? .gbGreen : .gray)
+                    .foregroundStyle(canSave ? Color.accent : Color.textTertiary)
                 }
             }
             .sheet(isPresented: $showingGamePicker) {
@@ -911,37 +894,37 @@ struct GamePickerView: View {
                     dismiss()
                 }) {
                     HStack {
-                        if let coverURL = game.coverImageURL, let url = URL(string: coverURL) {
-                            CachedAsyncImage(url: url) { image in
-                                image.resizable().aspectRatio(contentMode: .fill)
-                            } placeholder: {
+                        Group {
+                            if let coverURL = game.coverImageURL, let url = URL(string: coverURL) {
+                                CachedAsyncImage(url: url) { image in
+                                    image.resizable().aspectRatio(contentMode: .fill)
+                                } placeholder: {
+                                    Rectangle().fill(game.coverColor.gradient)
+                                }
+                            } else {
                                 Rectangle().fill(game.coverColor.gradient)
                             }
-                            .frame(width: 40, height: 50)
-                            .cornerRadius(4)
-                        } else {
-                            Rectangle()
-                                .fill(game.coverColor.gradient)
-                                .frame(width: 40, height: 50)
-                                .cornerRadius(4)
                         }
-                        
+                        .frame(width: 40, height: 50)
+                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
+
                         VStack(alignment: .leading) {
                             Text(game.title)
-                                .foregroundColor(.white)
+                                .foregroundStyle(Color.textPrimary)
                             Text(game.platform)
-                                .font(.caption)
-                                .foregroundColor(.gray)
+                                .font(DS.Typography.caption)
+                                .foregroundStyle(Color.textSecondary)
                         }
-                        
+
                         Spacer()
-                        
+
                         if selectedGame?.id == game.id {
                             Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(.gbGreen)
+                                .foregroundStyle(Color.accent)
                         }
                     }
                 }
+                .listRowBackground(Color.gbCard)
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
@@ -952,7 +935,7 @@ struct GamePickerView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Fermer") { dismiss() }
-                        .foregroundColor(.gray)
+                        .foregroundStyle(Color.textSecondary)
                 }
             }
         }

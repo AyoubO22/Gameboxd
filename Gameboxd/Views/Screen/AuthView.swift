@@ -20,7 +20,6 @@ struct AuthView: View {
     @State private var username = ""
     @State private var showingError = false
     @State private var errorMessage = ""
-    @State private var isLoading = false
     @State private var isSocialLoading = false
     
     var body: some View {
@@ -34,22 +33,22 @@ struct AuthView: View {
                     VStack(spacing: 16) {
                         ZStack {
                             Circle()
-                                .fill(Color.gbGreen.gradient)
+                                .fill(Color.gbBrass.gradient)
                                 .frame(width: 120, height: 120)
                             
                             Image(systemName: "gamecontroller.fill")
                                 .font(.system(size: 50))
                                 .foregroundColor(.gbDark)
                         }
-                        .shadow(color: .gbGreen.opacity(0.4), radius: 20)
+                        .shadow(color: .gbBrass.opacity(0.4), radius: 20)
                         
                         Text("Gameboxd")
-                            .font(.system(size: 36, weight: .bold, design: .rounded))
-                            .foregroundColor(.white)
+                            .font(DS.Typography.display(48))
+                            .foregroundColor(.textPrimary)
                         
                         Text("Ton journal de jeux vidéo")
-                            .font(.subheadline)
-                            .foregroundColor(.gray)
+                            .font(DS.Typography.body)
+                            .foregroundColor(.textSecondary)
                     }
                     .padding(.top, 60)
                     
@@ -60,6 +59,12 @@ struct AuthView: View {
                     }
                     .pickerStyle(.segmented)
                     .padding(.horizontal, 40)
+
+                    Text("Profil local : tes identifiants restent sur cet appareil, aucun compte en ligne n'est créé.")
+                        .font(DS.Typography.caption)
+                        .foregroundColor(.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 40)
                     
                     // Form
                     VStack(spacing: 16) {
@@ -100,47 +105,31 @@ struct AuthView: View {
                     
                     // Action Button
                     Button(action: handleAuth) {
-                        HStack {
-                            if isLoading {
-                                ProgressView()
-                                    .tint(.gbDark)
-                            } else {
-                                Text(isLogin ? "Se connecter" : "Créer un compte")
-                                    .fontWeight(.semibold)
-                            }
-                        }
+                        Text(isLogin ? "Se connecter" : "Créer un profil local")
+                            .fontWeight(.semibold)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Color.gbGreen)
+                        .background(Color.gbBrass)
                         .foregroundColor(.gbDark)
                         .cornerRadius(12)
                     }
-                    .disabled(isLoading || !isFormValid)
+                    .disabled(!isFormValid)
                     .opacity(isFormValid ? 1 : 0.6)
                     .padding(.horizontal, 24)
-                    
-                    // Forgot password (login only)
-                    if isLogin {
-                        Button(action: {}) {
-                            Text("Mot de passe oublié ?")
-                                .font(.subheadline)
-                                .foregroundColor(.gbGreen)
-                        }
-                    }
                     
                     // Social login
                     VStack(spacing: 16) {
                         HStack {
                             Rectangle()
-                                .fill(Color.gray.opacity(0.3))
+                                .fill(Color.textSecondary.opacity(0.3))
                                 .frame(height: 1)
                             
                             Text("ou continuer avec")
-                                .font(.caption)
-                                .foregroundColor(.gray)
+                                .font(DS.Typography.caption)
+                                .foregroundColor(.textSecondary)
                             
                             Rectangle()
-                                .fill(Color.gray.opacity(0.3))
+                                .fill(Color.textSecondary.opacity(0.3))
                                 .frame(height: 1)
                         }
                         .padding(.horizontal, 24)
@@ -160,7 +149,7 @@ struct AuthView: View {
                         
                         if isSocialLoading {
                             ProgressView()
-                                .tint(.gbGreen)
+                                .tint(.gbBrass)
                                 .padding(.top, 4)
                         }
                     }
@@ -168,8 +157,8 @@ struct AuthView: View {
                     // Skip login
                     Button(action: skipLogin) {
                         Text("Continuer sans compte")
-                            .font(.subheadline)
-                            .foregroundColor(.gray)
+                            .font(DS.Typography.body)
+                            .foregroundColor(.textSecondary)
                             .underline()
                     }
                     .padding(.top, 8)
@@ -200,36 +189,38 @@ struct AuthView: View {
     }
     
     func handleAuth() {
-        isLoading = true
-        
-        // Simulate authentication delay
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            isLoading = false
-            
-            if isLogin {
-                // Login logic
-                if email.isEmpty || password.isEmpty {
-                    errorMessage = "Veuillez remplir tous les champs"
-                    showingError = true
-                } else {
-                    // Success - update profile and mark as logged in
-                    store.userProfile.username = email.components(separatedBy: "@").first ?? "Joueur"
-                    store.setLoggedIn(true)
-                }
-            } else {
-                // Registration logic
-                if password != confirmPassword {
-                    errorMessage = "Les mots de passe ne correspondent pas"
-                    showingError = true
-                } else if password.count < 6 {
-                    errorMessage = "Le mot de passe doit contenir au moins 6 caractères"
-                    showingError = true
-                } else {
-                    // Success - create account
-                    store.userProfile.username = username
-                    store.setLoggedIn(true)
-                }
+        let trimmedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        if isLogin {
+            guard securityManager.hasLocalCredentials else {
+                errorMessage = "Aucun profil local sur cet appareil. Crée-le dans l'onglet Inscription."
+                showingError = true
+                return
             }
+            guard securityManager.verifyLocalCredentials(email: trimmedEmail, password: password) else {
+                errorMessage = "Email ou mot de passe incorrect."
+                showingError = true
+                return
+            }
+            store.userProfile.email = trimmedEmail
+            store.userProfile.authProvider = "email"
+            store.setLoggedIn(true)
+        } else {
+            guard password == confirmPassword else {
+                errorMessage = "Les mots de passe ne correspondent pas"
+                showingError = true
+                return
+            }
+            do {
+                try securityManager.saveLocalCredentials(email: trimmedEmail, password: password)
+            } catch {
+                errorMessage = "Impossible d'enregistrer le profil : \(error.localizedDescription)"
+                showingError = true
+                return
+            }
+            store.userProfile.username = username.trimmingCharacters(in: .whitespacesAndNewlines)
+            store.userProfile.email = trimmedEmail
+            store.userProfile.authProvider = "email"
+            store.setLoggedIn(true)
         }
     }
     
@@ -347,13 +338,13 @@ struct AuthTextField: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .foregroundColor(.gray)
+                .foregroundColor(.textSecondary)
                 .frame(width: 24)
             
             TextField(placeholder, text: $text)
                 .keyboardType(keyboardType)
                 .textInputAutocapitalization(.never)
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
         }
         .padding()
         .background(Color.gbCard)
@@ -371,21 +362,21 @@ struct AuthSecureField: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .foregroundColor(.gray)
+                .foregroundColor(.textSecondary)
                 .frame(width: 24)
             
             if showPassword {
                 TextField(placeholder, text: $text)
                     .textInputAutocapitalization(.never)
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
             } else {
                 SecureField(placeholder, text: $text)
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
             }
             
             Button(action: { showPassword.toggle() }) {
                 Image(systemName: showPassword ? "eye.slash" : "eye")
-                    .foregroundColor(.gray)
+                    .foregroundColor(.textSecondary)
             }
         }
         .padding()
@@ -404,15 +395,15 @@ struct SocialLoginButton: View {
         Button(action: action) {
             HStack {
                 Image(systemName: icon)
-                    .font(.title2)
+                    .font(DS.Typography.title)
                 Text(label)
-                    .font(.subheadline)
+                    .font(DS.Typography.body)
                     .fontWeight(.medium)
             }
             .frame(maxWidth: .infinity)
             .padding()
             .background(Color.gbCard)
-            .foregroundColor(.white)
+            .foregroundColor(.textPrimary)
             .cornerRadius(12)
         }
     }

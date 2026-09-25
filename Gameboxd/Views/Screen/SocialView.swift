@@ -12,35 +12,33 @@ struct SocialView: View {
     @State private var selectedTab = 0
     
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                // Tab Selector
-                Picker("Section", selection: $selectedTab) {
-                    Text("Activité").tag(0)
-                    Text("Amis").tag(1)
-                }
-                .pickerStyle(.segmented)
-                .padding()
-                .background(Color.gbDark)
-                
-                // Content
-                switch selectedTab {
-                case 0:
-                    ActivityFeedView()
-                case 1:
-                    FriendsListView()
-                default:
-                    EmptyView()
-                }
+        VStack(spacing: 0) {
+            // Tab Selector
+            Picker("Section", selection: $selectedTab) {
+                Text("Activité").tag(0)
+                Text("Amis").tag(1)
             }
-            .background(Color.gbDark.ignoresSafeArea())
-            .navigationTitle("Social")
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    NavigationLink(destination: FindFriendsView()) {
-                        Image(systemName: "person.badge.plus")
-                            .foregroundColor(.gbGreen)
-                    }
+            .pickerStyle(.segmented)
+            .padding()
+            .background(Color.gbDark)
+            
+            // Content
+            switch selectedTab {
+            case 0:
+                ActivityFeedView()
+            case 1:
+                FriendsListView()
+            default:
+                EmptyView()
+            }
+        }
+        .background(Color.gbDark.ignoresSafeArea())
+        .navigationTitle("Social")
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                NavigationLink(destination: FindFriendsView()) {
+                    Image(systemName: "person.badge.plus")
+                        .foregroundColor(.gbBrass)
                 }
             }
         }
@@ -74,23 +72,23 @@ struct EmptyActivityView: View {
             
             Image(systemName: "person.2.fill")
                 .font(.system(size: 60))
-                .foregroundColor(.gray.opacity(0.3))
+                .foregroundColor(.textSecondary.opacity(0.3))
             
             Text("Aucune activité")
-                .font(.headline)
-                .foregroundColor(.gray)
+                .font(DS.Typography.headline)
+                .foregroundColor(.textSecondary)
             
             Text("Suis des amis pour voir leur activité")
-                .font(.subheadline)
-                .foregroundColor(.gray.opacity(0.7))
+                .font(DS.Typography.body)
+                .foregroundColor(.textSecondary.opacity(0.7))
                 .multilineTextAlignment(.center)
             
             NavigationLink(destination: FindFriendsView()) {
                 Text("Trouver des amis")
-                    .font(.headline)
+                    .font(DS.Typography.headline)
                     .padding(.horizontal, 24)
                     .padding(.vertical, 12)
-                    .background(Color.gbGreen)
+                    .background(Color.gbBrass)
                     .foregroundColor(.gbDark)
                     .cornerRadius(25)
             }
@@ -103,6 +101,7 @@ struct EmptyActivityView: View {
 
 struct ActivityCard: View {
     let activity: ActivityItem
+    @State private var isLiked = false
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -111,11 +110,11 @@ struct ActivityCard: View {
                 // Avatar
                 ZStack {
                     Circle()
-                        .fill(Color.gbGreen.gradient)
+                        .fill(Color.gbBrass.gradient)
                         .frame(width: 40, height: 40)
                     
                     Text(activity.avatarEmoji)
-                        .font(.title3)
+                        .font(DS.Typography.title3)
                 }
                 
                 // User & Action
@@ -123,16 +122,16 @@ struct ActivityCard: View {
                     HStack(spacing: 4) {
                         Text(activity.username)
                             .fontWeight(.semibold)
-                            .foregroundColor(.white)
+                            .foregroundColor(.textPrimary)
                         
                         Text(activity.actionType.rawValue)
-                            .foregroundColor(.gray)
+                            .foregroundColor(.textSecondary)
                     }
-                    .font(.subheadline)
+                    .font(DS.Typography.body)
                     
                     Text(activity.timestamp, style: .relative)
-                        .font(.caption)
-                        .foregroundColor(.gray.opacity(0.7))
+                        .font(DS.Typography.caption)
+                        .foregroundColor(.textSecondary.opacity(0.7))
                 }
                 
                 Spacer()
@@ -156,14 +155,14 @@ struct ActivityCard: View {
                         .frame(width: 60, height: 80)
                         .overlay(
                             Image(systemName: "gamecontroller.fill")
-                                .foregroundColor(.gray)
+                                .foregroundColor(.textSecondary)
                         )
                 }
                 
                 VStack(alignment: .leading, spacing: 6) {
                     Text(activity.gameTitle)
-                        .font(.headline)
-                        .foregroundColor(.white)
+                        .font(DS.Typography.headline)
+                        .foregroundColor(.textPrimary)
                         .lineLimit(2)
                     
                     // Rating if present
@@ -171,17 +170,17 @@ struct ActivityCard: View {
                         HStack(spacing: 2) {
                             ForEach(1...rating, id: \.self) { _ in
                                 Image(systemName: "star.fill")
-                                    .font(.caption)
+                                    .font(DS.Typography.caption)
                             }
                         }
-                        .foregroundColor(.gbGreen)
+                        .foregroundColor(.gbBrass)
                     }
                     
                     // Review excerpt if present
                     if let review = activity.review, !review.isEmpty {
                         Text(review)
-                            .font(.caption)
-                            .foregroundColor(.gray)
+                            .font(DS.Typography.caption)
+                            .foregroundColor(.textSecondary)
                             .lineLimit(2)
                     }
                 }
@@ -191,22 +190,13 @@ struct ActivityCard: View {
             
             // Actions
             HStack(spacing: 20) {
-                Button(action: {}) {
+                Button(action: { isLiked.toggle() }) {
                     HStack(spacing: 4) {
-                        Image(systemName: "heart")
+                        Image(systemName: isLiked ? "heart.fill" : "heart")
                         Text("J'aime")
                     }
-                    .font(.caption)
-                    .foregroundColor(.gray)
-                }
-                
-                Button(action: {}) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "bubble.right")
-                        Text("Commenter")
-                    }
-                    .font(.caption)
-                    .foregroundColor(.gray)
+                    .font(DS.Typography.caption)
+                    .foregroundColor(isLiked ? .gbBrass : .gray)
                 }
                 
                 Spacer()
@@ -245,22 +235,22 @@ struct EmptyFriendsView: View {
             
             Image(systemName: "person.2.slash")
                 .font(.system(size: 60))
-                .foregroundColor(.gray.opacity(0.3))
+                .foregroundColor(.textSecondary.opacity(0.3))
             
             Text("Pas encore d'amis")
-                .font(.headline)
-                .foregroundColor(.gray)
+                .font(DS.Typography.headline)
+                .foregroundColor(.textSecondary)
             
             Text("Trouve des joueurs avec les mêmes goûts")
-                .font(.subheadline)
-                .foregroundColor(.gray.opacity(0.7))
+                .font(DS.Typography.body)
+                .foregroundColor(.textSecondary.opacity(0.7))
             
             NavigationLink(destination: FindFriendsView()) {
                 Text("Trouver des amis")
-                    .font(.headline)
+                    .font(DS.Typography.headline)
                     .padding(.horizontal, 24)
                     .padding(.vertical, 12)
-                    .background(Color.gbGreen)
+                    .background(Color.gbBrass)
                     .foregroundColor(.gbDark)
                     .cornerRadius(25)
             }
@@ -279,22 +269,22 @@ struct FriendRow: View {
             // Avatar
             ZStack {
                 Circle()
-                    .fill(Color.gbGreen.gradient)
+                    .fill(Color.gbBrass.gradient)
                     .frame(width: 50, height: 50)
                 
                 Text(friend.avatarEmoji)
-                    .font(.title2)
+                    .font(DS.Typography.title)
             }
             
             // Info
             VStack(alignment: .leading, spacing: 4) {
                 Text(friend.username)
-                    .font(.headline)
-                    .foregroundColor(.white)
+                    .font(DS.Typography.headline)
+                    .foregroundColor(.textPrimary)
                 
                 Text("\(friend.gamesCount) jeux • Actif \(friend.lastActive, style: .relative)")
-                    .font(.caption)
-                    .foregroundColor(.gray)
+                    .font(DS.Typography.caption)
+                    .foregroundColor(.textSecondary)
             }
             
             Spacer()
@@ -302,11 +292,11 @@ struct FriendRow: View {
             // Follow Button
             Button(action: { toggleFollow() }) {
                 Text(friend.isFollowing ? "Suivi" : "Suivre")
-                    .font(.subheadline)
+                    .font(DS.Typography.body)
                     .fontWeight(.medium)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
-                    .background(friend.isFollowing ? Color.gbCard : Color.gbGreen)
+                    .background(friend.isFollowing ? Color.gbCard : Color.gbBrass)
                     .foregroundColor(friend.isFollowing ? .gray : .gbDark)
                     .cornerRadius(20)
             }
@@ -335,16 +325,28 @@ struct FindFriendsView: View {
         Friend(username: "SpeedRunner", avatarEmoji: "🏃", gamesCount: 45, isFollowing: false)
     ]
     
+    private var filteredSuggestions: [Friend] {
+        guard !searchText.isEmpty else { return suggestedUsers }
+        return suggestedUsers.filter { $0.username.localizedCaseInsensitiveContains(searchText) }
+    }
+
+    /// Stable across launches (String.hashValue is randomly seeded per launch).
+    private var friendCode: String {
+        let name = store.userProfile.username
+        let checksum = name.unicodeScalars.reduce(0) { ($0 &* 31 &+ Int($1.value)) % 10_000 }
+        return "GBOXD-\(name.prefix(4).uppercased())-\(checksum)"
+    }
+    
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
                 // Search
                 HStack {
                     Image(systemName: "magnifyingglass")
-                        .foregroundColor(.gray)
+                        .foregroundColor(.textSecondary)
                     
                     TextField("Rechercher un joueur...", text: $searchText)
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
                 }
                 .padding()
                 .background(Color.gbCard)
@@ -353,10 +355,10 @@ struct FindFriendsView: View {
                 // Suggestions
                 VStack(alignment: .leading, spacing: 16) {
                     Text("Suggestions")
-                        .font(.headline)
-                        .foregroundColor(.white)
+                        .font(DS.Typography.headline)
+                        .foregroundColor(.textPrimary)
                     
-                    ForEach(suggestedUsers) { user in
+                    ForEach(filteredSuggestions) { user in
                         SuggestedUserRow(user: user)
                     }
                 }
@@ -364,24 +366,27 @@ struct FindFriendsView: View {
                 // Share Code
                 VStack(spacing: 12) {
                     Text("Partage ton code ami")
-                        .font(.headline)
-                        .foregroundColor(.white)
+                        .font(DS.Typography.headline)
+                        .foregroundColor(.textPrimary)
                     
-                    Text("GBOXD-\(store.userProfile.username.prefix(4).uppercased())-\(abs(store.userProfile.username.hashValue) % 10000)")
+                    Text(friendCode)
                         .font(.system(.title3, design: .monospaced))
                         .fontWeight(.bold)
-                        .foregroundColor(.gbGreen)
+                        .foregroundColor(.gbBrass)
                         .padding()
                         .background(Color.gbCard)
                         .cornerRadius(12)
                     
-                    Button(action: {}) {
+                    Button(action: {
+                        UIPasteboard.general.string = friendCode
+                        HapticManager.notification(.success)
+                    }) {
                         HStack {
                             Image(systemName: "doc.on.doc")
                             Text("Copier")
                         }
-                        .font(.subheadline)
-                        .foregroundColor(.gbGreen)
+                        .font(DS.Typography.body)
+                        .foregroundColor(.gbBrass)
                     }
                 }
                 .padding()
@@ -396,40 +401,50 @@ struct FindFriendsView: View {
 }
 
 struct SuggestedUserRow: View {
+    @EnvironmentObject var store: GameStore
     let user: Friend
-    @State private var isFollowing = false
+
+    private var isFollowing: Bool {
+        store.friends.contains { $0.username == user.username }
+    }
     
     var body: some View {
         HStack(spacing: 12) {
             ZStack {
                 Circle()
-                    .fill(Color.gbGreen.gradient)
+                    .fill(Color.gbBrass.gradient)
                     .frame(width: 45, height: 45)
                 
                 Text(user.avatarEmoji)
-                    .font(.title3)
+                    .font(DS.Typography.title3)
             }
             
             VStack(alignment: .leading, spacing: 2) {
                 Text(user.username)
                     .fontWeight(.medium)
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
                 
                 Text("\(user.gamesCount) jeux")
-                    .font(.caption)
-                    .foregroundColor(.gray)
+                    .font(DS.Typography.caption)
+                    .foregroundColor(.textSecondary)
             }
             
             Spacer()
             
-            Button(action: { isFollowing.toggle() }) {
+            Button(action: {
+                if let friend = store.friends.first(where: { $0.username == user.username }) {
+                    store.removeFriend(friend)
+                } else {
+                    store.addFriend(user)
+                }
+            }) {
                 Text(isFollowing ? "Suivi ✓" : "Suivre")
-                    .font(.subheadline)
+                    .font(DS.Typography.body)
                     .fontWeight(.medium)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
-                    .background(isFollowing ? Color.gbCard : Color.gbGreen)
-                    .foregroundColor(isFollowing ? .gbGreen : .gbDark)
+                    .background(isFollowing ? Color.gbCard : Color.gbBrass)
+                    .foregroundColor(isFollowing ? .gbBrass : .gbDark)
                     .cornerRadius(20)
             }
         }
@@ -441,6 +456,6 @@ struct SuggestedUserRow: View {
 
 // MARK: - Preview
 #Preview {
-    SocialView()
+    NavigationStack { SocialView() }
         .environmentObject(GameStore())
 }

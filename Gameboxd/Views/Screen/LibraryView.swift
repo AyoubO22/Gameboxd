@@ -13,10 +13,12 @@ struct LibraryView: View {
     @State private var showingStats = false
     @State private var sortOption: SortOption = .title
     @State private var showingSortMenu = false
-    @State private var viewStyle: ViewStyle = .grid
+    @State private var viewStyle: ViewStyle = .shelf
+    @Namespace private var shelfNamespace
     @State private var showingAdvancedFilters = false
     @State private var gameToDelete: Game? = nil
     @State private var showingDeleteConfirm = false
+    @State private var showingComparison = false
     
     // Advanced Filters
     @State private var selectedPlatform: String? = nil
@@ -34,7 +36,7 @@ struct LibraryView: View {
     }
     
     enum ViewStyle {
-        case grid, list
+        case shelf, grid, list
     }
     
     // Get unique platforms
@@ -64,7 +66,16 @@ struct LibraryView: View {
     
     // Filtre dynamique des jeux
     var filteredGames: [Game] {
-        var filtered = store.myGames.filter { $0.status == selectedFilter }
+        filteredAndSorted(store.myGames.filter { $0.status == selectedFilter })
+    }
+
+    /// The shelf shows every status, grouped by plank; advanced filters and sort still apply.
+    var shelfGames: [Game] {
+        filteredAndSorted(store.myGames)
+    }
+
+    private func filteredAndSorted(_ games: [Game]) -> [Game] {
+        var filtered = games
         
         // Apply advanced filters
         if let platform = selectedPlatform {
@@ -116,7 +127,8 @@ struct LibraryView: View {
                         .transition(.move(edge: .top).combined(with: .opacity))
                 }
                 
-                // Barre de filtres avec compteur
+                // Barre de filtres avec compteur (the shelf groups by status itself)
+                if viewStyle != .shelf {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {
                         ForEach([GameStatus.playing, GameStatus.wantToPlay, GameStatus.completed, GameStatus.platinum, GameStatus.shelved], id: \.self) { status in
@@ -134,7 +146,7 @@ struct LibraryView: View {
                     .padding(.horizontal)
                     .padding(.vertical, 12)
                 }
-                .background(Color.gbDark)
+                }
                 
                 // Sort and View Options Bar
                 HStack {
@@ -145,23 +157,26 @@ struct LibraryView: View {
                             Text("Filtres")
                             if activeFiltersCount > 0 {
                                 Text("\(activeFiltersCount)")
-                                    .font(.caption2)
-                                    .fontWeight(.bold)
+                                    .font(DS.Typography.label)
                                     .padding(.horizontal, 6)
                                     .padding(.vertical, 2)
-                                    .background(Color.gbGreen)
-                                    .foregroundColor(.gbDark)
-                                    .cornerRadius(10)
+                                    .background(Color.accent)
+                                    .foregroundStyle(Color.gbDark)
+                                    .clipShape(Capsule())
                             }
                         }
-                        .font(.caption)
-                        .foregroundColor(activeFiltersCount > 0 ? .gbGreen : .gray)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
+                        .font(DS.Typography.caption)
+                        .foregroundStyle(activeFiltersCount > 0 ? Color.accent : Color.textSecondary)
+                        .padding(.horizontal, DS.Spacing.sm)
+                        .padding(.vertical, DS.Spacing.xs)
                         .background(Color.gbCard)
-                        .cornerRadius(8)
+                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
+                                .stroke(Color.gbBorder, lineWidth: 1)
+                        )
                     }
-                    
+
                     // Sort Menu
                     Menu {
                         ForEach(SortOption.allCases, id: \.self) { option in
@@ -179,44 +194,60 @@ struct LibraryView: View {
                             Image(systemName: "arrow.up.arrow.down")
                             Text(sortOption.rawValue)
                         }
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
+                        .font(DS.Typography.caption)
+                        .foregroundStyle(Color.textSecondary)
+                        .padding(.horizontal, DS.Spacing.sm)
+                        .padding(.vertical, DS.Spacing.xs)
                         .background(Color.gbCard)
-                        .cornerRadius(8)
+                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
+                                .stroke(Color.gbBorder, lineWidth: 1)
+                        )
                     }
-                    
+
                     Spacer()
-                    
-                    let count = filteredGames.count
+
+                    let count = viewStyle == .shelf ? shelfGames.count : filteredGames.count
                     Text("\(count) jeu\(count > 1 ? "x" : "")")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                    
+                        .font(DS.Typography.caption)
+                        .foregroundStyle(Color.textSecondary)
+
                     Spacer()
-                    
+
                     // View Style Toggle
                     HStack(spacing: 0) {
+                        Button(action: { viewStyle = .shelf }) {
+                            Image(systemName: "books.vertical")
+                                .foregroundStyle(viewStyle == .shelf ? Color.accent : Color.textSecondary)
+                                .padding(8)
+                        }
+                        .accessibilityLabel("Affichage en étagère")
+
                         Button(action: { viewStyle = .grid }) {
                             Image(systemName: "square.grid.2x2")
-                                .foregroundColor(viewStyle == .grid ? .gbGreen : .gray)
+                                .foregroundStyle(viewStyle == .grid ? Color.accent : Color.textSecondary)
                                 .padding(8)
                         }
-                        
+                        .accessibilityLabel("Affichage en grille")
+
                         Button(action: { viewStyle = .list }) {
                             Image(systemName: "list.bullet")
-                                .foregroundColor(viewStyle == .list ? .gbGreen : .gray)
+                                .foregroundStyle(viewStyle == .list ? Color.accent : Color.textSecondary)
                                 .padding(8)
                         }
+                        .accessibilityLabel("Affichage en liste")
                     }
                     .background(Color.gbCard)
-                    .cornerRadius(8)
+                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
+                            .stroke(Color.gbBorder, lineWidth: 1)
+                    )
                 }
                 .padding(.horizontal)
                 .padding(.vertical, 8)
-                .background(Color.gbDark)
-                
+
                 // Active Filters Pills
                 if activeFiltersCount > 0 {
                     ScrollView(.horizontal, showsIndicators: false) {
@@ -233,11 +264,11 @@ struct LibraryView: View {
                             if let year = selectedYear {
                                 FilterPill(label: year, onRemove: { selectedYear = nil })
                             }
-                            
+
                             Button(action: clearAllFilters) {
                                 Text("Tout effacer")
-                                    .font(.caption)
-                                    .foregroundColor(.red)
+                                    .font(DS.Typography.caption)
+                                    .foregroundStyle(Color(hex: "D9695A"))
                             }
                         }
                         .padding(.horizontal)
@@ -248,12 +279,24 @@ struct LibraryView: View {
                 
                 // Grille de contenu
                 ScrollView {
-                    let games = filteredGames
-                    if games.isEmpty {
+                    let games = viewStyle == .shelf ? shelfGames : filteredGames
+                    if games.isEmpty && viewStyle == .shelf {
+                        EmptyState(icon: "books.vertical", title: "Ton étagère est vide", message: "Cherche un jeu dans l'onglet Recherche pour poser ta première boîte.")
+                            .frame(minHeight: 420)
+                    } else if viewStyle == .shelf {
+                        ShelfLibrary(games: games, namespace: shelfNamespace) { game in
+                            GameContextMenu(game: game) { g in
+                                gameToDelete = g
+                                showingDeleteConfirm = true
+                            }
+                        }
+                        .padding(.top, DS.Spacing.sm)
+                        .padding(.bottom, 110)
+                    } else if games.isEmpty {
                         EmptyStateView(status: selectedFilter)
                     } else {
                         if viewStyle == .grid {
-                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 16)], spacing: 16) {
+                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: DS.Spacing.sm)], spacing: DS.Spacing.md) {
                                 ForEach(games) { game in
                                     NavigationLink(destination: GameDetailView(game: game)) {
                                         GameCard(game: game)
@@ -285,12 +328,22 @@ struct LibraryView: View {
                         }
                     }
                 }
-                .background(Color.gbDark)
             }
-            .navigationTitle("Gameboxd")
+            .navigationTitle("Ma collection")
             .navigationBarTitleDisplayMode(.large)
-            .background(Color.gbDark.ignoresSafeArea())
+            .background(
+                LinearGradient(colors: [Shelf.wallTop, Color.gbDark], startPoint: .top, endPoint: .center)
+                    .ignoresSafeArea()
+            )
             .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: { showingComparison = true }) {
+                        Image(systemName: "arrow.left.arrow.right")
+                            .foregroundStyle(Color.accent)
+                    }
+                    .disabled(store.myGames.count < 2)
+                    .accessibilityLabel("Comparer deux jeux")
+                }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: {
                         withAnimation(.spring(response: 0.3)) {
@@ -298,10 +351,13 @@ struct LibraryView: View {
                         }
                     }) {
                         Image(systemName: showingStats ? "chart.bar.fill" : "chart.bar")
-                            .foregroundColor(.gbGreen)
+                            .foregroundStyle(Color.accent)
                     }
                     .accessibilityLabel(showingStats ? "Masquer les statistiques" : "Afficher les statistiques")
                 }
+            }
+            .sheet(isPresented: $showingComparison) {
+                GameComparisonView()
             }
             .sheet(isPresented: $showingAdvancedFilters) {
                 AdvancedFiltersSheet(
@@ -333,22 +389,9 @@ struct LibraryView: View {
 struct FilterPill: View {
     let label: String
     let onRemove: () -> Void
-    
+
     var body: some View {
-        HStack(spacing: 4) {
-            Text(label)
-                .font(.caption)
-            
-            Button(action: onRemove) {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.caption)
-            }
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(Color.gbGreen.opacity(0.2))
-        .foregroundColor(.gbGreen)
-        .cornerRadius(20)
+        TagPill(label: label, isSelected: true, onRemove: onRemove)
     }
 }
 
@@ -409,23 +452,27 @@ struct AdvancedFiltersSheet: View {
                                 VStack(spacing: 4) {
                                     if rating == 0 {
                                         Image(systemName: "star.slash")
-                                            .font(.title2)
+                                            .font(DS.Typography.title)
                                     } else {
                                         HStack(spacing: 1) {
                                             ForEach(1...rating, id: \.self) { _ in
                                                 Image(systemName: "star.fill")
-                                                    .font(.caption2)
+                                                    .font(DS.Typography.micro)
                                             }
                                         }
                                     }
                                     Text(rating == 0 ? "Tous" : "\(rating)+")
-                                        .font(.caption2)
+                                        .font(DS.Typography.micro)
                                 }
                                 .frame(maxWidth: .infinity)
-                                .padding(.vertical, 8)
-                                .background(minimumRating == rating ? Color.gbGreen : Color.gbCard)
-                                .foregroundColor(minimumRating == rating ? .gbDark : .gray)
-                                .cornerRadius(8)
+                                .padding(.vertical, DS.Spacing.xs)
+                                .background(minimumRating == rating ? Color.accent : Color.gbCard)
+                                .foregroundStyle(minimumRating == rating ? Color.gbDark : Color.textSecondary)
+                                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
+                                        .stroke(minimumRating == rating ? Color.clear : Color.gbBorder, lineWidth: 1)
+                                )
                             }
                         }
                     }
@@ -461,12 +508,12 @@ struct AdvancedFiltersSheet: View {
                         minimumRating = 0
                         selectedYear = nil
                     }
-                    .foregroundColor(.red)
+                    .foregroundStyle(Color(hex: "D9695A"))
                 }
-                
+
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Appliquer") { dismiss() }
-                        .foregroundColor(.gbGreen)
+                        .foregroundStyle(Color.accent)
                         .fontWeight(.semibold)
                 }
             }
@@ -478,16 +525,10 @@ struct FilterChip: View {
     let label: String
     let isSelected: Bool
     let action: () -> Void
-    
+
     var body: some View {
         Button(action: action) {
-            Text(label)
-                .font(.subheadline)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .background(isSelected ? Color.gbGreen : Color.gbCard)
-                .foregroundColor(isSelected ? .gbDark : .gray)
-                .cornerRadius(20)
+            TagPill(label: label, isSelected: isSelected)
         }
     }
 }
@@ -498,32 +539,33 @@ struct FilterButton: View {
     let count: Int
     let isSelected: Bool
     let action: () -> Void
-    
+
     var body: some View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Image(systemName: status.icon)
-                    .font(.caption)
-                
+                    .font(DS.Typography.caption)
+
                 Text(status.rawValue)
-                    .fontWeight(.medium)
-                
+                    .font(DS.Typography.bodyMedium)
+
                 if count > 0 {
                     Text("\(count)")
-                        .font(.caption2)
-                        .fontWeight(.bold)
+                        .font(DS.Typography.label)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(isSelected ? Color.white.opacity(0.3) : Color.gray.opacity(0.3))
-                        .cornerRadius(10)
+                        .background(isSelected ? status.color.opacity(0.3) : Color.gbSurface2)
+                        .clipShape(Capsule())
                 }
             }
-            .font(.subheadline)
-            .padding(.vertical, 8)
-            .padding(.horizontal, 14)
-            .background(isSelected ? status.color : Color.gbCard)
-            .foregroundColor(isSelected ? .white : .gray)
-            .cornerRadius(20)
+            .foregroundStyle(isSelected ? status.color : Color.textSecondary)
+            .padding(.vertical, DS.Spacing.xs)
+            .padding(.horizontal, DS.Spacing.sm)
+            .background(isSelected ? status.color.opacity(0.16) : Color.gbCard)
+            .clipShape(Capsule())
+            .overlay(
+                Capsule().stroke(isSelected ? status.color.opacity(0.4) : Color.gbBorder, lineWidth: 1)
+            )
         }
         .accessibilityLabel("\(status.rawValue), \(count) jeux")
     }
@@ -535,43 +577,45 @@ struct GameListRow: View {
     @EnvironmentObject var store: GameStore
     
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: DS.Spacing.sm) {
             // Cover
-            if let imageURL = game.coverImageURL, let url = URL(string: imageURL) {
-                CachedAsyncImage(url: url) { image in
-                    image.resizable().aspectRatio(contentMode: .fill)
-                } placeholder: {
+            Group {
+                if let url = game.artURL {
+                    CachedAsyncImage(url: url) { image in
+                        image.resizable().aspectRatio(contentMode: .fill)
+                    } placeholder: {
+                        Rectangle().fill(game.coverColor.gradient)
+                    }
+                } else {
                     Rectangle().fill(game.coverColor.gradient)
                 }
-                .frame(width: 60, height: 80)
-                .cornerRadius(8)
-                .clipped()
-            } else {
-                Rectangle()
-                    .fill(game.coverColor.gradient)
-                    .frame(width: 60, height: 80)
-                    .cornerRadius(8)
             }
-            
+            .frame(width: 44, height: 58)
+            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
+                    .stroke(Color.gbBorder, lineWidth: 1)
+            )
+
             // Info
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Text(game.title)
-                        .font(.headline)
-                        .foregroundColor(.white)
+                        .font(DS.Typography.headline)
+                        .foregroundStyle(Color.textPrimary)
                         .lineLimit(1)
-                    
+
                     if game.isFavorite {
                         Image(systemName: "heart.fill")
-                            .font(.caption)
-                            .foregroundColor(.red)
+                            .font(DS.Typography.caption)
+                            .foregroundStyle(Color(hex: "D9695A"))
                     }
                 }
-                
+
                 Text(game.developer)
-                    .font(.caption)
-                    .foregroundColor(.gray)
-                
+                    .font(DS.Typography.caption)
+                    .foregroundStyle(Color.textSecondary)
+
                 HStack(spacing: 8) {
                     // Rating
                     if game.rating > 0 {
@@ -581,56 +625,54 @@ struct GameListRow: View {
                                     .font(.system(size: 8))
                             }
                         }
-                        .foregroundColor(.gbGreen)
+                        .foregroundStyle(Color.accent)
                     }
-                    
+
                     // Play time
                     if game.playTimeMinutes > 0 {
                         Text(game.formattedPlayTime)
-                            .font(.caption2)
-                            .foregroundColor(.gray)
+                            .font(DS.Typography.label)
+                            .foregroundStyle(Color.textTertiary)
                     }
-                    
+
                     // Completion
                     if game.completionPercentage > 0 {
                         Text("\(game.completionPercentage)%")
-                            .font(.caption2)
+                            .font(DS.Typography.label)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
-                            .background(Color.gbGreen.opacity(0.2))
-                            .foregroundColor(.gbGreen)
-                            .cornerRadius(4)
+                            .background(Color.accent.opacity(0.16))
+                            .foregroundStyle(Color.accent)
+                            .clipShape(Capsule())
                     }
                 }
-                
+
                 // Mood tags
                 if !game.moodTags.isEmpty {
                     HStack(spacing: 4) {
                         ForEach(game.moodTags.prefix(3), id: \.self) { tag in
                             Image(systemName: tag.icon)
-                                .font(.caption2)
-                                .foregroundColor(tag.color)
+                                .font(DS.Typography.micro)
+                                .foregroundStyle(tag.color)
                         }
                     }
                 }
             }
-            
+
             Spacer()
-            
+
             // Priority indicator for backlog
             if game.status == .wantToPlay {
                 Circle()
                     .fill(game.priority.color)
                     .frame(width: 10, height: 10)
             }
-            
+
             Image(systemName: "chevron.right")
-                .font(.caption)
-                .foregroundColor(.gray)
+                .font(DS.Typography.caption)
+                .foregroundStyle(Color.textTertiary)
         }
-        .padding(12)
-        .background(Color.gbCard)
-        .cornerRadius(12)
+        .cardStyle()
     }
 }
 
@@ -692,68 +734,28 @@ struct GameContextMenu: View {
 // Vue des statistiques
 struct StatsHeaderView: View {
     @EnvironmentObject var store: GameStore
-    
-    var body: some View {
-        HStack(spacing: 16) {
-            StatItem(value: "\(store.totalGames)", label: "Jeux", icon: "gamecontroller.fill", color: .blue)
-            StatItem(value: store.totalPlayTimeFormatted, label: "Joué", icon: "clock.fill", color: .orange)
-            StatItem(value: String(format: "%.1f", store.averageRating), label: "Moyenne", icon: "star.fill", color: .yellow)
-            StatItem(value: "\(store.gamesCount(for: .completed) + store.gamesCount(for: .platinum))", label: "Finis", icon: "checkmark.circle.fill", color: .green)
-        }
-        .padding()
-        .background(Color.gbCard)
-    }
-}
 
-struct StatItem: View {
-    let value: String
-    let label: String
-    let icon: String
-    let color: Color
-    
     var body: some View {
-        VStack(spacing: 4) {
-            Image(systemName: icon)
-                .font(.caption)
-                .foregroundColor(color)
-            Text(value)
-                .font(.headline)
-                .fontWeight(.bold)
-                .foregroundColor(.white)
-            Text(label)
-                .font(.caption2)
-                .foregroundColor(.gray)
+        HStack(spacing: DS.Spacing.xs) {
+            MetricCard(value: "\(store.totalGames)", label: "Jeux", icon: "gamecontroller.fill", tint: Color(hex: "8EA9C9"), compact: true)
+            MetricCard(value: store.totalPlayTimeFormatted, label: "Joué", icon: "clock.fill", tint: Color(hex: "E3A24C"), compact: true)
+            MetricCard(value: String(format: "%.1f", store.averageRating), label: "Moyenne", icon: "star.fill", tint: .accent, compact: true)
+            MetricCard(value: "\(store.gamesCount(for: .completed) + store.gamesCount(for: .platinum))", label: "Finis", icon: "checkmark.circle.fill", tint: Color(hex: "E3A24C"), compact: true)
         }
-        .frame(maxWidth: .infinity)
+        .padding(DS.Spacing.md)
+        .background(Color.gbDark)
     }
 }
 
 // Vue pour l'état vide
 struct EmptyStateView: View {
     let status: GameStatus
-    
+
     var body: some View {
-        VStack(spacing: 20) {
-            Spacer()
-            Image(systemName: status.icon)
-                .font(.system(size: 70))
-                .foregroundColor(.gray.opacity(0.3))
-            
-            Text("Aucun jeu dans '\(status.rawValue)'")
-                .font(.headline)
-                .foregroundColor(.gray)
-            
-            Text(emptyMessage)
-                .font(.subheadline)
-                .foregroundColor(.gray.opacity(0.7))
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
-            
-            Spacer()
-        }
-        .frame(height: 300)
+        EmptyState(icon: status.icon, title: "Aucun jeu dans « \(status.rawValue) »", message: emptyMessage)
+            .frame(height: 300)
     }
-    
+
     var emptyMessage: String {
         switch status {
         case .playing:

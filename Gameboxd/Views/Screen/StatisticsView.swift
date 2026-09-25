@@ -151,12 +151,12 @@ struct SummaryCard: View {
             }
             
             Text(value)
-                .font(.system(size: 28, weight: .bold, design: .rounded))
-                .foregroundColor(.white)
+                .font(DS.Typography.display(34))
+                .foregroundColor(.textPrimary)
             
             Text(title)
-                .font(.caption)
-                .foregroundColor(.gray)
+                .font(DS.Typography.caption)
+                .foregroundColor(.textSecondary)
         }
         .padding()
         .background(Color.gbCard)
@@ -172,11 +172,11 @@ struct ChartTypeButton: View {
     var body: some View {
         Button(action: { selected = type }) {
             Text(type.rawValue)
-                .font(.subheadline)
+                .font(DS.Typography.body)
                 .fontWeight(selected == type ? .semibold : .regular)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
-                .background(selected == type ? Color.gbGreen : Color.gbCard)
+                .background(selected == type ? Color.gbBrass : Color.gbCard)
                 .foregroundColor(selected == type ? .gbDark : .gray)
                 .cornerRadius(20)
         }
@@ -193,17 +193,17 @@ struct ChartContainer: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text(chartTitle)
-                .font(.headline)
-                .foregroundColor(.white)
+                .font(DS.Typography.headline)
+                .foregroundColor(.textPrimary)
             
             if games.isEmpty {
                 VStack(spacing: 12) {
                     Image(systemName: "chart.bar")
                         .font(.system(size: 40))
-                        .foregroundColor(.gray.opacity(0.3))
+                        .foregroundColor(.textSecondary.opacity(0.3))
                     Text("Pas encore de données pour cette période")
-                        .font(.subheadline)
-                        .foregroundColor(.gray)
+                        .font(DS.Typography.body)
+                        .foregroundColor(.textSecondary)
                 }
                 .frame(maxWidth: .infinity)
                 .frame(height: 150)
@@ -243,38 +243,21 @@ struct ChartContainer: View {
 struct GamesPerMonthChart: View {
     let games: [Game]
     
+    /// The last 6 calendar months, oldest first, matched on year and month so
+    /// games from other years never land in the same-named month.
     var monthlyData: [(month: String, count: Int)] {
         let calendar = Calendar.current
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "MMM"
         
-        var data: [String: Int] = [:]
-        
-        // Get last 6 months
-        for i in 0..<6 {
-            if let date = calendar.date(byAdding: .month, value: -i, to: Date()) {
-                let monthName = dateFormatter.string(from: date)
-                data[monthName] = 0
-            }
+        return (0..<6).reversed().compactMap { offset in
+            guard let date = calendar.date(byAdding: .month, value: -offset, to: Date()) else { return nil }
+            let count = games.filter { game in
+                guard let started = game.startedDate else { return false }
+                return calendar.isDate(started, equalTo: date, toGranularity: .month)
+            }.count
+            return (month: dateFormatter.string(from: date), count: count)
         }
-        
-        // Count games per month based on startedDate
-        for game in games {
-            if let startedDate = game.startedDate {
-                let monthName = dateFormatter.string(from: startedDate)
-                if data[monthName] != nil {
-                    data[monthName]! += 1
-                }
-            }
-        }
-        
-        // Convert to array and sort using the already-created formatter
-        return data.map { (month: $0.key, count: $0.value) }
-            .sorted {
-                let date1 = dateFormatter.date(from: $0.month) ?? Date.distantPast
-                let date2 = dateFormatter.date(from: $1.month) ?? Date.distantPast
-                return date1 < date2
-            }
     }
     
     var body: some View {
@@ -283,22 +266,22 @@ struct GamesPerMonthChart: View {
                 x: .value("Mois", item.month),
                 y: .value("Jeux", item.count)
             )
-            .foregroundStyle(Color.gbGreen.gradient)
+            .foregroundStyle(Color.gbBrass.gradient)
             .cornerRadius(4)
         }
         .frame(height: 200)
         .chartXAxis {
             AxisMarks(values: .automatic) { _ in
                 AxisValueLabel()
-                    .foregroundStyle(Color.gray)
+                    .foregroundStyle(Color.textSecondary)
             }
         }
         .chartYAxis {
             AxisMarks(values: .automatic) { _ in
                 AxisGridLine()
-                    .foregroundStyle(Color.gray.opacity(0.3))
+                    .foregroundStyle(Color.textSecondary.opacity(0.3))
                 AxisValueLabel()
-                    .foregroundStyle(Color.gray)
+                    .foregroundStyle(Color.textSecondary)
             }
         }
     }
@@ -376,15 +359,15 @@ struct PlatformChart: View {
         .chartXAxis {
             AxisMarks(values: .automatic) { _ in
                 AxisGridLine()
-                    .foregroundStyle(Color.gray.opacity(0.3))
+                    .foregroundStyle(Color.textSecondary.opacity(0.3))
                 AxisValueLabel()
-                    .foregroundStyle(Color.gray)
+                    .foregroundStyle(Color.textSecondary)
             }
         }
         .chartYAxis {
             AxisMarks(values: .automatic) { _ in
                 AxisValueLabel()
-                    .foregroundStyle(Color.white)
+                    .foregroundStyle(Color.textPrimary)
             }
         }
     }
@@ -429,15 +412,15 @@ struct RatingChart: View {
         .chartXAxis {
             AxisMarks(values: .automatic) { _ in
                 AxisValueLabel()
-                    .foregroundStyle(Color.white)
+                    .foregroundStyle(Color.textPrimary)
             }
         }
         .chartYAxis {
             AxisMarks(values: .automatic) { _ in
                 AxisGridLine()
-                    .foregroundStyle(Color.gray.opacity(0.3))
+                    .foregroundStyle(Color.textSecondary.opacity(0.3))
                 AxisValueLabel()
-                    .foregroundStyle(Color.gray)
+                    .foregroundStyle(Color.textSecondary)
             }
         }
     }
@@ -448,7 +431,7 @@ struct RatingChart: View {
         case 2: return .orange
         case 3: return .yellow
         case 4: return .green
-        case 5: return .gbGreen
+        case 5: return .gbBrass
         default: return .gray
         }
     }
@@ -482,9 +465,9 @@ struct StatusChart: View {
             .cornerRadius(4)
             .annotation(position: .overlay) {
                 Text("\(item.count)")
-                    .font(.caption)
+                    .font(DS.Typography.caption)
                     .fontWeight(.bold)
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
             }
         }
         .frame(height: 200)
@@ -521,8 +504,8 @@ struct AdditionalStatsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Statistiques détaillées")
-                .font(.headline)
-                .foregroundColor(.white)
+                .font(DS.Typography.headline)
+                .foregroundColor(.textPrimary)
             
             StatRow(label: "Taux de complétion", value: String(format: "%.0f%%", completionRate))
             StatRow(label: "Temps moyen par jeu", value: averagePlaytime)
@@ -544,11 +527,11 @@ struct StatRow: View {
     var body: some View {
         HStack {
             Text(label)
-                .foregroundColor(.gray)
+                .foregroundColor(.textSecondary)
             Spacer()
             Text(value)
                 .fontWeight(.semibold)
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
         }
     }
 }
@@ -578,8 +561,8 @@ struct GamingHabitsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Tes habitudes")
-                .font(.headline)
-                .foregroundColor(.white)
+                .font(DS.Typography.headline)
+                .foregroundColor(.textPrimary)
             
             HStack(spacing: 12) {
                 HabitCard(icon: "star.fill", title: "Genre préféré", value: mostPlayedGenre, color: .purple)
@@ -602,18 +585,18 @@ struct HabitCard: View {
     var body: some View {
         VStack(spacing: 8) {
             Image(systemName: icon)
-                .font(.title2)
+                .font(DS.Typography.title)
                 .foregroundColor(color)
             
             Text(value)
-                .font(.subheadline)
+                .font(DS.Typography.body)
                 .fontWeight(.semibold)
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
                 .lineLimit(1)
             
             Text(title)
-                .font(.caption2)
-                .foregroundColor(.gray)
+                .font(DS.Typography.micro)
+                .foregroundColor(.textSecondary)
         }
         .frame(maxWidth: .infinity)
         .padding()

@@ -8,7 +8,8 @@
 import SwiftUI
 
 struct MainTabView: View {
-    @State private var selectedTab = 0
+    // Launch argument `-initialTab N` (simulator screenshots); unset in normal use, so 0.
+    @State private var selectedTab = UserDefaults.standard.integer(forKey: "initialTab")
     
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -42,8 +43,8 @@ struct MainTabView: View {
                 }
                 .tag(4)
         }
-        .tint(.gbGreen)
-        .toolbarBackground(Color.gbCard, for: .tabBar)
+        .tint(.gbBrass)
+        .toolbarBackground(Color.gbDark, for: .tabBar)
         .toolbarBackground(.visible, for: .tabBar)
     }
 }

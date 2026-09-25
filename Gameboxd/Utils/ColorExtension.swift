@@ -1,35 +1,23 @@
 import SwiftUI
 
-// MARK: - Theme Manager
-final class ThemeManager {
-    static let shared = ThemeManager()
-    var currentTheme: AppTheme = .default
-    
-    private init() {
-        if let raw = UserDefaults.standard.string(forKey: "gameboxd_theme"),
-           let theme = AppTheme(rawValue: raw) {
-            currentTheme = theme
-        }
-    }
-}
-
 extension Color {
-    // Dynamic theme colors
-    static var gbGreen: Color { ThemeManager.shared.currentTheme.accentColor }
-    static var gbDark: Color { ThemeManager.shared.currentTheme.darkColor }
-    static var gbCard: Color { ThemeManager.shared.currentTheme.cardColor }
-    
-    // Couleur pour le texte secondaire
-    static let gbTextSecondary = Color.gray
+    // Palette « L'Étagère » : bois de noyer, laiton, os.
+    static let gbBrass = Color(hex: "D1AE66")      // laiton : actions, sélection
+    static let gbDark = Color(hex: "1E1915")       // noyer foncé : fond
+    static let gbCard = Color(hex: "2B241F")       // noyer : surfaces
+    static let gbSurface2 = Color(hex: "362D27")   // noyer clair : surfaces imbriquées
+    static let gbBorder = Color(hex: "463B33")     // arête de planche
+
+    static let gbTextSecondary = Color(hex: "ADA092")
 
     // MARK: - Semantic Design System Colors
-    static var accent: Color { ThemeManager.shared.currentTheme.accentColor }
-    static var textPrimary: Color { .white }
-    static var textSecondary: Color { .gray }
-    static var textTertiary: Color { Color.gray.opacity(0.5) }
-    static var surfacePrimary: Color { ThemeManager.shared.currentTheme.cardColor }
-    static var surfaceSecondary: Color { ThemeManager.shared.currentTheme.darkColor }
-    static var separator: Color { Color.gray.opacity(0.3) }
+    static let accent = Color.gbBrass
+    static let textPrimary = Color(hex: "F1EADF")  // os
+    static let textSecondary = Color.gbTextSecondary
+    static let textTertiary = Color(hex: "85786B")
+    static let surfacePrimary = Color.gbCard
+    static let surfaceSecondary = Color.gbSurface2
+    static let separator = Color.gbBorder
     
     // MARK: - Hex Conversion (pour Codable)
     
@@ -82,7 +70,5 @@ extension Color {
 
 // MARK: - Metacritic Color Helper (global)
 func metacriticColor(_ score: Int) -> Color {
-    if score >= 75 { return .green }
-    if score >= 50 { return .yellow }
-    return .red
+    DS.Colors.score(score)
 }

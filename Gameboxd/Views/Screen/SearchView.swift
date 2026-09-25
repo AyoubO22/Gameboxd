@@ -11,29 +11,33 @@ struct SearchView: View {
     @EnvironmentObject var store: GameStore
     @State private var searchText = ""
     @State private var searchTask: Task<Void, Never>?
+
+    private var query: String { searchText.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var isPending: Bool { store.searchedQuery != query }
     
     var body: some View {
         NavigationStack {
             VStack {
-                if store.searchResults.isEmpty && !store.isSearching {
-                    // Empty state or suggestions
-                    SearchEmptyStateView(searchText: searchText, onSuggestionTap: { suggestion in
+                if query.isEmpty {
+                    SearchEmptyStateView(searchText: "", onSuggestionTap: { suggestion in
                         searchText = suggestion
                     })
-                } else if store.isSearching {
-                    // Loading state
+                } else if store.searchResults.isEmpty && isPending {
+                    // Typed, not answered yet: loading, never "no results".
                     VStack(spacing: 20) {
                         Spacer()
                         ProgressView()
                             .scaleEffect(1.5)
-                            .tint(.gbGreen)
+                            .tint(.gbBrass)
                         Text("Recherche en cours...")
-                            .font(.subheadline)
-                            .foregroundColor(.gray)
+                            .font(DS.Typography.body)
+                            .foregroundColor(.textSecondary)
                         Spacer()
                     }
+                } else if store.searchResults.isEmpty {
+                    SearchEmptyStateView(searchText: query)
                 } else {
-                    // Results
+                    // Results (the previous ones stay, dimmed, while the next query runs)
                     ScrollView {
                         LazyVStack(spacing: 12) {
                             ForEach(store.searchResults) { game in
@@ -45,22 +49,36 @@ struct SearchView: View {
                         }
                         .padding()
                     }
+                    .opacity(isPending ? 0.5 : 1)
+                    .animation(.easeOut(duration: 0.15), value: isPending)
                 }
             }
+            // Fill the screen: without this the VStack is only as wide as its content,
+            // and the background showed as a narrow strip with black on each side.
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .searchable(text: $searchText, prompt: "Chercher un jeu (ex: Zelda, Elden Ring...)")
             .onChange(of: searchText) { _, newValue in
                 // Cancel previous search
                 searchTask?.cancel()
                 
                 // Debounce search
+                let query = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
                 searchTask = Task {
-                    try? await Task.sleep(nanoseconds: 500_000_000) // 0.5s
+                    try? await Task.sleep(for: .milliseconds(300))
                     guard !Task.isCancelled else { return }
-                    await store.searchGamesOnline(query: newValue)
+                    await store.searchGamesOnline(query: query)
                 }
             }
             .background(Color.gbDark.ignoresSafeArea())
             .navigationTitle("Recherche")
+            #if DEBUG
+            // Launch argument `-debugSearch "<text>"`: type a search, for simulator checks.
+            .onAppear {
+                if searchText.isEmpty, let text = UserDefaults.standard.string(forKey: "debugSearch") {
+                    searchText = text
+                }
+            }
+            #endif
         }
     }
 }
@@ -77,33 +95,33 @@ struct SearchEmptyStateView: View {
             if searchText.isEmpty {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 70))
-                    .foregroundColor(.gray.opacity(0.3))
+                    .foregroundColor(.textSecondary.opacity(0.3))
                 
                 Text("Découvre de nouveaux jeux")
-                    .font(.headline)
-                    .foregroundColor(.gray)
+                    .font(DS.Typography.headline)
+                    .foregroundColor(.textSecondary)
                 
                 Text("Recherche par titre, développeur ou plateforme")
-                    .font(.subheadline)
-                    .foregroundColor(.gray.opacity(0.7))
+                    .font(DS.Typography.body)
+                    .foregroundColor(.textSecondary.opacity(0.7))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 40)
                 
                 // Quick search suggestions
                 VStack(spacing: 12) {
                     Text("Suggestions")
-                        .font(.caption)
-                        .foregroundColor(.gray)
+                        .font(DS.Typography.caption)
+                        .foregroundColor(.textSecondary)
                     
                     FlowLayout(spacing: 8) {
                         ForEach(["Zelda", "Elden Ring", "Hades", "Mario", "God of War"], id: \.self) { suggestion in
                             Button(action: { onSuggestionTap?(suggestion) }) {
                             Text(suggestion)
-                                .font(.subheadline)
+                                .font(DS.Typography.body)
                                 .padding(.horizontal, 16)
                                 .padding(.vertical, 8)
                                 .background(Color.gbCard)
-                                .foregroundColor(.gbGreen)
+                                .foregroundColor(.gbBrass)
                                 .cornerRadius(20)
                             }
                         }
@@ -114,15 +132,15 @@ struct SearchEmptyStateView: View {
             } else {
                 Image(systemName: "gamecontroller.fill")
                     .font(.system(size: 70))
-                    .foregroundColor(.gray.opacity(0.3))
+                    .foregroundColor(.textSecondary.opacity(0.3))
                 
                 Text("Aucun résultat pour '\(searchText)'")
-                    .font(.headline)
-                    .foregroundColor(.gray)
+                    .font(DS.Typography.headline)
+                    .foregroundColor(.textSecondary)
                 
                 Text("Vérifie l'orthographe ou essaie un autre terme")
-                    .font(.subheadline)
-                    .foregroundColor(.gray.opacity(0.7))
+                    .font(DS.Typography.body)
+                    .foregroundColor(.textSecondary.opacity(0.7))
             }
             
             Spacer()
@@ -186,7 +204,7 @@ struct SearchResultRow: View {
     var body: some View {
         HStack(spacing: 12) {
             // Cover
-            if let imageURL = game.coverImageURL, let url = URL(string: imageURL) {
+            if let url = game.artURL {
                 CachedAsyncImage(url: url) { image in
                     image
                         .resizable()
@@ -206,43 +224,46 @@ struct SearchResultRow: View {
                     .cornerRadius(8)
                     .overlay(
                         Image(systemName: "gamecontroller.fill")
-                            .foregroundColor(.white.opacity(0.5))
+                            .foregroundColor(.textPrimary.opacity(0.5))
                     )
             }
             
             VStack(alignment: .leading, spacing: 6) {
                 Text(game.title)
-                    .font(.headline)
-                    .foregroundColor(.white)
+                    .font(DS.Typography.headline)
+                    .foregroundColor(.textPrimary)
+                    .multilineTextAlignment(.leading)
                     .lineLimit(2)
                 
-                Text(game.developer)
-                    .font(.subheadline)
-                    .foregroundColor(.gray)
-                    .lineLimit(1)
+                if !game.developer.isEmpty {
+                    Text(game.developer)
+                        .font(DS.Typography.body)
+                        .foregroundColor(.textSecondary)
+                        .lineLimit(1)
+                }
                 
                 HStack(spacing: 8) {
                     // Platform badge
                     Text(game.platform)
-                        .font(.caption)
+                        .font(DS.Typography.caption)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .background(Color.gbGreen.opacity(0.2))
-                        .foregroundColor(.gbGreen)
+                        .background(Color.gbBrass.opacity(0.2))
+                        .foregroundColor(.gbBrass)
                         .cornerRadius(6)
                     
                     // Year
                     Text(game.releaseYear)
-                        .font(.caption)
-                        .foregroundColor(.gray)
+                        .font(DS.Typography.caption)
+                        .foregroundColor(.textSecondary)
                     
                     // Metacritic
                     if let score = game.metacriticScore {
                         HStack(spacing: 2) {
                             Image(systemName: "star.fill")
-                                .font(.caption2)
+                                .font(DS.Typography.micro)
                             Text("\(score)")
-                                .font(.caption)
+                                .font(DS.Typography.caption)
                                 .fontWeight(.medium)
                         }
                         .foregroundColor(metacriticColor(score))
@@ -252,8 +273,8 @@ struct SearchResultRow: View {
                 // Genres
                 if !game.genres.isEmpty {
                     Text(game.genres.prefix(2).joined(separator: ", "))
-                        .font(.caption2)
-                        .foregroundColor(.gray.opacity(0.8))
+                        .font(DS.Typography.micro)
+                        .foregroundColor(.textSecondary.opacity(0.8))
                         .lineLimit(1)
                 }
             }
@@ -263,13 +284,13 @@ struct SearchResultRow: View {
             VStack(spacing: 8) {
                 if isInLibrary {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.gbGreen)
-                        .font(.title2)
+                        .foregroundColor(.gbBrass)
+                        .font(DS.Typography.title)
                 }
                 
                 Image(systemName: "chevron.right")
-                    .foregroundColor(.gray)
-                    .font(.caption)
+                    .foregroundColor(.textSecondary)
+                    .font(DS.Typography.caption)
             }
         }
         .padding(12)

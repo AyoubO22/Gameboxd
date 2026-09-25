@@ -18,12 +18,12 @@ enum GameStatus: String, CaseIterable, Codable {
     
     var color: Color {
         switch self {
-        case .wantToPlay: return .blue
-        case .playing: return .gbGreen
-        case .completed: return .orange
-        case .shelved: return .red
-        case .platinum: return .purple
-        case .none: return .gray
+        case .wantToPlay: return Color(hex: "8EA9C9")   // bleu poussière
+        case .playing: return .gbBrass
+        case .completed: return Color(hex: "93B874")    // sauge
+        case .shelved: return Color(hex: "D9695A")      // brique
+        case .platinum: return Color(hex: "BCA5DB")     // lilas
+        case .none: return .textTertiary
         }
     }
     
@@ -145,12 +145,14 @@ struct SubRatings: Codable, Hashable {
 
 // MARK: - Game Model
 struct Game: Identifiable, Hashable, Codable {
-    let id: UUID
+    var id: UUID
     let title: String
     let developer: String
     let platform: String
     let releaseYear: String
     var coverImageURL: String?
+    /// Official portrait box art (IGDB). nil = not looked up yet, "" = looked up, none found.
+    var boxArtURL: String?
     let coverColorHex: String
     var rating: Int // 0 à 5
     var subRatings: SubRatings
@@ -175,6 +177,13 @@ struct Game: Identifiable, Hashable, Codable {
     var playthroughCount: Int
     var notes: String
     
+    /// The picture to show for this game: the portrait box art when we have it,
+    /// else RAWG's landscape image.
+    var artURL: URL? {
+        if let boxArtURL, !boxArtURL.isEmpty, let url = URL(string: boxArtURL) { return url }
+        return coverImageURL.flatMap(URL.init(string:))
+    }
+
     // Computed property pour la couleur
     var coverColor: Color {
         Color(hex: coverColorHex)
@@ -188,6 +197,7 @@ struct Game: Identifiable, Hashable, Codable {
         platform: String,
         releaseYear: String,
         coverImageURL: String? = nil,
+        boxArtURL: String? = nil,
         coverColor: Color,
         rating: Int = 0,
         subRatings: SubRatings = SubRatings(),
@@ -218,6 +228,7 @@ struct Game: Identifiable, Hashable, Codable {
         self.platform = platform
         self.releaseYear = releaseYear
         self.coverImageURL = coverImageURL
+        self.boxArtURL = boxArtURL
         self.coverColorHex = coverColor.toHex()
         self.rating = rating
         self.subRatings = subRatings
@@ -242,7 +253,43 @@ struct Game: Identifiable, Hashable, Codable {
         self.playthroughCount = playthroughCount
         self.notes = notes
     }
-    
+
+    // Tolerant decoding: a field added later, or an enum case renamed, must not
+    // make the whole saved library fail to load. Only id and title are required.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        title = try c.decode(String.self, forKey: .title)
+        developer = try c.decodeIfPresent(String.self, forKey: .developer) ?? ""
+        platform = try c.decodeIfPresent(String.self, forKey: .platform) ?? ""
+        releaseYear = try c.decodeIfPresent(String.self, forKey: .releaseYear) ?? ""
+        coverImageURL = try c.decodeIfPresent(String.self, forKey: .coverImageURL)
+        boxArtURL = try c.decodeIfPresent(String.self, forKey: .boxArtURL)
+        coverColorHex = try c.decodeIfPresent(String.self, forKey: .coverColorHex) ?? "808080"
+        rating = try c.decodeIfPresent(Int.self, forKey: .rating) ?? 0
+        subRatings = (try? c.decodeIfPresent(SubRatings.self, forKey: .subRatings)) ?? SubRatings()
+        status = (try? c.decodeIfPresent(GameStatus.self, forKey: .status)) ?? .wantToPlay
+        review = try c.decodeIfPresent(String.self, forKey: .review) ?? ""
+        isSpoiler = try c.decodeIfPresent(Bool.self, forKey: .isSpoiler) ?? false
+        playTime = try c.decodeIfPresent(String.self, forKey: .playTime) ?? ""
+        playTimeMinutes = try c.decodeIfPresent(Int.self, forKey: .playTimeMinutes) ?? 0
+        completionPercentage = try c.decodeIfPresent(Int.self, forKey: .completionPercentage) ?? 0
+        difficulty = try? c.decodeIfPresent(GameDifficulty.self, forKey: .difficulty)
+        moodTags = ((try? c.decodeIfPresent([String].self, forKey: .moodTags)) ?? []).compactMap(MoodTag.init(rawValue:))
+        priority = (try? c.decodeIfPresent(BacklogPriority.self, forKey: .priority)) ?? .medium
+        isFavorite = try c.decodeIfPresent(Bool.self, forKey: .isFavorite) ?? false
+        startedDate = try c.decodeIfPresent(Date.self, forKey: .startedDate)
+        completedDate = try c.decodeIfPresent(Date.self, forKey: .completedDate)
+        rawgId = try c.decodeIfPresent(Int.self, forKey: .rawgId)
+        genres = try c.decodeIfPresent([String].self, forKey: .genres) ?? []
+        metacriticScore = try c.decodeIfPresent(Int.self, forKey: .metacriticScore)
+        estimatedPlaytime = try c.decodeIfPresent(Int.self, forKey: .estimatedPlaytime)
+        description = try c.decodeIfPresent(String.self, forKey: .description)
+        screenshotURLs = try c.decodeIfPresent([String].self, forKey: .screenshotURLs) ?? []
+        playthroughCount = try c.decodeIfPresent(Int.self, forKey: .playthroughCount) ?? 1
+        notes = try c.decodeIfPresent(String.self, forKey: .notes) ?? ""
+    }
+
     // Formatted play time
     var formattedPlayTime: String {
         if playTimeMinutes > 0 {

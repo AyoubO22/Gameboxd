@@ -103,7 +103,7 @@ struct GameComparisonView: View {
                     .frame(width: 32, height: 32)
 
                 Text("VS")
-                    .font(.system(size: 10, weight: .black))
+                    .font(.caption2.weight(.black))
                     .foregroundStyle(Color.textTertiary)
             }
 
@@ -360,7 +360,7 @@ private struct GamePickerButton: View {
             VStack(spacing: DS.Spacing.xs) {
                 // Cover thumbnail or placeholder
                 Group {
-                    if let game, let urlString = game.coverImageURL, let url = URL(string: urlString) {
+                    if let game, let url = game.artURL {
                         CachedAsyncImage(url: url) { image in
                             image.resizable().aspectRatio(contentMode: .fill)
                         } placeholder: {
@@ -371,8 +371,8 @@ private struct GamePickerButton: View {
                             .fill(game.coverColor.gradient)
                             .overlay(
                                 Image(systemName: "gamecontroller")
-                                    .font(.title3)
-                                    .foregroundStyle(Color.white.opacity(0.6))
+                                    .font(DS.Typography.title3)
+                                    .foregroundStyle(Color.textPrimary.opacity(0.6))
                             )
                     } else {
                         Color.surfaceSecondary
@@ -434,7 +434,7 @@ private struct ComparisonCover: View {
     var body: some View {
         VStack(spacing: DS.Spacing.xs) {
             Group {
-                if let urlString = game.coverImageURL, let url = URL(string: urlString) {
+                if let url = game.artURL {
                     CachedAsyncImage(url: url) { image in
                         image.resizable().aspectRatio(contentMode: .fill)
                     } placeholder: {
@@ -445,8 +445,8 @@ private struct ComparisonCover: View {
                         .fill(game.coverColor.gradient)
                         .overlay(
                             Image(systemName: "gamecontroller")
-                                .font(.title)
-                                .foregroundStyle(Color.white.opacity(0.5))
+                                .font(DS.Typography.title)
+                                .foregroundStyle(Color.textPrimary.opacity(0.5))
                         )
                 }
             }
@@ -489,10 +489,9 @@ private struct ComparisonCard<Content: View>: View {
                 Image(systemName: icon)
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(Color.accent)
-                Text(label.uppercased())
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(Color.textTertiary)
-                    .kerning(0.6)
+                Text(label)
+                    .font(DS.Typography.captionMedium)
+                    .foregroundStyle(Color.textSecondary)
                 Spacer()
             }
             .padding(.horizontal, DS.Spacing.md)
@@ -556,7 +555,7 @@ private struct ComparisonSubRatingRow: View {
                 Spacer(minLength: 0)
 
                 Text(leftValue > 0 ? "\(leftValue)" : "—")
-                    .font(.system(size: 12, weight: .semibold).monospacedDigit())
+                    .font(.caption.weight(.semibold).monospacedDigit())
                     .foregroundStyle(leftIsWinner ? Color.accent : Color.textTertiary)
                     .frame(width: 14, alignment: .trailing)
 
@@ -578,7 +577,7 @@ private struct ComparisonSubRatingRow: View {
                     .frame(maxWidth: .infinity)
 
                 Text(rightValue > 0 ? "\(rightValue)" : "—")
-                    .font(.system(size: 12, weight: .semibold).monospacedDigit())
+                    .font(.caption.weight(.semibold).monospacedDigit())
                     .foregroundStyle(rightIsWinner ? Color.accent : Color.textTertiary)
                     .frame(width: 14, alignment: .leading)
 
@@ -642,7 +641,7 @@ private struct ComparisonValueCell: View {
                 }
 
                 Text(value)
-                    .font(.system(size: 15, weight: .semibold).monospacedDigit())
+                    .font(.subheadline.weight(.semibold).monospacedDigit())
                     .foregroundStyle(isWinner ? Color.accent : Color.textTertiary)
             }
 
@@ -762,7 +761,7 @@ private struct PickerGameRow: View {
         HStack(spacing: DS.Spacing.sm) {
             // Thumbnail
             Group {
-                if let urlString = game.coverImageURL, let url = URL(string: urlString) {
+                if let url = game.artURL {
                     CachedAsyncImage(url: url) { image in
                         image.resizable().aspectRatio(contentMode: .fill)
                     } placeholder: {
@@ -773,8 +772,8 @@ private struct PickerGameRow: View {
                         .fill(game.coverColor.gradient)
                         .overlay(
                             Image(systemName: "gamecontroller")
-                                .font(.caption)
-                                .foregroundStyle(Color.white.opacity(0.5))
+                                .font(DS.Typography.caption)
+                                .foregroundStyle(Color.textPrimary.opacity(0.5))
                         )
                 }
             }

@@ -38,43 +38,45 @@ struct ProfileView: View {
                     
                     // Year in Review Button
                     NavigationLink(destination: YearInReviewView()) {
-                        HStack {
+                        HStack(spacing: DS.Spacing.md) {
                             Image(systemName: "calendar.badge.clock")
-                                .font(.title2)
-                            
-                            VStack(alignment: .leading) {
+                                .font(DS.Typography.title)
+                                .foregroundStyle(Color.accent)
+
+                            VStack(alignment: .leading, spacing: 2) {
                                 Text("Rétrospective \(String(Calendar.current.component(.year, from: Date())))")
-                                    .font(.headline)
+                                    .font(DS.Typography.headline)
+                                    .foregroundStyle(Color.textPrimary)
                                 Text("Tes statistiques de l'année")
-                                    .font(.caption)
-                                    .foregroundColor(.gray)
+                                    .font(DS.Typography.caption)
+                                    .foregroundStyle(Color.textSecondary)
                             }
-                            
+
                             Spacer()
-                            
+
                             Image(systemName: "chevron.right")
-                                .foregroundColor(.gray)
+                                .foregroundStyle(Color.textTertiary)
                         }
-                        .padding()
-                        .background(Color.gbCard)
-                        .foregroundColor(.white)
-                        .cornerRadius(12)
+                        .cardStyle()
+                        .overlay(
+                            RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                                .stroke(Color.accent.opacity(0.3), lineWidth: 1)
+                        )
                     }
                     .padding(.horizontal)
-                    
+
                     // Logout Button
                     Button(action: { showingLogoutConfirm = true }) {
                         HStack {
                             Image(systemName: "rectangle.portrait.and.arrow.right")
-                                .font(.title3)
+                                .font(DS.Typography.title3)
                             Text("Déconnexion")
-                                .font(.headline)
+                                .font(DS.Typography.headline)
                         }
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Color.red.opacity(0.15))
-                        .foregroundColor(.red)
-                        .cornerRadius(12)
+                        .foregroundStyle(Color(hex: "D9695A"))
+                        .contentShape(Rectangle())
                     }
                     .padding(.horizontal)
                 }
@@ -86,12 +88,12 @@ struct ProfileView: View {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     NavigationLink(destination: SettingsView()) {
                         Image(systemName: "gearshape.fill")
-                            .foregroundColor(.gbGreen)
+                            .foregroundStyle(Color.accent)
                     }
                 }
             }
             .sheet(isPresented: $showingEditProfile) {
-                EditProfileView()
+                NavigationStack { EditProfileView() }
             }
             .sheet(isPresented: $showingLists) {
                 ListsView()
@@ -113,167 +115,99 @@ struct ProfileNavigationSection: View {
     @EnvironmentObject var store: GameStore
     
     var body: some View {
-        VStack(spacing: 12) {
-            HStack(spacing: 12) {
-                // Statistics
-                NavigationLink(destination: StatisticsView()) {
-                    ProfileNavCard(
-                        icon: "chart.bar.fill",
-                        title: "Statistiques",
-                        subtitle: "Graphiques détaillés",
-                        color: .blue
-                    )
-                }
-                
-                // Achievements
-                NavigationLink(destination: AchievementsView()) {
-                    ProfileNavCard(
-                        icon: "trophy.fill",
-                        title: "Succès",
-                        subtitle: "Tes badges",
-                        color: .yellow
-                    )
-                }
+        VStack(spacing: 0) {
+            NavigationLink(destination: StatisticsView()) {
+                ProfileNavRow(icon: "chart.bar.fill", title: "Statistiques", subtitle: "Graphiques détaillés", color: Color(hex: "8EA9C9"))
             }
-            
-            HStack(spacing: 12) {
-                // Goals
-                NavigationLink(destination: GoalsView()) {
-                    ProfileNavCard(
-                        icon: "target",
-                        title: "Objectifs",
-                        subtitle: "Défis mensuels",
-                        color: .green
-                    )
-                }
-                
-                // Backlog
-                NavigationLink(destination: BacklogView()) {
-                    ProfileNavCard(
-                        icon: "tray.full.fill",
-                        title: "Backlog",
-                        subtitle: "À quoi jouer?",
-                        color: .orange
-                    )
-                }
+            Divider().overlay(Color.gbBorder)
+            NavigationLink(destination: AchievementsView()) {
+                ProfileNavRow(icon: "trophy.fill", title: "Succès", subtitle: "Tes badges", color: Color(hex: "E3A24C"))
             }
-            
-            HStack(spacing: 12) {
-                // Recommendations
-                NavigationLink(destination: RecommendationsView()) {
-                    ProfileNavCard(
-                        icon: "sparkles",
-                        title: "Pour toi",
-                        subtitle: "Recommandations",
-                        color: .pink
-                    )
-                }
-                
-                // Social
-                NavigationLink(destination: SocialView()) {
-                    ProfileNavCard(
-                        icon: "person.2.fill",
-                        title: "Social",
-                        subtitle: "Amis & Activité",
-                        color: .purple
-                    )
-                }
+            Divider().overlay(Color.gbBorder)
+            NavigationLink(destination: GoalsView()) {
+                ProfileNavRow(icon: "target", title: "Objectifs", subtitle: "Défis mensuels", color: .accent)
             }
-            
-            // Linked Accounts
+            Divider().overlay(Color.gbBorder)
+            NavigationLink(destination: BacklogView()) {
+                ProfileNavRow(icon: "tray.full.fill", title: "Backlog", subtitle: "À quoi jouer?", color: Color(hex: "E3A24C"))
+            }
+            Divider().overlay(Color.gbBorder)
+            NavigationLink(destination: RecommendationsView()) {
+                ProfileNavRow(icon: "sparkles", title: "Pour toi", subtitle: "Recommandations", color: .accent)
+            }
+            Divider().overlay(Color.gbBorder)
+            NavigationLink(destination: SocialView()) {
+                ProfileNavRow(icon: "person.2.fill", title: "Social", subtitle: "Amis & Activité", color: Color(hex: "BCA5DB"))
+            }
+            Divider().overlay(Color.gbBorder)
             NavigationLink(destination: LinkedAccountsView()) {
-                HStack(spacing: 14) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(Color.cyan.opacity(0.2))
-                            .frame(width: 44, height: 44)
-                        
-                        Image(systemName: "link.badge.plus")
-                            .font(.title3)
-                            .foregroundColor(.cyan)
-                    }
-                    
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Comptes liés")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.white)
-                        
-                        Text("PlayStation, Steam")
-                            .font(.caption2)
-                            .foregroundColor(.gray)
-                    }
-                    
-                    Spacer(minLength: 0)
-                    
-                    if !store.linkedAccounts.isEmpty {
-                        Text("\(store.linkedAccounts.count)")
-                            .font(.caption)
-                            .fontWeight(.bold)
-                            .foregroundColor(.cyan)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(Color.cyan.opacity(0.2))
-                            .cornerRadius(8)
-                    }
-                    
-                    Image(systemName: "chevron.right")
-                        .font(.caption)
-                        .foregroundColor(.gray.opacity(0.5))
-                }
-                .padding(12)
-                .frame(maxWidth: .infinity, minHeight: 68)
-                .background(Color.gbCard)
-                .cornerRadius(12)
+                ProfileNavRow(
+                    icon: "link.badge.plus",
+                    title: "Comptes liés",
+                    subtitle: "PlayStation, Steam",
+                    color: Color(hex: "8EA9C9"),
+                    count: store.linkedAccounts.isEmpty ? nil : store.linkedAccounts.count
+                )
             }
         }
+        .background(Color.gbCard)
+        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                .stroke(Color.gbBorder, lineWidth: 1)
+        )
         .padding(.horizontal)
     }
 }
 
-struct ProfileNavCard: View {
+struct ProfileNavRow: View {
     let icon: String
     let title: String
     let subtitle: String
     let color: Color
+    var count: Int? = nil
     
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: DS.Spacing.sm) {
             ZStack {
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(color.opacity(0.2))
-                    .frame(width: 44, height: 44)
+                RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
+                    .fill(color.opacity(0.16))
+                    .frame(width: 32, height: 32)
                 
                 Image(systemName: icon)
-                    .font(.title3)
-                    .foregroundColor(color)
+                    .font(.system(size: 14))
+                    .foregroundStyle(color)
             }
             
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 1) {
                 Text(title)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.white)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+                    .font(DS.Typography.bodyMedium)
+                    .foregroundStyle(Color.textPrimary)
                 
                 Text(subtitle)
-                    .font(.caption2)
-                    .foregroundColor(.gray)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+                    .font(DS.Typography.caption)
+                    .foregroundStyle(Color.textSecondary)
             }
             
             Spacer(minLength: 0)
             
+            if let count = count {
+                Text("\(count)")
+                    .font(DS.Typography.label)
+                    .foregroundStyle(color)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(color.opacity(0.16))
+                    .clipShape(Capsule())
+            }
+            
             Image(systemName: "chevron.right")
-                .font(.caption)
-                .foregroundColor(.gray.opacity(0.5))
+                .font(DS.Typography.caption)
+                .foregroundStyle(Color.textTertiary)
         }
-        .padding(12)
-        .frame(maxWidth: .infinity, minHeight: 68)
-        .background(Color.gbCard)
-        .cornerRadius(12)
+        .padding(.horizontal, DS.Spacing.md)
+        .padding(.vertical, DS.Spacing.sm)
+        .contentShape(Rectangle())
     }
 }
 
@@ -294,7 +228,7 @@ struct ProfileHeaderView: View {
                             .aspectRatio(contentMode: .fill)
                     } placeholder: {
                         Circle()
-                            .fill(Color.gbGreen.gradient)
+                            .fill(Color.gbBrass.gradient)
                             .overlay(
                                 Text(store.userProfile.avatarEmoji)
                                     .font(.system(size: 50))
@@ -304,73 +238,69 @@ struct ProfileHeaderView: View {
                     .clipShape(Circle())
                 } else {
                     Circle()
-                        .fill(Color.gbGreen.gradient)
+                        .fill(Color.gbBrass.gradient)
                         .frame(width: 100, height: 100)
-                    
+
                     Text(store.userProfile.avatarEmoji)
                         .font(.system(size: 50))
                 }
             }
-            
+            .overlay(Circle().stroke(Color.accent, lineWidth: 2))
+
             // Username
             HStack(spacing: 6) {
                 Text(store.userProfile.username)
-                    .font(.title)
-                    .fontWeight(.bold)
-                    .foregroundColor(.white)
-                
+                    .font(DS.Typography.largeTitle)
+                    .foregroundStyle(Color.textPrimary)
+
                 // Auth provider badge
                 if store.userProfile.authProvider == "apple" {
                     Image(systemName: "apple.logo")
-                        .font(.caption)
-                        .foregroundColor(.gray)
+                        .font(DS.Typography.caption)
+                        .foregroundStyle(Color.textTertiary)
                 } else if store.userProfile.authProvider == "google" {
                     Image(systemName: "g.circle.fill")
-                        .font(.caption)
-                        .foregroundColor(.gray)
+                        .font(DS.Typography.caption)
+                        .foregroundStyle(Color.textTertiary)
                 }
             }
-            
+
             // Linked platforms badges
             if !store.linkedAccounts.isEmpty {
                 HStack(spacing: 8) {
                     ForEach(store.linkedAccounts) { account in
-                        HStack(spacing: 4) {
-                            Image(systemName: account.platform.sfSymbol)
-                                .font(.caption2)
-                            Text(account.platformUsername.isEmpty ? account.platformUserId : account.platformUsername)
-                                .font(.caption2)
-                        }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(account.platform.accentColor.opacity(0.2))
-                        .foregroundColor(account.platform.accentColor)
-                        .cornerRadius(8)
+                        TagPill(
+                            label: account.platformUsername.isEmpty ? account.platformUserId : account.platformUsername,
+                            icon: account.platform.sfSymbol,
+                            isSelected: true,
+                            tint: account.platform.accentColor
+                        )
                     }
                 }
             }
-            
+
             // Bio
             if !store.userProfile.bio.isEmpty {
                 Text(store.userProfile.bio)
-                    .font(.subheadline)
-                    .foregroundColor(.gray)
+                    .font(DS.Typography.body)
+                    .foregroundStyle(Color.textSecondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 40)
             }
-            
+
             // Edit Button
             Button(action: { showingEditProfile = true }) {
                 HStack {
                     Image(systemName: "pencil")
                     Text("Modifier le profil")
                 }
-                .font(.subheadline)
+                .font(DS.Typography.body)
+                .foregroundStyle(Color.textPrimary)
                 .padding(.horizontal, 20)
                 .padding(.vertical, 10)
                 .background(Color.gbCard)
-                .foregroundColor(.gbGreen)
-                .cornerRadius(20)
+                .clipShape(Capsule())
+                .overlay(Capsule().stroke(Color.gbBorder, lineWidth: 1))
             }
         }
         .padding()
@@ -382,41 +312,39 @@ struct YearlyGoalCard: View {
     @EnvironmentObject var store: GameStore
     
     var body: some View {
-        VStack(spacing: 12) {
-            HStack {
-                Text("🎯 Objectif \(String(Calendar.current.component(.year, from: Date())))")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Objectif \(String(Calendar.current.component(.year, from: Date())))")
+                    .font(DS.Typography.label)
+                    .foregroundStyle(Color.textTertiary)
+
                 Spacer()
-                
-                Text("\(store.completedThisYear)/\(store.userProfile.yearlyGoal) jeux")
-                    .font(.subheadline)
-                    .foregroundColor(.gbGreen)
+
+                Text("\(store.completedThisYear) / \(store.userProfile.yearlyGoal)")
+                    .font(DS.Typography.stat)
+                    .foregroundStyle(Color.textPrimary)
             }
-            
+
             // Progress Bar
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(Color.gbDark)
-                        .frame(height: 20)
-                    
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(Color.gbGreen.gradient)
-                        .frame(width: geometry.size.width * store.yearlyProgress, height: 20)
+                    Capsule()
+                        .fill(Color.gbSurface2)
+                        .frame(height: 8)
+
+                    Capsule()
+                        .fill(Color.accent)
+                        .frame(width: max(8, geometry.size.width * store.yearlyProgress), height: 8)
                 }
             }
-            .frame(height: 20)
-            
+            .frame(height: 8)
+
             // Encouragement text
             Text(progressMessage)
-                .font(.caption)
-                .foregroundColor(.gray)
+                .font(DS.Typography.caption)
+                .foregroundStyle(Color.textSecondary)
         }
-        .padding()
-        .background(Color.gbCard)
-        .cornerRadius(12)
+        .cardStyle()
         .padding(.horizontal)
     }
     
@@ -445,43 +373,15 @@ struct QuickStatsGrid: View {
             GridItem(.flexible()),
             GridItem(.flexible()),
             GridItem(.flexible())
-        ], spacing: 12) {
-            StatCard(value: "\(store.totalGames)", label: "Jeux", icon: "gamecontroller.fill", color: .blue)
-            StatCard(value: store.totalPlayTimeFormatted, label: "Temps joué", icon: "clock.fill", color: .orange)
-            StatCard(value: String(format: "%.1f", store.averageRating), label: "Note moy.", icon: "star.fill", color: .yellow)
-            StatCard(value: "\(store.gamesCount(for: .completed))", label: "Terminés", icon: "checkmark.circle.fill", color: .green)
-            StatCard(value: "\(store.gamesCount(for: .playing))", label: "En cours", icon: "play.fill", color: .gbGreen)
-            StatCard(value: "\(store.backlog.count)", label: "Backlog", icon: "tray.full.fill", color: .purple)
+        ], spacing: DS.Spacing.xs) {
+            MetricCard(value: "\(store.totalGames)", label: "Jeux", icon: "gamecontroller.fill", tint: Color(hex: "8EA9C9"))
+            MetricCard(value: store.totalPlayTimeFormatted, label: "Temps joué", icon: "clock.fill", tint: Color(hex: "E3A24C"))
+            MetricCard(value: String(format: "%.1f", store.averageRating), label: "Note moy.", icon: "star.fill", tint: .accent)
+            MetricCard(value: "\(store.gamesCount(for: .completed) + store.gamesCount(for: .platinum))", label: "Terminés", icon: "checkmark.circle.fill", tint: Color(hex: "E3A24C"))
+            MetricCard(value: "\(store.gamesCount(for: .playing))", label: "En cours", icon: "play.fill", tint: .accent)
+            MetricCard(value: "\(store.backlog.count)", label: "Backlog", icon: "tray.full.fill", tint: Color(hex: "BCA5DB"))
         }
         .padding(.horizontal)
-    }
-}
-
-struct StatCard: View {
-    let value: String
-    let label: String
-    let icon: String
-    let color: Color
-    
-    var body: some View {
-        VStack(spacing: 8) {
-            Image(systemName: icon)
-                .font(.title2)
-                .foregroundColor(color)
-            
-            Text(value)
-                .font(.title2)
-                .fontWeight(.bold)
-                .foregroundColor(.white)
-            
-            Text(label)
-                .font(.caption)
-                .foregroundColor(.gray)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 16)
-        .background(Color.gbCard)
-        .cornerRadius(12)
     }
 }
 
@@ -493,35 +393,19 @@ struct FavoriteGamesSection: View {
         let favorites = store.favoriteGames()
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("⭐ Jeux favoris")
-                    .font(.headline)
-                    .foregroundColor(.white)
-
-                Spacer()
+                SectionHeader(title: "Jeux favoris")
 
                 Text("\(favorites.count)/4")
-                    .font(.caption)
-                    .foregroundColor(.gray)
+                    .font(DS.Typography.label)
+                    .foregroundStyle(Color.textTertiary)
             }
             .padding(.horizontal)
 
             if favorites.isEmpty {
-                HStack {
-                    Spacer()
-                    VStack(spacing: 8) {
-                        Image(systemName: "heart")
-                            .font(.title)
-                            .foregroundColor(.gray.opacity(0.5))
-                        Text("Épingle tes 4 jeux préférés")
-                            .font(.caption)
-                            .foregroundColor(.gray)
-                    }
-                    .padding(.vertical, 30)
-                    Spacer()
-                }
-                .background(Color.gbCard)
-                .cornerRadius(12)
-                .padding(.horizontal)
+                EmptyState(icon: "heart", title: "Épingle tes 4 jeux préférés")
+                    .frame(height: 140)
+                    .cardStyle()
+                    .padding(.horizontal)
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
@@ -545,28 +429,30 @@ struct FavoriteGamesSection: View {
 
 struct FavoriteGameCard: View {
     let game: Game
-    
+
     var body: some View {
         VStack(spacing: 8) {
-            if let coverURL = game.coverImageURL, let url = URL(string: coverURL) {
-                CachedAsyncImage(url: url) { image in
-                    image.resizable().aspectRatio(contentMode: .fill)
-                } placeholder: {
+            Group {
+                if let url = game.artURL {
+                    CachedAsyncImage(url: url) { image in
+                        image.resizable().aspectRatio(contentMode: .fill)
+                    } placeholder: {
+                        Rectangle().fill(game.coverColor.gradient)
+                    }
+                } else {
                     Rectangle().fill(game.coverColor.gradient)
                 }
-                .frame(width: 100, height: 130)
-                .cornerRadius(8)
-            } else {
-                Rectangle()
-                    .fill(game.coverColor.gradient)
-                    .frame(width: 100, height: 130)
-                    .cornerRadius(8)
             }
-            
+            .frame(width: 100, height: 133)
+            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                    .stroke(Color.gbBorder, lineWidth: 1)
+            )
+
             Text(game.title)
-                .font(.caption)
-                .fontWeight(.medium)
-                .foregroundColor(.white)
+                .font(DS.Typography.captionMedium)
+                .foregroundStyle(Color.textPrimary)
                 .lineLimit(1)
                 .frame(width: 100)
         }
@@ -576,18 +462,18 @@ struct FavoriteGameCard: View {
 struct AddFavoriteSlot: View {
     var body: some View {
         VStack(spacing: 8) {
-            RoundedRectangle(cornerRadius: 8)
-                .strokeBorder(Color.gray.opacity(0.3), style: StrokeStyle(lineWidth: 2, dash: [5]))
-                .frame(width: 100, height: 130)
+            RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                .strokeBorder(Color.gbBorder, style: StrokeStyle(lineWidth: 1.5, dash: [5]))
+                .frame(width: 100, height: 133)
                 .overlay(
                     Image(systemName: "plus")
-                        .font(.title)
-                        .foregroundColor(.gray.opacity(0.5))
+                        .font(DS.Typography.title)
+                        .foregroundStyle(Color.textTertiary)
                 )
-            
+
             Text("Ajouter")
-                .font(.caption)
-                .foregroundColor(.gray)
+                .font(DS.Typography.captionMedium)
+                .foregroundStyle(Color.textSecondary)
         }
     }
 }
@@ -599,21 +485,9 @@ struct MyListsSection: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("📚 Mes listes")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                
-                Spacer()
-                
-                Button(action: { showingLists = true }) {
-                    Text("Voir tout")
-                        .font(.caption)
-                        .foregroundColor(.gbGreen)
-                }
-            }
-            .padding(.horizontal)
-            
+            SectionHeader(title: "Mes listes", trailing: "Voir tout") { showingLists = true }
+                .padding(.horizontal)
+
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
                     ForEach(store.gameLists.prefix(5)) { list in
@@ -621,22 +495,22 @@ struct MyListsSection: View {
                             ListPreviewCard(list: list)
                         }
                     }
-                    
+
                     // Create new list
                     Button(action: { showingLists = true }) {
                         VStack(spacing: 8) {
-                            RoundedRectangle(cornerRadius: 8)
-                                .strokeBorder(Color.gray.opacity(0.3), style: StrokeStyle(lineWidth: 2, dash: [5]))
+                            RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                                .strokeBorder(Color.gbBorder, style: StrokeStyle(lineWidth: 1.5, dash: [5]))
                                 .frame(width: 120, height: 80)
                                 .overlay(
                                     Image(systemName: "plus")
-                                        .font(.title2)
-                                        .foregroundColor(.gray.opacity(0.5))
+                                        .font(DS.Typography.title)
+                                        .foregroundStyle(Color.textTertiary)
                                 )
-                            
+
                             Text("Nouvelle liste")
-                                .font(.caption)
-                                .foregroundColor(.gray)
+                                .font(DS.Typography.caption)
+                                .foregroundStyle(Color.textSecondary)
                         }
                     }
                 }
@@ -649,28 +523,25 @@ struct MyListsSection: View {
 struct ListPreviewCard: View {
     let list: GameList
     @EnvironmentObject var store: GameStore
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Image(systemName: list.iconName)
-                    .foregroundColor(list.color)
-                
+                    .foregroundStyle(list.color)
+
                 Text("\(list.gameIds.count)")
-                    .font(.caption)
-                    .foregroundColor(.gray)
+                    .font(DS.Typography.label)
+                    .foregroundStyle(Color.textTertiary)
             }
-            
+
             Text(list.name)
-                .font(.subheadline)
-                .fontWeight(.medium)
-                .foregroundColor(.white)
+                .font(DS.Typography.bodyMedium)
+                .foregroundStyle(Color.textPrimary)
                 .lineLimit(1)
         }
         .frame(width: 120, alignment: .leading)
-        .padding()
-        .background(Color.gbCard)
-        .cornerRadius(12)
+        .cardStyle()
     }
 }
 
@@ -683,87 +554,85 @@ struct YearInReviewView: View {
         store.getYearStats(for: selectedYear)
     }
     
+    var years: [Int] {
+        Array((2020...Calendar.current.component(.year, from: Date())).reversed())
+    }
+    
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
                 // Year Picker
-                Picker("Année", selection: $selectedYear) {
-                    ForEach((2020...Calendar.current.component(.year, from: Date())).reversed(), id: \.self) { year in
-                        Text(String(year)).tag(year)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal)
+                PillSegmentedControl(options: years, selection: $selectedYear) { String($0) }
+                    .padding(.horizontal)
                 
                 // Main Stats
-                VStack(spacing: 20) {
+                VStack(spacing: 8) {
                     Text("\(selectedYear)")
-                        .font(.system(size: 60, weight: .bold, design: .rounded))
-                        .foregroundColor(.gbGreen)
+                        .font(DS.Typography.display(64))
+                        .foregroundStyle(Color.accent)
                     
-                    Text("EN REVUE")
-                        .font(.headline)
-                        .foregroundColor(.gray)
-                        .tracking(4)
+                    Text("Ton année en jeux")
+                        .font(DS.Typography.body)
+                        .foregroundStyle(Color.textSecondary)
                 }
                 .padding(.vertical, 20)
                 
                 // Stats Cards
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
-                    YearStatCard(value: "\(stats.gamesPlayed)", label: "Jeux joués", icon: "gamecontroller.fill")
-                    YearStatCard(value: "\(stats.gamesCompleted)", label: "Terminés", icon: "checkmark.circle.fill")
-                    YearStatCard(value: "\(stats.totalPlayTime / 60)h", label: "Temps de jeu", icon: "clock.fill")
-                    YearStatCard(value: String(format: "%.1f", stats.averageRating), label: "Note moyenne", icon: "star.fill")
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: DS.Spacing.xs) {
+                    MetricCard(value: "\(stats.gamesPlayed)", label: "Jeux joués", icon: "gamecontroller.fill")
+                    MetricCard(value: "\(stats.gamesCompleted)", label: "Terminés", icon: "checkmark.circle.fill")
+                    MetricCard(value: "\(stats.totalPlayTime / 60)h", label: "Temps de jeu", icon: "clock.fill")
+                    MetricCard(value: String(format: "%.1f", stats.averageRating), label: "Note moyenne", icon: "star.fill")
                 }
                 .padding(.horizontal)
                 
                 // Top Genres
                 if !stats.topGenres.isEmpty {
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("Top Genres")
-                            .font(.headline)
-                            .foregroundColor(.white)
+                        SectionHeader(title: "Top Genres")
                         
                         ForEach(stats.topGenres.prefix(3), id: \.0) { genre, count in
                             HStack {
                                 Text(genre)
-                                    .foregroundColor(.white)
+                                    .font(DS.Typography.body)
+                                    .foregroundStyle(Color.textPrimary)
                                 Spacer()
                                 Text("\(count) jeux")
-                                    .foregroundColor(.gray)
+                                    .font(DS.Typography.label)
+                                    .foregroundStyle(Color.textTertiary)
                             }
                         }
                     }
-                    .padding()
-                    .background(Color.gbCard)
-                    .cornerRadius(12)
+                    .cardStyle()
                     .padding(.horizontal)
                 }
                 
                 // Favorite Game
                 if let favorite = stats.favoriteGame {
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("🏆 Jeu préféré")
-                            .font(.headline)
-                            .foregroundColor(.white)
+                        SectionHeader(title: "Jeu préféré")
                         
                         HStack {
                             Rectangle()
                                 .fill(favorite.coverColor.gradient)
                                 .frame(width: 60, height: 80)
-                                .cornerRadius(8)
+                                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
+                                        .stroke(Color.gbBorder, lineWidth: 1)
+                                )
                             
                             VStack(alignment: .leading) {
                                 Text(favorite.title)
-                                    .font(.headline)
-                                    .foregroundColor(.white)
+                                    .font(DS.Typography.headline)
+                                    .foregroundStyle(Color.textPrimary)
                                 
                                 if favorite.rating > 0 {
                                 HStack {
                                     ForEach(1...favorite.rating, id: \.self) { _ in
                                         Image(systemName: "star.fill")
-                                            .font(.caption)
-                                            .foregroundColor(.gbGreen)
+                                            .font(DS.Typography.caption)
+                                            .foregroundStyle(Color.accent)
                                     }
                                 }
                                 }
@@ -772,9 +641,7 @@ struct YearInReviewView: View {
                             Spacer()
                         }
                     }
-                    .padding()
-                    .background(Color.gbCard)
-                    .cornerRadius(12)
+                    .cardStyle()
                     .padding(.horizontal)
                 }
             }
@@ -783,32 +650,6 @@ struct YearInReviewView: View {
         .background(Color.gbDark.ignoresSafeArea())
         .navigationTitle("Rétrospective")
         .navigationBarTitleDisplayMode(.inline)
-    }
-}
-
-struct YearStatCard: View {
-    let value: String
-    let label: String
-    let icon: String
-    
-    var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.title)
-                .foregroundColor(.gbGreen)
-            
-            Text(value)
-                .font(.system(size: 36, weight: .bold, design: .rounded))
-                .foregroundColor(.white)
-            
-            Text(label)
-                .font(.caption)
-                .foregroundColor(.gray)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 24)
-        .background(Color.gbCard)
-        .cornerRadius(12)
     }
 }
 
@@ -827,43 +668,30 @@ struct ListDetailViewFromProfile: View {
                 // Header
                 VStack(spacing: 12) {
                     Image(systemName: list.iconName)
-                        .font(.system(size: 50))
-                        .foregroundColor(list.color)
-                    
+                        .font(.system(size: 44))
+                        .foregroundStyle(list.color)
+
                     Text(list.name)
-                        .font(.title)
-                        .fontWeight(.bold)
-                        .foregroundColor(.white)
-                    
+                        .font(DS.Typography.largeTitle)
+                        .foregroundStyle(Color.textPrimary)
+
                     if !list.description.isEmpty {
                         Text(list.description)
-                            .font(.subheadline)
-                            .foregroundColor(.gray)
+                            .font(DS.Typography.body)
+                            .foregroundStyle(Color.textSecondary)
                             .multilineTextAlignment(.center)
                     }
-                    
+
                     Text("\(gamesInList.count) jeux")
-                        .font(.caption)
-                        .foregroundColor(.gbGreen)
+                        .font(DS.Typography.label)
+                        .foregroundStyle(Color.accent)
                 }
                 .padding()
-                
+
                 // Games
                 if gamesInList.isEmpty {
-                    VStack(spacing: 16) {
-                        Image(systemName: "tray")
-                            .font(.system(size: 50))
-                            .foregroundColor(.gray.opacity(0.3))
-                        
-                        Text("Liste vide")
-                            .font(.headline)
-                            .foregroundColor(.gray)
-                        
-                        Text("Ajoute des jeux depuis leur page de détail")
-                            .font(.caption)
-                            .foregroundColor(.gray.opacity(0.7))
-                    }
-                    .padding(.top, 40)
+                    EmptyState(icon: "tray", title: "Liste vide", message: "Ajoute des jeux depuis leur page de détail")
+                        .frame(height: 220)
                 } else {
                     LazyVStack(spacing: 12) {
                         ForEach(gamesInList) { game in

@@ -42,14 +42,15 @@ struct ListsView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Fermer") { dismiss() }
-                        .foregroundColor(.gray)
+                        .foregroundColor(.textSecondary)
                 }
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: { showingCreateList = true }) {
                         Image(systemName: "plus.circle.fill")
-                            .foregroundColor(.gbGreen)
+                            .foregroundColor(.gbBrass)
                     }
+                    .accessibilityLabel("Créer une liste")
                 }
             }
             .sheet(isPresented: $showingCreateList) {
@@ -80,7 +81,7 @@ struct ListRowView: View {
                     .frame(width: 60, height: 60)
                 
                 Image(systemName: list.iconName)
-                    .font(.title2)
+                    .font(DS.Typography.title)
                     .foregroundColor(list.color)
             }
             
@@ -88,24 +89,24 @@ struct ListRowView: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
                     Text(list.name)
-                        .font(.headline)
-                        .foregroundColor(.white)
+                        .font(DS.Typography.headline)
+                        .foregroundColor(.textPrimary)
                     
                     if list.isDefault {
                         Image(systemName: "lock.fill")
-                            .font(.caption2)
-                            .foregroundColor(.gray)
+                            .font(DS.Typography.micro)
+                            .foregroundColor(.textSecondary)
                     }
                 }
                 
                 Text("\(games.count) jeu\(games.count > 1 ? "x" : "")")
-                    .font(.subheadline)
-                    .foregroundColor(.gray)
+                    .font(DS.Typography.body)
+                    .foregroundColor(.textSecondary)
                 
                 if !list.description.isEmpty {
                     Text(list.description)
-                        .font(.caption)
-                        .foregroundColor(.gray.opacity(0.8))
+                        .font(DS.Typography.caption)
+                        .foregroundColor(.textSecondary.opacity(0.8))
                         .lineLimit(1)
                 }
             }
@@ -115,7 +116,7 @@ struct ListRowView: View {
             // Preview covers
             HStack(spacing: -15) {
                 ForEach(games.prefix(3)) { game in
-                    if let coverURL = game.coverImageURL, let url = URL(string: coverURL) {
+                    if let url = game.artURL {
                         CachedAsyncImage(url: url) { image in
                             image.resizable().aspectRatio(contentMode: .fill)
                         } placeholder: {
@@ -141,7 +142,7 @@ struct ListRowView: View {
             }
             
             Image(systemName: "chevron.right")
-                .foregroundColor(.gray)
+                .foregroundColor(.textSecondary)
         }
         .padding()
         .background(Color.gbCard)
@@ -170,25 +171,25 @@ struct ListDetailView: View {
                             .frame(width: 80, height: 80)
                         
                         Image(systemName: list.iconName)
-                            .font(.largeTitle)
+                            .font(DS.Typography.largeTitle)
                             .foregroundColor(list.color)
                     }
                     
                     Text(list.name)
-                        .font(.title2)
+                        .font(DS.Typography.title)
                         .fontWeight(.bold)
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
                     
                     if !list.description.isEmpty {
                         Text(list.description)
-                            .font(.subheadline)
-                            .foregroundColor(.gray)
+                            .font(DS.Typography.body)
+                            .foregroundColor(.textSecondary)
                             .multilineTextAlignment(.center)
                     }
                     
                     Text("\(games.count) jeu\(games.count > 1 ? "x" : "")")
-                        .font(.caption)
-                        .foregroundColor(.gray)
+                        .font(DS.Typography.caption)
+                        .foregroundColor(.textSecondary)
                 }
                 .padding()
                 
@@ -197,20 +198,21 @@ struct ListDetailView: View {
                     VStack(spacing: 16) {
                         Image(systemName: "tray")
                             .font(.system(size: 50))
-                            .foregroundColor(.gray.opacity(0.3))
+                            .foregroundColor(.textSecondary.opacity(0.3))
                         
                         Text("Cette liste est vide")
-                            .font(.headline)
-                            .foregroundColor(.gray)
+                            .font(DS.Typography.headline)
+                            .foregroundColor(.textSecondary)
                         
                         Button(action: { showingAddGame = true }) {
                             HStack {
                                 Image(systemName: "plus")
                                 Text("Ajouter des jeux")
                             }
+                            .accessibilityLabel("Ajouter un jeu à la liste")
                             .padding(.horizontal, 20)
                             .padding(.vertical, 10)
-                            .background(Color.gbGreen)
+                            .background(Color.gbBrass)
                             .foregroundColor(.gbDark)
                             .cornerRadius(20)
                         }
@@ -241,7 +243,7 @@ struct ListDetailView: View {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button(action: { showingAddGame = true }) {
                     Image(systemName: "plus")
-                        .foregroundColor(.gbGreen)
+                        .foregroundColor(.gbBrass)
                 }
             }
         }
@@ -288,7 +290,7 @@ struct CreateListView: View {
                             ForEach(icons, id: \.self) { icon in
                                 Button(action: { selectedIcon = icon }) {
                                     Image(systemName: icon)
-                                        .font(.title2)
+                                        .font(DS.Typography.title)
                                         .frame(width: 50, height: 50)
                                         .background(selectedIcon == icon ? selectedColor.opacity(0.3) : Color.gbCard)
                                         .foregroundColor(selectedIcon == icon ? selectedColor : .gray)
@@ -310,7 +312,7 @@ struct CreateListView: View {
                                         .frame(width: 40, height: 40)
                                         .overlay(
                                             Circle()
-                                                .stroke(Color.white, lineWidth: selectedColor == color ? 3 : 0)
+                                                .stroke(Color.white, lineWidth: selectedColor.toHex() == color.toHex() ? 3 : 0)
                                         )
                                 }
                             }
@@ -326,7 +328,7 @@ struct CreateListView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Annuler") { dismiss() }
-                        .foregroundColor(.gray)
+                        .foregroundColor(.textSecondary)
                 }
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -334,7 +336,7 @@ struct CreateListView: View {
                         saveList()
                     }
                     .disabled(name.isEmpty)
-                    .foregroundColor(name.isEmpty ? .gray : .gbGreen)
+                    .foregroundColor(name.isEmpty ? .gray : .gbBrass)
                 }
             }
             .onAppear {
@@ -378,9 +380,10 @@ struct AddGameToListView: View {
     @State private var searchText = ""
     
     var availableGames: [Game] {
-        let gamesNotInList = store.myGames.filter { game in
-            !list.gameIds.contains(game.id)
-        }
+        // Read the live list, not the snapshot passed in, so a game disappears
+        // from here as soon as it's added.
+        let inList = Set(store.gameLists.first { $0.id == list.id }?.gameIds ?? list.gameIds)
+        let gamesNotInList = store.myGames.filter { !inList.contains($0.id) }
         
         if searchText.isEmpty {
             return gamesNotInList
@@ -394,9 +397,10 @@ struct AddGameToListView: View {
             List(availableGames) { game in
                 Button(action: {
                     store.addGameToList(game, list: list)
+                    HapticManager.notification(.success)
                 }) {
                     HStack {
-                        if let coverURL = game.coverImageURL, let url = URL(string: coverURL) {
+                        if let url = game.artURL {
                             CachedAsyncImage(url: url) { image in
                                 image.resizable().aspectRatio(contentMode: .fill)
                             } placeholder: {
@@ -413,16 +417,16 @@ struct AddGameToListView: View {
                         
                         VStack(alignment: .leading) {
                             Text(game.title)
-                                .foregroundColor(.white)
+                                .foregroundColor(.textPrimary)
                             Text(game.platform)
-                                .font(.caption)
-                                .foregroundColor(.gray)
+                                .font(DS.Typography.caption)
+                                .foregroundColor(.textSecondary)
                         }
                         
                         Spacer()
                         
                         Image(systemName: "plus.circle")
-                            .foregroundColor(.gbGreen)
+                            .foregroundColor(.gbBrass)
                     }
                 }
             }
@@ -435,7 +439,7 @@ struct AddGameToListView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Terminé") { dismiss() }
-                        .foregroundColor(.gbGreen)
+                        .foregroundColor(.gbBrass)
                 }
             }
         }

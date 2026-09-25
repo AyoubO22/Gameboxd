@@ -23,79 +23,77 @@ struct BacklogView: View {
     }
     
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                // Random Picker Card
-                RandomPickerCard(
-                    onSpin: spinWheel,
-                    isSpinning: isSpinning,
-                    selectedGame: randomGame
-                )
-                .padding()
-                
-                // Priority Filter
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 10) {
+        VStack(spacing: 0) {
+            // Random Picker Card
+            RandomPickerCard(
+                onSpin: spinWheel,
+                isSpinning: isSpinning,
+                selectedGame: randomGame
+            )
+            .padding()
+            
+            // Priority Filter
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    PriorityFilterChip(
+                        label: "Tous",
+                        count: store.backlog.count,
+                        isSelected: selectedPriority == nil,
+                        color: .gray
+                    ) {
+                        selectedPriority = nil
+                    }
+                    
+                    ForEach(GamePriority.allCases, id: \.self) { priority in
                         PriorityFilterChip(
-                            label: "Tous",
-                            count: store.backlog.count,
-                            isSelected: selectedPriority == nil,
-                            color: .gray
+                            label: priority.rawValue,
+                            count: store.backlog.filter { $0.priority == priority }.count,
+                            isSelected: selectedPriority == priority,
+                            color: priority.color
                         ) {
-                            selectedPriority = nil
+                            selectedPriority = priority
                         }
-                        
-                        ForEach(GamePriority.allCases, id: \.self) { priority in
-                            PriorityFilterChip(
-                                label: priority.rawValue,
-                                count: store.backlog.filter { $0.priority == priority }.count,
-                                isSelected: selectedPriority == priority,
-                                color: priority.color
-                            ) {
-                                selectedPriority = priority
+                    }
+                }
+                .padding(.horizontal)
+            }
+            .padding(.vertical, 8)
+            
+            // Backlog List
+            if filteredBacklog.isEmpty {
+                VStack(spacing: 16) {
+                    Spacer()
+                    Image(systemName: "tray")
+                        .font(.system(size: 50))
+                        .foregroundColor(.textSecondary.opacity(0.3))
+                    Text("Backlog vide")
+                        .font(DS.Typography.headline)
+                        .foregroundColor(.textSecondary)
+                    Text("Ajoute des jeux avec le statut\n\"À jouer\" pour les voir ici")
+                        .font(DS.Typography.body)
+                        .foregroundColor(.textSecondary.opacity(0.7))
+                        .multilineTextAlignment(.center)
+                    Spacer()
+                }
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 12) {
+                        ForEach(filteredBacklog) { game in
+                            NavigationLink(destination: GameDetailView(game: game)) {
+                                BacklogGameRow(game: game)
                             }
                         }
                     }
-                    .padding(.horizontal)
-                }
-                .padding(.vertical, 8)
-                
-                // Backlog List
-                if filteredBacklog.isEmpty {
-                    VStack(spacing: 16) {
-                        Spacer()
-                        Image(systemName: "tray")
-                            .font(.system(size: 50))
-                            .foregroundColor(.gray.opacity(0.3))
-                        Text("Backlog vide")
-                            .font(.headline)
-                            .foregroundColor(.gray)
-                        Text("Ajoute des jeux avec le statut\n\"À jouer\" pour les voir ici")
-                            .font(.subheadline)
-                            .foregroundColor(.gray.opacity(0.7))
-                            .multilineTextAlignment(.center)
-                        Spacer()
-                    }
-                } else {
-                    ScrollView {
-                        LazyVStack(spacing: 12) {
-                            ForEach(filteredBacklog) { game in
-                                NavigationLink(destination: GameDetailView(game: game)) {
-                                    BacklogGameRow(game: game)
-                                }
-                            }
-                        }
-                        .padding()
-                    }
+                    .padding()
                 }
             }
-            .background(Color.gbDark.ignoresSafeArea())
-            .navigationTitle("Backlog")
-            .navigationBarTitleDisplayMode(.large)
-            .onDisappear {
-                spinTimer?.invalidate()
-                spinTimer = nil
-            }
+        }
+        .background(Color.gbDark.ignoresSafeArea())
+        .navigationTitle("Backlog")
+        .navigationBarTitleDisplayMode(.large)
+        .onDisappear {
+            spinTimer?.invalidate()
+            spinTimer = nil
         }
     }
     
@@ -139,12 +137,12 @@ struct RandomPickerCard: View {
         VStack(spacing: 16) {
             HStack {
                 Image(systemName: "dice.fill")
-                    .font(.title2)
-                    .foregroundColor(.gbGreen)
+                    .font(DS.Typography.title)
+                    .foregroundColor(.gbBrass)
                 
                 Text("À quoi jouer ?")
-                    .font(.headline)
-                    .foregroundColor(.white)
+                    .font(DS.Typography.headline)
+                    .foregroundColor(.textPrimary)
                 
                 Spacer()
             }
@@ -152,7 +150,7 @@ struct RandomPickerCard: View {
             if let game = selectedGame {
                 // Selected Game Display
                 HStack(spacing: 12) {
-                    if let coverURL = game.coverImageURL, let url = URL(string: coverURL) {
+                    if let url = game.artURL {
                         CachedAsyncImage(url: url) { image in
                             image.resizable().aspectRatio(contentMode: .fill)
                         } placeholder: {
@@ -160,7 +158,7 @@ struct RandomPickerCard: View {
                         }
                         .frame(width: 60, height: 80)
                         .cornerRadius(8)
-                        .shadow(color: .gbGreen.opacity(0.5), radius: 10)
+                        .shadow(color: .gbBrass.opacity(0.5), radius: 10)
                     } else {
                         Rectangle()
                             .fill(game.coverColor.gradient)
@@ -170,19 +168,19 @@ struct RandomPickerCard: View {
                     
                     VStack(alignment: .leading, spacing: 4) {
                         Text(game.title)
-                            .font(.headline)
-                            .foregroundColor(.white)
+                            .font(DS.Typography.headline)
+                            .foregroundColor(.textPrimary)
                             .lineLimit(2)
                         
                         Text(game.platform)
-                            .font(.caption)
-                            .foregroundColor(.gray)
+                            .font(DS.Typography.caption)
+                            .foregroundColor(.textSecondary)
                         
                         HStack(spacing: 4) {
                             Image(systemName: game.priority.icon)
                             Text(game.priority.rawValue)
                         }
-                        .font(.caption2)
+                        .font(DS.Typography.micro)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
                         .background(game.priority.color.opacity(0.2))
@@ -195,7 +193,7 @@ struct RandomPickerCard: View {
                     NavigationLink(destination: GameDetailView(game: game)) {
                         Image(systemName: "play.circle.fill")
                             .font(.system(size: 40))
-                            .foregroundColor(.gbGreen)
+                            .foregroundColor(.gbBrass)
                     }
                 }
                 .transition(.scale.combined(with: .opacity))
@@ -207,13 +205,13 @@ struct RandomPickerCard: View {
                         .frame(width: 60, height: 80)
                         .overlay(
                             Image(systemName: "questionmark")
-                                .font(.title)
-                                .foregroundColor(.gray.opacity(0.5))
+                                .font(DS.Typography.title)
+                                .foregroundColor(.textSecondary.opacity(0.5))
                         )
                     
                     Text(isSpinning ? "Recherche en cours..." : "Clique sur le bouton pour choisir")
-                        .font(.subheadline)
-                        .foregroundColor(.gray)
+                        .font(DS.Typography.body)
+                        .foregroundColor(.textSecondary)
                     
                     Spacer()
                 }
@@ -231,7 +229,7 @@ struct RandomPickerCard: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(Color.gbGreen.gradient)
+                .background(Color.gbBrass.gradient)
                 .foregroundColor(.gbDark)
                 .cornerRadius(12)
             }
@@ -258,14 +256,14 @@ struct PriorityFilterChip: View {
                     .fontWeight(.medium)
                 
                 Text("\(count)")
-                    .font(.caption2)
+                    .font(DS.Typography.micro)
                     .fontWeight(.bold)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
                     .background(isSelected ? Color.white.opacity(0.3) : Color.gray.opacity(0.3))
                     .cornerRadius(10)
             }
-            .font(.subheadline)
+            .font(DS.Typography.body)
             .padding(.vertical, 8)
             .padding(.horizontal, 14)
             .background(isSelected ? color : Color.gbCard)
@@ -283,7 +281,7 @@ struct BacklogGameRow: View {
     var body: some View {
         HStack(spacing: 12) {
             // Cover
-            if let coverURL = game.coverImageURL, let url = URL(string: coverURL) {
+            if let url = game.artURL {
                 CachedAsyncImage(url: url) { image in
                     image.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: {
@@ -301,19 +299,19 @@ struct BacklogGameRow: View {
             // Info
             VStack(alignment: .leading, spacing: 6) {
                 Text(game.title)
-                    .font(.headline)
-                    .foregroundColor(.white)
+                    .font(DS.Typography.headline)
+                    .foregroundColor(.textPrimary)
                     .lineLimit(1)
                 
                 HStack(spacing: 8) {
                     Text(game.platform)
-                        .font(.caption)
-                        .foregroundColor(.gray)
+                        .font(DS.Typography.caption)
+                        .foregroundColor(.textSecondary)
                     
                     if let playtime = game.estimatedPlaytime, playtime > 0 {
                         Label("~\(playtime)h", systemImage: "clock")
-                            .font(.caption)
-                            .foregroundColor(.gray)
+                            .font(DS.Typography.caption)
+                            .foregroundColor(.textSecondary)
                     }
                 }
                 
@@ -322,7 +320,7 @@ struct BacklogGameRow: View {
                     Image(systemName: game.priority.icon)
                     Text(game.priority.rawValue)
                 }
-                .font(.caption2)
+                .font(DS.Typography.micro)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
                 .background(game.priority.color.opacity(0.2))
@@ -336,9 +334,9 @@ struct BacklogGameRow: View {
             VStack(spacing: 8) {
                 Button(action: { startPlaying() }) {
                     Image(systemName: "play.fill")
-                        .font(.caption)
+                        .font(DS.Typography.caption)
                         .padding(8)
-                        .background(Color.gbGreen)
+                        .background(Color.gbBrass)
                         .foregroundColor(.gbDark)
                         .cornerRadius(8)
                 }
@@ -351,12 +349,13 @@ struct BacklogGameRow: View {
                     }
                 } label: {
                     Image(systemName: "ellipsis")
-                        .font(.caption)
+                        .font(DS.Typography.caption)
                         .padding(8)
                         .background(Color.gbCard)
-                        .foregroundColor(.gray)
+                        .foregroundColor(.textSecondary)
                         .cornerRadius(8)
                 }
+                .accessibilityLabel("Plus d'actions")
             }
         }
         .padding()
@@ -380,6 +379,6 @@ struct BacklogGameRow: View {
 
 // MARK: - Preview
 #Preview {
-    BacklogView()
+    NavigationStack { BacklogView() }
         .environmentObject(GameStore())
 }

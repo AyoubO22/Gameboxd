@@ -23,10 +23,6 @@ struct SettingsView: View {
         List {
             // Appearance Section
             Section {
-                NavigationLink(destination: ThemePickerView()) {
-                    SettingsRow(icon: "paintbrush.fill", title: "Thème", color: .purple)
-                }
-                
                 NavigationLink(destination: AppIconPickerView()) {
                     SettingsRow(icon: "app.fill", title: "Icône de l'app", color: .blue)
                 }
@@ -47,10 +43,12 @@ struct SettingsView: View {
             
             // Data Section
             Section {
-                NavigationLink(destination: iCloudSyncView()) {
-                    SettingsRow(icon: "icloud.fill", title: "Synchronisation iCloud", color: .blue)
-                }
-                
+                // iCloudSyncView is hidden: iCloud Key-Value Storage needs a paid Apple
+                // Developer account. Add the capability, then restore this link:
+                // NavigationLink(destination: iCloudSyncView()) {
+                //     SettingsRow(icon: "icloud.fill", title: "Synchronisation iCloud", color: .blue)
+                // }
+
                 Button(action: exportData) {
                     SettingsRow(icon: "square.and.arrow.up.fill", title: "Exporter mes données", color: .green)
                 }
@@ -97,7 +95,7 @@ struct SettingsView: View {
                 
                 if let url = URL(string: "https://rawg.io") {
                     Link(destination: url) {
-                        SettingsRow(icon: "globe", title: "Données fournies par RAWG", color: .gbGreen)
+                        SettingsRow(icon: "globe", title: "Données fournies par RAWG", color: .gbBrass)
                     }
                 }
             } header: {
@@ -111,11 +109,11 @@ struct SettingsView: View {
                     Spacer()
                     VStack(spacing: 4) {
                         Text("Gameboxd")
-                            .font(.headline)
-                            .foregroundColor(.gray)
+                            .font(DS.Typography.headline)
+                            .foregroundColor(.textSecondary)
                         Text("Version 1.0.0")
-                            .font(.caption)
-                            .foregroundColor(.gray.opacity(0.7))
+                            .font(DS.Typography.caption)
+                            .foregroundColor(.textSecondary.opacity(0.7))
                     }
                     Spacer()
                 }
@@ -196,83 +194,16 @@ struct SettingsRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.body)
-                .foregroundColor(.white)
+                .font(DS.Typography.bodyLarge)
+                .foregroundColor(.textPrimary)
                 .frame(width: 28, height: 28)
                 .background(color)
                 .cornerRadius(6)
             
             Text(title)
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
             
             Spacer()
-        }
-    }
-}
-
-// MARK: - Theme Picker
-struct ThemePickerView: View {
-    @EnvironmentObject var store: GameStore
-    
-    var body: some View {
-        ScrollView {
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
-                ForEach(AppTheme.allCases) { theme in
-                    ThemeCard(theme: theme, isSelected: store.currentTheme == theme) {
-                        store.setTheme(theme)
-                    }
-                }
-            }
-            .padding()
-        }
-        .background(Color.gbDark.ignoresSafeArea())
-        .navigationTitle("Thème")
-    }
-}
-
-struct ThemeCard: View {
-    let theme: AppTheme
-    let isSelected: Bool
-    let action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            VStack(spacing: 12) {
-                // Preview
-                HStack(spacing: 4) {
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(theme.darkColor)
-                        .frame(width: 30, height: 50)
-                    
-                    VStack(spacing: 4) {
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(theme.accentColor)
-                            .frame(height: 8)
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(theme.cardColor)
-                            .frame(height: 8)
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(theme.cardColor)
-                            .frame(height: 8)
-                    }
-                }
-                .padding(8)
-                .background(theme.darkColor)
-                .cornerRadius(8)
-                
-                // Name
-                Text(theme.name)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .foregroundColor(.white)
-            }
-            .padding()
-            .background(Color.gbCard)
-            .cornerRadius(12)
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(isSelected ? theme.accentColor : Color.clear, lineWidth: 3)
-            )
         }
     }
 }
@@ -293,13 +224,13 @@ struct AppIconPickerView: View {
                                 .frame(width: 80, height: 80)
                                 .overlay(
                                     Image(systemName: "gamecontroller.fill")
-                                        .font(.largeTitle)
-                                        .foregroundColor(.gbGreen)
+                                        .font(DS.Typography.largeTitle)
+                                        .foregroundColor(.gbBrass)
                                 )
                             
                             Text(iconName.replacingOccurrences(of: "AppIcon-", with: ""))
-                                .font(.caption)
-                                .foregroundColor(.white)
+                                .font(DS.Typography.caption)
+                                .foregroundColor(.textPrimary)
                         }
                     }
                 }
@@ -319,12 +250,8 @@ struct AppIconPickerView: View {
 // MARK: - Notifications Settings
 struct NotificationsSettingsView: View {
     @EnvironmentObject var store: GameStore
-    @State private var releaseReminders = true
-    @State private var achievementAlerts = true
-    @State private var weeklyDigest = false
-    @State private var backlogReminders = true
-    @State private var reminderDays = 1
-    @State private var backlogReminderDays = 7
+    @AppStorage("gameboxd_backlog_reminders") private var backlogReminders = true
+    @AppStorage("gameboxd_backlog_reminder_days") private var backlogReminderDays = 7
     @State private var notificationStatus: UNAuthorizationStatus = .notDetermined
     @State private var showingPermissionAlert = false
     @State private var permissionAlertMessage = ""
@@ -332,20 +259,8 @@ struct NotificationsSettingsView: View {
     var body: some View {
         List {
             Section {
-                Toggle("Rappels de sortie", isOn: $releaseReminders)
-                    .toggleStyle(SwitchToggleStyle(tint: .gbGreen))
-                
-                if releaseReminders {
-                    Stepper("Rappel \(reminderDays) jour\(reminderDays > 1 ? "s" : "") avant", value: $reminderDays, in: 1...7)
-                }
-            } header: {
-                Text("Jeux à venir")
-            }
-            .listRowBackground(Color.gbCard)
-            
-            Section {
                 Toggle("Rappels backlog", isOn: $backlogReminders)
-                    .toggleStyle(SwitchToggleStyle(tint: .gbGreen))
+                    .toggleStyle(SwitchToggleStyle(tint: .gbBrass))
                 
                 if backlogReminders {
                     Stepper("Rappeler après \(backlogReminderDays) jours", value: $backlogReminderDays, in: 3...30)
@@ -358,27 +273,17 @@ struct NotificationsSettingsView: View {
             .listRowBackground(Color.gbCard)
             
             Section {
-                Toggle("Succès débloqués", isOn: $achievementAlerts)
-                    .toggleStyle(SwitchToggleStyle(tint: .gbGreen))
+                Toggle("Succès débloqués", isOn: $store.achievementAlerts)
+                    .toggleStyle(SwitchToggleStyle(tint: .gbBrass))
             } header: {
                 Text("Succès")
             }
             .listRowBackground(Color.gbCard)
             
             Section {
-                Toggle("Résumé hebdomadaire", isOn: $weeklyDigest)
-                    .toggleStyle(SwitchToggleStyle(tint: .gbGreen))
-            } header: {
-                Text("Récapitulatifs")
-            } footer: {
-                Text("Reçois un résumé de tes sessions de jeu chaque semaine")
-            }
-            .listRowBackground(Color.gbCard)
-            
-            Section {
                 HStack {
                     Text("Statut")
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
                     Spacer()
                     Text(notificationStatusText)
                         .foregroundColor(notificationStatusColor)
@@ -391,12 +296,12 @@ struct NotificationsSettingsView: View {
                             UIApplication.shared.open(url)
                         }
                     }
-                    .foregroundColor(.gbGreen)
+                    .foregroundColor(.gbBrass)
                 } else if notificationStatus == .notDetermined {
                     Button("Demander l'autorisation") {
                         requestNotificationPermission()
                     }
-                    .foregroundColor(.gbGreen)
+                    .foregroundColor(.gbBrass)
                 }
                 
                 if notificationStatus == .authorized {
@@ -413,16 +318,12 @@ struct NotificationsSettingsView: View {
         .scrollContentBackground(.hidden)
         .background(Color.gbDark.ignoresSafeArea())
         .navigationTitle("Notifications")
-        .foregroundColor(.white)
-        .onChange(of: backlogReminders) { _, newValue in
-            if newValue {
-                scheduleBacklogReminders()
-            } else {
-                cancelBacklogReminders()
-            }
-        }
+        .foregroundColor(.textPrimary)
+        .onChange(of: backlogReminders) { _, _ in updateBacklogReminder() }
+        .onChange(of: backlogReminderDays) { _, _ in updateBacklogReminder() }
         .onAppear {
             checkNotificationStatus()
+            updateBacklogReminder()
         }
         .alert("Notifications", isPresented: $showingPermissionAlert) {
             Button("OK", role: .cancel) {}
@@ -506,21 +407,18 @@ struct NotificationsSettingsView: View {
         }
     }
     
-    func scheduleBacklogReminders() {
-        guard let randomGame = store.randomBacklogPick() else { return }
+    /// Keeps the single pending backlog reminder in line with the saved settings.
+    func updateBacklogReminder() {
+        cancelBacklogReminders()
+        guard backlogReminders, let randomGame = store.randomBacklogPick() else { return }
         
         let content = UNMutableNotificationContent()
         content.title = "Un jeu t'attend!"
         content.body = "Que dirais-tu de lancer \(randomGame.title) ?"
         content.sound = .default
         
-        // Schedule for next week at 6pm
-        var dateComponents = DateComponents()
-        dateComponents.hour = 18
-        let currentWeekday = Calendar.current.component(.weekday, from: Date())
-        dateComponents.weekday = ((currentWeekday - 1 + backlogReminderDays) % 7) + 1
-        
-        let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
+        // Every N days, matching "Rappeler après N jours".
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: TimeInterval(backlogReminderDays * 86_400), repeats: true)
         let request = UNNotificationRequest(identifier: "backlog_reminder", content: content, trigger: trigger)
         
         UNUserNotificationCenter.current().add(request)
@@ -552,7 +450,7 @@ struct CustomTagsView: View {
                             .frame(width: 30)
                         
                         Text(tag.name)
-                            .foregroundColor(.white)
+                            .foregroundColor(.textPrimary)
                         
                         Spacer()
                     }
@@ -566,7 +464,7 @@ struct CustomTagsView: View {
             // Add New Tag
             Section {
                 TextField("Nom du tag", text: $newTagName)
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
                 
                 ColorPicker("Couleur", selection: $newTagColor)
                 
@@ -579,7 +477,7 @@ struct CustomTagsView: View {
                 Button("Ajouter le tag") {
                     addTag()
                 }
-                .foregroundColor(.gbGreen)
+                .foregroundColor(.gbBrass)
                 .disabled(newTagName.isEmpty)
             } header: {
                 Text("Nouveau tag")
@@ -596,16 +494,16 @@ struct CustomTagsView: View {
                                 .frame(width: 30)
                             
                             Text(tag.name)
-                                .foregroundColor(.white)
+                                .foregroundColor(.textPrimary)
                             
                             Spacer()
                             
                             if store.customTags.contains(where: { $0.name == tag.name }) {
                                 Image(systemName: "checkmark")
-                                    .foregroundColor(.gbGreen)
+                                    .foregroundColor(.gbBrass)
                             } else {
                                 Image(systemName: "plus")
-                                    .foregroundColor(.gray)
+                                    .foregroundColor(.textSecondary)
                             }
                         }
                     }
@@ -646,7 +544,7 @@ struct AboutView: View {
                 // App Icon
                 ZStack {
                     Circle()
-                        .fill(Color.gbGreen.gradient)
+                        .fill(Color.gbBrass.gradient)
                         .frame(width: 100, height: 100)
                     
                     Image(systemName: "gamecontroller.fill")
@@ -655,32 +553,32 @@ struct AboutView: View {
                 }
                 
                 Text("Gameboxd")
-                    .font(.largeTitle)
+                    .font(DS.Typography.largeTitle)
                     .fontWeight(.bold)
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
                 
                 Text("Version 1.0.0")
-                    .font(.subheadline)
-                    .foregroundColor(.gray)
+                    .font(DS.Typography.body)
+                    .foregroundColor(.textSecondary)
                 
                 Text("Ton journal de jeux vidéo personnel. Track tes jeux, note tes expériences, et découvre de nouveaux titres.")
-                    .font(.body)
-                    .foregroundColor(.gray)
+                    .font(DS.Typography.bodyLarge)
+                    .foregroundColor(.textSecondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 40)
                 
                 // Credits
                 VStack(spacing: 16) {
                     Text("Crédits")
-                        .font(.headline)
-                        .foregroundColor(.white)
+                        .font(DS.Typography.headline)
+                        .foregroundColor(.textPrimary)
                     
                     VStack(spacing: 8) {
                         Text("Données de jeux par RAWG.io")
                         Text("Développé en SwiftUI")
                     }
-                    .font(.caption)
-                    .foregroundColor(.gray)
+                    .font(DS.Typography.caption)
+                    .foregroundColor(.textSecondary)
                 }
                 .padding(.top)
                 
@@ -710,7 +608,6 @@ struct iCloudSyncView: View {
     @State private var iCloudEnabled = false
     @State private var autoSync = true
     @State private var lastSyncDate: Date?
-    @State private var isSyncing = false
     @State private var syncStatus: SyncStatus = .idle
     @State private var showingSyncAlert = false
     @State private var alertMessage = ""
@@ -748,24 +645,24 @@ struct iCloudSyncView: View {
                             .frame(width: 50, height: 50)
                         
                         Image(systemName: syncStatus.icon)
-                            .font(.title2)
+                            .font(DS.Typography.title)
                             .foregroundColor(syncStatus.color)
                             .symbolEffect(.pulse, isActive: syncStatus == .syncing)
                     }
                     
                     VStack(alignment: .leading, spacing: 4) {
                         Text(iCloudEnabled ? "iCloud activé" : "iCloud désactivé")
-                            .font(.headline)
-                            .foregroundColor(.white)
+                            .font(DS.Typography.headline)
+                            .foregroundColor(.textPrimary)
                         
                         if let lastSync = lastSyncDate {
                             Text("Dernière sync: \(lastSync.formatted(date: .abbreviated, time: .shortened))")
-                                .font(.caption)
-                                .foregroundColor(.gray)
+                                .font(DS.Typography.caption)
+                                .foregroundColor(.textSecondary)
                         } else {
                             Text("Jamais synchronisé")
-                                .font(.caption)
-                                .foregroundColor(.gray)
+                                .font(DS.Typography.caption)
+                                .foregroundColor(.textSecondary)
                         }
                     }
                     
@@ -778,11 +675,11 @@ struct iCloudSyncView: View {
             // Settings Section
             Section {
                 Toggle("Activer iCloud", isOn: $iCloudEnabled)
-                    .toggleStyle(SwitchToggleStyle(tint: .gbGreen))
+                    .toggleStyle(SwitchToggleStyle(tint: .gbBrass))
                 
                 if iCloudEnabled {
                     Toggle("Synchronisation automatique", isOn: $autoSync)
-                        .toggleStyle(SwitchToggleStyle(tint: .gbGreen))
+                        .toggleStyle(SwitchToggleStyle(tint: .gbBrass))
                 }
             } header: {
                 Text("Paramètres")
@@ -796,15 +693,9 @@ struct iCloudSyncView: View {
                         HStack {
                             Image(systemName: "arrow.triangle.2.circlepath")
                             Text("Synchroniser maintenant")
-                            Spacer()
-                            if isSyncing {
-                                ProgressView()
-                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                            }
                         }
                     }
-                    .disabled(isSyncing)
-                    .foregroundColor(.gbGreen)
+                    .foregroundColor(.gbBrass)
                     
                     Button(action: uploadToiCloud) {
                         HStack {
@@ -838,8 +729,8 @@ struct iCloudSyncView: View {
                     }
                     
                     Text("La synchronisation iCloud permet de garder tes jeux, sessions et statistiques synchronisés sur tous tes appareils Apple connectés au même compte iCloud.")
-                        .font(.caption)
-                        .foregroundColor(.gray)
+                        .font(DS.Typography.caption)
+                        .foregroundColor(.textSecondary)
                 }
                 .padding(.vertical, 8)
             } header: {
@@ -861,15 +752,13 @@ struct iCloudSyncView: View {
         .scrollContentBackground(.hidden)
         .background(Color.gbDark.ignoresSafeArea())
         .navigationTitle("iCloud Sync")
-        .foregroundColor(.white)
+        .foregroundColor(.textPrimary)
         .onAppear {
             loadSyncSettings()
         }
         .onChange(of: iCloudEnabled) { _, newValue in
             saveSyncSettings()
-            if newValue {
-                setupiCloudObserver()
-            }
+            store.setICloudObservation(newValue)
         }
         .alert("Synchronisation", isPresented: $showingSyncAlert) {
             Button("OK", role: .cancel) { }
@@ -891,85 +780,25 @@ struct iCloudSyncView: View {
         UserDefaults.standard.set(autoSync, forKey: "icloud_auto_sync")
     }
     
-    func setupiCloudObserver() {
-        // In a real app, you would set up NSUbiquitousKeyValueStore observation here
-        NotificationCenter.default.addObserver(
-            forName: NSUbiquitousKeyValueStore.didChangeExternallyNotification,
-            object: NSUbiquitousKeyValueStore.default,
-            queue: .main
-        ) { _ in
-            downloadFromiCloud()
-        }
-        NSUbiquitousKeyValueStore.default.synchronize()
-    }
-    
     func syncNow() {
-        isSyncing = true
-        syncStatus = .syncing
-        
-        // Simulate sync delay
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-            uploadToiCloud()
-            lastSyncDate = Date()
-            UserDefaults.standard.set(lastSyncDate, forKey: "icloud_last_sync")
-            isSyncing = false
-            syncStatus = .success
-            
-            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                syncStatus = .idle
-            }
+        uploadToiCloud()
+        lastSyncDate = Date()
+        UserDefaults.standard.set(lastSyncDate, forKey: "icloud_last_sync")
+        syncStatus = .success
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+            syncStatus = .idle
         }
     }
     
     func uploadToiCloud() {
-        let iCloudStore = NSUbiquitousKeyValueStore.default
-        
-        // Save games
-        if let gamesData = try? JSONEncoder().encode(store.myGames) {
-            iCloudStore.set(gamesData, forKey: "icloud_games")
-        }
-        
-        // Save sessions
-        if let sessionsData = try? JSONEncoder().encode(store.playSessions) {
-            iCloudStore.set(sessionsData, forKey: "icloud_sessions")
-        }
-        
-        // Save lists
-        if let listsData = try? JSONEncoder().encode(store.gameLists) {
-            iCloudStore.set(listsData, forKey: "icloud_lists")
-        }
-        
-        // Save goals
-        if let goalsData = try? JSONEncoder().encode(store.monthlyGoals) {
-            iCloudStore.set(goalsData, forKey: "icloud_goals")
-        }
-        
-        // Force sync
-        iCloudStore.synchronize()
-        
+        store.uploadToICloud()
         alertMessage = "Données envoyées vers iCloud avec succès!"
         showingSyncAlert = true
     }
     
     func downloadFromiCloud() {
-        let iCloudStore = NSUbiquitousKeyValueStore.default
-        iCloudStore.synchronize()
-        
-        var importedCount = 0
-        
-        // Load games
-        if let gamesData = iCloudStore.data(forKey: "icloud_games"),
-           let games = try? JSONDecoder().decode([Game].self, from: gamesData) {
-            // Merge with existing games
-            for game in games {
-                if !store.myGames.contains(where: { $0.id == game.id }) {
-                    store.updateGame(game)
-                    importedCount += 1
-                }
-            }
-        }
-        
-        alertMessage = importedCount > 0 ? 
+        let importedCount = store.mergeFromICloud()
+        alertMessage = importedCount > 0 ?
             "\(importedCount) nouveaux éléments importés depuis iCloud!" :
             "Tes données sont déjà à jour!"
         showingSyncAlert = true
@@ -984,10 +813,10 @@ struct DataInfoRow: View {
     var body: some View {
         HStack {
             Text(title)
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
             Spacer()
             Text("\(count)")
-                .foregroundColor(.gray)
+                .foregroundColor(.textSecondary)
         }
     }
 }

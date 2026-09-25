@@ -6,12 +6,12 @@
 //
 
 import SwiftUI
-import Combine
 
 /// Tracks a live play-session for a single game.
 ///
-/// All mutations happen on the `MainActor` so consumers can bind directly to
-/// `@Observable` properties without extra dispatch.
+/// Elapsed time is computed from timestamps, not by counting ticks, so time spent
+/// with the app in the background (or suspended while you play) still counts.
+/// The session is persisted, so it also survives the app being killed.
 @MainActor
 @Observable
 final class TimerManager {
@@ -19,20 +19,36 @@ final class TimerManager {
     // MARK: - State
 
     /// Whether a session is currently active (running or paused).
-    var isRunning = false
+    private(set) var isRunning = false
 
     /// Whether the active session has been paused by the user.
-    var isPaused = false
+    private(set) var isPaused = false
 
-    /// Total seconds elapsed in the current session.
-    var elapsedSeconds: Int = 0
+    /// Total seconds elapsed in the current session (refreshed every second).
+    private(set) var elapsedSeconds: Int = 0
 
     /// The game being tracked in the current session.
-    var activeGame: Game?
+    private(set) var activeGame: Game?
 
     // MARK: - Private
 
+    /// Seconds banked before the current running stretch (i.e. before the last resume).
+    private var accumulatedSeconds: TimeInterval = 0
+    /// Start of the current running stretch; nil while paused.
+    private var runningSince: Date?
     private var timer: Timer?
+
+    private static let storageKey = "gameboxd_active_play_session"
+
+    private struct SavedSession: Codable {
+        let game: Game
+        let accumulatedSeconds: TimeInterval
+        let runningSince: Date?
+    }
+
+    init() {
+        restore()
+    }
 
     // MARK: - Computed Properties
 
@@ -52,58 +68,94 @@ final class TimerManager {
     // MARK: - Public Interface
 
     /// Starts a new session for the given game, resetting any previous state.
-    /// - Parameter game: The game whose play time should be tracked.
     func start(game: Game) {
         activeGame = game
-        elapsedSeconds = 0
+        accumulatedSeconds = 0
+        runningSince = Date()
         isRunning = true
         isPaused = false
+        refresh()
         startTimer()
+        persist()
     }
 
     /// Pauses the running timer without discarding elapsed time.
     func pause() {
-        guard isRunning, !isPaused else { return }
+        guard isRunning, !isPaused, let runningSince else { return }
+        accumulatedSeconds += Date().timeIntervalSince(runningSince)
+        self.runningSince = nil
         isPaused = true
-        isRunning = false
-        timer?.invalidate()
-        timer = nil
+        stopTimer()
+        refresh()
+        persist()
     }
 
     /// Resumes a paused timer, continuing from the current elapsed time.
     func resume() {
         guard isPaused else { return }
+        runningSince = Date()
         isPaused = false
-        isRunning = true
         startTimer()
+        persist()
     }
 
-    /// Stops the session and returns the total elapsed minutes to the caller.
-    ///
-    /// Returns at least `1` minute so zero-length sessions are never recorded
-    /// as empty diary entries.
-    /// - Returns: Elapsed minutes (minimum 1).
+    /// Stops the session and returns the total elapsed minutes (minimum 1, so a
+    /// session is never recorded as an empty diary entry).
     @discardableResult
     func stop() -> Int {
+        refresh()
         let minutes = elapsedMinutes
-        timer?.invalidate()
-        timer = nil
+        stopTimer()
         isRunning = false
         isPaused = false
         elapsedSeconds = 0
+        accumulatedSeconds = 0
+        runningSince = nil
         activeGame = nil
+        UserDefaults.standard.removeObject(forKey: Self.storageKey)
         return max(minutes, 1)
     }
 
     // MARK: - Private Helpers
 
+    private func refresh() {
+        let running = runningSince.map { Date().timeIntervalSince($0) } ?? 0
+        elapsedSeconds = Int(accumulatedSeconds + running)
+    }
+
     private func startTimer() {
+        stopTimer()
         let t = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
-                self?.elapsedSeconds += 1
+                self?.refresh()
             }
         }
         RunLoop.main.add(t, forMode: .common)
         timer = t
+    }
+
+    private func stopTimer() {
+        timer?.invalidate()
+        timer = nil
+    }
+
+    private func persist() {
+        guard let activeGame else { return }
+        let saved = SavedSession(game: activeGame, accumulatedSeconds: accumulatedSeconds, runningSince: runningSince)
+        if let data = try? JSONEncoder().encode(saved) {
+            UserDefaults.standard.set(data, forKey: Self.storageKey)
+        }
+    }
+
+    private func restore() {
+        guard let data = UserDefaults.standard.data(forKey: Self.storageKey),
+              let saved = try? JSONDecoder().decode(SavedSession.self, from: data) else { return }
+        activeGame = saved.game
+        accumulatedSeconds = saved.accumulatedSeconds
+        runningSince = saved.runningSince
+        isRunning = true
+        isPaused = saved.runningSince == nil
+        refresh()
+        if !isPaused { startTimer() }
     }
 }

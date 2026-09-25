@@ -13,27 +13,30 @@ struct RecommendationsView: View {
     @State private var isLoading = true
     
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                if isLoading {
-                    LoadingRecommendationsView()
-                } else {
-                    LazyVStack(spacing: 24) {
-                        ForEach(recommendations) { section in
-                            RecommendationSectionView(section: section)
-                        }
+        ScrollView {
+            if isLoading {
+                LoadingRecommendationsView()
+            } else {
+                LazyVStack(spacing: 24) {
+                    ForEach(recommendations) { section in
+                        RecommendationSectionView(section: section)
                     }
-                    .padding(.vertical)
                 }
+                .padding(.vertical)
             }
-            .background(Color.gbDark.ignoresSafeArea())
-            .navigationTitle("Pour toi")
-            .onAppear {
-                generateRecommendations()
+        }
+        .background(Color.gbDark.ignoresSafeArea())
+        .navigationTitle("Pour toi")
+        .task {
+            // Recommendations are built from Discover data; fetch it if Discover
+            // hasn't been opened yet this session.
+            if store.trendingGames.isEmpty && store.topRated.isEmpty {
+                await store.loadDiscoverData()
             }
-            .refreshable {
-                await refreshRecommendations()
-            }
+            generateRecommendations()
+        }
+        .refreshable {
+            await refreshRecommendations()
         }
     }
     
@@ -55,7 +58,8 @@ struct RecommendationsView: View {
         }
         
         // Similar to highly rated games
-        if let favoriteGame = store.myGames.max(by: { $0.rating < $1.rating }) {
+        if let favoriteGame = store.myGames.max(by: { $0.rating < $1.rating }),
+           favoriteGame.rating > 0, !store.topRated.isEmpty {
             sections.append(RecommendationSection(
                 title: "Si tu as aimé \(favoriteGame.title)",
                 icon: "sparkles",
@@ -91,7 +95,7 @@ struct RecommendationsView: View {
         }
         
         // Upcoming games in favorite genres
-        if store.topGenres.first != nil {
+        if store.topGenres.first != nil, !store.upcomingGames.isEmpty {
             sections.append(RecommendationSection(
                 title: "Prochainement",
                 icon: "calendar",
@@ -101,9 +105,7 @@ struct RecommendationsView: View {
         }
         
         // Hidden gems (less popular but highly rated)
-        let hiddenGems = store.topRated.filter { game in
-            !store.myGames.contains { $0.title == game.title }
-        }
+        let hiddenGems = store.topRated.filter { !store.isInLibrary($0) }
         if !hiddenGems.isEmpty {
             sections.append(RecommendationSection(
                 title: "Pépites à découvrir",
@@ -142,16 +144,16 @@ struct RecommendationSectionView: View {
             // Header
             HStack {
                 Image(systemName: section.icon)
-                    .foregroundColor(.gbGreen)
+                    .foregroundColor(.gbBrass)
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(section.title)
-                        .font(.headline)
-                        .foregroundColor(.white)
+                        .font(DS.Typography.headline)
+                        .foregroundColor(.textPrimary)
                     
                     Text(section.reason)
-                        .font(.caption)
-                        .foregroundColor(.gray)
+                        .font(DS.Typography.caption)
+                        .foregroundColor(.textSecondary)
                 }
                 
                 Spacer()
@@ -186,7 +188,7 @@ struct RecommendationGameCard: View {
         VStack(alignment: .leading, spacing: 8) {
             // Cover
             ZStack(alignment: .topTrailing) {
-                if let coverURL = game.coverImageURL, let url = URL(string: coverURL) {
+                if let url = game.artURL {
                     CachedAsyncImage(url: url) { image in
                         image.resizable().aspectRatio(contentMode: .fill)
                     } placeholder: {
@@ -205,7 +207,7 @@ struct RecommendationGameCard: View {
                 // In Library Badge
                 if isInLibrary {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.gbGreen)
+                        .foregroundColor(.gbBrass)
                         .background(Circle().fill(Color.gbDark))
                         .padding(6)
                 }
@@ -213,26 +215,26 @@ struct RecommendationGameCard: View {
             
             // Title
             Text(game.title)
-                .font(.caption)
+                .font(DS.Typography.caption)
                 .fontWeight(.medium)
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
                 .lineLimit(2)
                 .frame(width: 130, alignment: .leading)
             
             // Platform & Rating
             HStack {
                 Text(game.platform)
-                    .font(.caption2)
-                    .foregroundColor(.gray)
+                    .font(DS.Typography.micro)
+                    .foregroundColor(.textSecondary)
                 
                 Spacer()
                 
                 if game.rating > 0 {
                     HStack(spacing: 2) {
                         Image(systemName: "star.fill")
-                            .font(.caption2)
+                            .font(DS.Typography.micro)
                         Text("\(game.rating)")
-                            .font(.caption2)
+                            .font(DS.Typography.micro)
                     }
                     .foregroundColor(.yellow)
                 }
@@ -249,12 +251,12 @@ struct LoadingRecommendationsView: View {
             Spacer()
             
             ProgressView()
-                .progressViewStyle(CircularProgressViewStyle(tint: .gbGreen))
+                .progressViewStyle(CircularProgressViewStyle(tint: .gbBrass))
                 .scaleEffect(1.5)
             
             Text("Analyse de tes goûts...")
-                .font(.subheadline)
-                .foregroundColor(.gray)
+                .font(DS.Typography.body)
+                .foregroundColor(.textSecondary)
             
             Spacer()
         }
@@ -263,6 +265,6 @@ struct LoadingRecommendationsView: View {
 
 // MARK: - Preview
 #Preview {
-    RecommendationsView()
+    NavigationStack { RecommendationsView() }
         .environmentObject(GameStore())
 }

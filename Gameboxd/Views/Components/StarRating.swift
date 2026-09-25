@@ -42,7 +42,7 @@ struct StarRating: View {
             .resizable()
             .aspectRatio(contentMode: .fit)
             .frame(width: size, height: size)
-            .foregroundColor(isFilled ? .gbGreen : .gray)
+            .foregroundColor(isFilled ? .gbBrass : .gray)
             .scaleEffect(isFilled ? 1.1 : 1.0)
             .animation(.spring(response: 0.2, dampingFraction: 0.5), value: rating)
             .onTapGesture {

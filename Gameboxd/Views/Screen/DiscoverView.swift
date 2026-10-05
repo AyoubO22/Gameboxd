@@ -50,7 +50,7 @@ struct DiscoverView: View {
                     StoreShelf(title: "Sorties récentes", subtitle: "Arrivés ces deux derniers mois",
                                games: store.newReleases, isLoading: store.isLoadingNewReleases,
                                namespace: aisle) { game, _ in
-                        releaseSticker(game, tint: Color(hex: "5FD38D"))
+                        releaseSticker(game, tint: DS.Colors.success)
                     }
 
                     StoreShelf(title: "Les mieux notés", subtitle: "Plébiscités par la critique",
@@ -64,7 +64,7 @@ struct DiscoverView: View {
                     StoreShelf(title: "Bientôt", subtitle: "Les sorties des prochains mois",
                                games: store.upcomingGames, isLoading: store.isLoadingUpcoming,
                                namespace: aisle) { game, _ in
-                        releaseSticker(game, tint: Color(hex: "6FB1FF"))
+                        releaseSticker(game, tint: GameStatus.completed.color)
                     }
 
                     if let randomGame = randomPick {
@@ -315,7 +315,7 @@ struct APIKeyWarningView: View {
         HStack(spacing: DS.Spacing.md) {
             Image(systemName: "key.fill")
                 .font(DS.Typography.title)
-                .foregroundStyle(Color(hex: "FFA630"))
+                .foregroundStyle(DS.Colors.warning)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("Clé API manquante")

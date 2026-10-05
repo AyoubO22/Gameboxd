@@ -3,7 +3,7 @@
 //  Gameboxd
 //
 //  The collection as a real shelf: games you're playing face out,
-//  everything else spine out, on walnut planks.
+//  everything else spine out, on graphite planks.
 //
 
 import SwiftUI
@@ -11,13 +11,13 @@ import SwiftUI
 // MARK: - Shelf palette
 
 enum Shelf {
-    static let plankTop = Color(hex: "A0714A")
-    static let plankFace = Color(hex: "74492C")
-    static let plankEdge = Color(hex: "4A2D1A")
-    static let wallTop = Color(hex: "36221A")
+    static let plankTop = Color(hex: "4A525D")
+    static let plankFace = Color(hex: "2E343C")
+    static let plankEdge = Color(hex: "1A1E24")
+    static let wallTop = Color(hex: "161A1F")
 }
 
-/// One walnut plank. Runs edge to edge, whatever padding its parent has.
+/// One graphite plank. Runs edge to edge, whatever padding its parent has.
 struct ShelfPlank: View {
     var body: some View {
         VStack(spacing: 0) {
@@ -132,7 +132,7 @@ struct SpineFace: View {
                 Color.black.opacity(0.2)
 
                 Text(title.uppercased())
-                    .font(DS.Typography.display(width * 0.44, weight: .black, relativeTo: .headline))
+                    .font(DS.Typography.spine(width * 0.44, weight: .black, relativeTo: .headline))
                     .foregroundStyle(.white)
                     .shadow(color: .black.opacity(0.6), radius: 1.5)
                     .lineLimit(1)
@@ -331,3 +331,4 @@ struct ShelfLibrary<Menu: View>: View {
         .contextMenu { contextMenu(game) }
     }
 }
+

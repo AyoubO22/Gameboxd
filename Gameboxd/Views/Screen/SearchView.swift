@@ -28,7 +28,7 @@ struct SearchView: View {
                         Spacer()
                         ProgressView()
                             .scaleEffect(1.5)
-                            .tint(.gbBrass)
+                            .tint(.gbCoral)
                         Text("Recherche en cours...")
                             .font(DS.Typography.body)
                             .foregroundColor(.textSecondary)
@@ -121,7 +121,7 @@ struct SearchEmptyStateView: View {
                                 .padding(.horizontal, 16)
                                 .padding(.vertical, 8)
                                 .background(Color.gbCard)
-                                .foregroundColor(.gbBrass)
+                                .foregroundColor(.gbCoral)
                                 .cornerRadius(20)
                             }
                         }
@@ -248,8 +248,8 @@ struct SearchResultRow: View {
                         .font(DS.Typography.caption)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .background(Color.gbBrass.opacity(0.2))
-                        .foregroundColor(.gbBrass)
+                        .background(Color.gbCoral.opacity(0.2))
+                        .foregroundColor(.gbCoral)
                         .cornerRadius(6)
                     
                     // Year
@@ -284,7 +284,7 @@ struct SearchResultRow: View {
             VStack(spacing: 8) {
                 if isInLibrary {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.gbBrass)
+                        .foregroundColor(.gbCoral)
                         .font(DS.Typography.title)
                 }
                 

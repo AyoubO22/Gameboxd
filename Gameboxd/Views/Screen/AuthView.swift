@@ -33,14 +33,14 @@ struct AuthView: View {
                     VStack(spacing: 16) {
                         ZStack {
                             Circle()
-                                .fill(Color.gbBrass.gradient)
+                                .fill(Color.gbCoral.gradient)
                                 .frame(width: 120, height: 120)
                             
                             Image(systemName: "gamecontroller.fill")
                                 .font(.system(size: 50))
                                 .foregroundColor(.gbDark)
                         }
-                        .shadow(color: .gbBrass.opacity(0.4), radius: 20)
+                        .shadow(color: .gbCoral.opacity(0.4), radius: 20)
                         
                         Text("Gameboxd")
                             .font(DS.Typography.display(48))
@@ -109,7 +109,7 @@ struct AuthView: View {
                             .fontWeight(.semibold)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Color.gbBrass)
+                        .background(Color.gbCoral)
                         .foregroundColor(.gbDark)
                         .cornerRadius(12)
                     }
@@ -149,7 +149,7 @@ struct AuthView: View {
                         
                         if isSocialLoading {
                             ProgressView()
-                                .tint(.gbBrass)
+                                .tint(.gbCoral)
                                 .padding(.top, 4)
                         }
                     }

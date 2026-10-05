@@ -43,7 +43,7 @@ struct MainTabView: View {
                 }
                 .tag(4)
         }
-        .tint(.gbBrass)
+        .tint(.gbCoral)
         .toolbarBackground(Color.gbDark, for: .tabBar)
         .toolbarBackground(.visible, for: .tabBar)
     }

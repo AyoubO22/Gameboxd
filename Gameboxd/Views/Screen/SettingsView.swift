@@ -95,7 +95,7 @@ struct SettingsView: View {
                 
                 if let url = URL(string: "https://rawg.io") {
                     Link(destination: url) {
-                        SettingsRow(icon: "globe", title: "Données fournies par RAWG", color: .gbBrass)
+                        SettingsRow(icon: "globe", title: "Données fournies par RAWG", color: .gbCoral)
                     }
                 }
             } header: {
@@ -225,7 +225,7 @@ struct AppIconPickerView: View {
                                 .overlay(
                                     Image(systemName: "gamecontroller.fill")
                                         .font(DS.Typography.largeTitle)
-                                        .foregroundColor(.gbBrass)
+                                        .foregroundColor(.gbCoral)
                                 )
                             
                             Text(iconName.replacingOccurrences(of: "AppIcon-", with: ""))
@@ -260,7 +260,7 @@ struct NotificationsSettingsView: View {
         List {
             Section {
                 Toggle("Rappels backlog", isOn: $backlogReminders)
-                    .toggleStyle(SwitchToggleStyle(tint: .gbBrass))
+                    .toggleStyle(SwitchToggleStyle(tint: .gbCoral))
                 
                 if backlogReminders {
                     Stepper("Rappeler après \(backlogReminderDays) jours", value: $backlogReminderDays, in: 3...30)
@@ -274,7 +274,7 @@ struct NotificationsSettingsView: View {
             
             Section {
                 Toggle("Succès débloqués", isOn: $store.achievementAlerts)
-                    .toggleStyle(SwitchToggleStyle(tint: .gbBrass))
+                    .toggleStyle(SwitchToggleStyle(tint: .gbCoral))
             } header: {
                 Text("Succès")
             }
@@ -296,12 +296,12 @@ struct NotificationsSettingsView: View {
                             UIApplication.shared.open(url)
                         }
                     }
-                    .foregroundColor(.gbBrass)
+                    .foregroundColor(.gbCoral)
                 } else if notificationStatus == .notDetermined {
                     Button("Demander l'autorisation") {
                         requestNotificationPermission()
                     }
-                    .foregroundColor(.gbBrass)
+                    .foregroundColor(.gbCoral)
                 }
                 
                 if notificationStatus == .authorized {
@@ -477,7 +477,7 @@ struct CustomTagsView: View {
                 Button("Ajouter le tag") {
                     addTag()
                 }
-                .foregroundColor(.gbBrass)
+                .foregroundColor(.gbCoral)
                 .disabled(newTagName.isEmpty)
             } header: {
                 Text("Nouveau tag")
@@ -500,7 +500,7 @@ struct CustomTagsView: View {
                             
                             if store.customTags.contains(where: { $0.name == tag.name }) {
                                 Image(systemName: "checkmark")
-                                    .foregroundColor(.gbBrass)
+                                    .foregroundColor(.gbCoral)
                             } else {
                                 Image(systemName: "plus")
                                     .foregroundColor(.textSecondary)
@@ -544,7 +544,7 @@ struct AboutView: View {
                 // App Icon
                 ZStack {
                     Circle()
-                        .fill(Color.gbBrass.gradient)
+                        .fill(Color.gbCoral.gradient)
                         .frame(width: 100, height: 100)
                     
                     Image(systemName: "gamecontroller.fill")
@@ -675,11 +675,11 @@ struct iCloudSyncView: View {
             // Settings Section
             Section {
                 Toggle("Activer iCloud", isOn: $iCloudEnabled)
-                    .toggleStyle(SwitchToggleStyle(tint: .gbBrass))
+                    .toggleStyle(SwitchToggleStyle(tint: .gbCoral))
                 
                 if iCloudEnabled {
                     Toggle("Synchronisation automatique", isOn: $autoSync)
-                        .toggleStyle(SwitchToggleStyle(tint: .gbBrass))
+                        .toggleStyle(SwitchToggleStyle(tint: .gbCoral))
                 }
             } header: {
                 Text("Paramètres")
@@ -695,7 +695,7 @@ struct iCloudSyncView: View {
                             Text("Synchroniser maintenant")
                         }
                     }
-                    .foregroundColor(.gbBrass)
+                    .foregroundColor(.gbCoral)
                     
                     Button(action: uploadToiCloud) {
                         HStack {

@@ -488,11 +488,11 @@ struct ShowcaseSection: View {
                 }
                 .padding(.top, DS.Spacing.lg)
                 .padding(.horizontal, DS.Spacing.md)
-                // The display case: a warm spot from above on a slightly lighter back wall.
+                // The display case: a soft spot from above on a slightly lighter back wall.
                 .background(
                     ZStack {
                         Shelf.wallTop
-                        RadialGradient(colors: [Color(hex: "FFE2A8").opacity(0.24), .clear],
+                        RadialGradient(colors: [Color.white.opacity(0.10), .clear],
                                        center: .top, startRadius: 0, endRadius: 220)
                     }
                 )

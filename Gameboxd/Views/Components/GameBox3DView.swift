@@ -385,7 +385,7 @@ private struct BoxBack: View {
                     Spacer()
                     Text("Gameboxd")
                         .font(.system(size: 11, weight: .heavy).width(.condensed))
-                        .foregroundStyle(Color(hex: "F5B942"))
+                        .foregroundStyle(DS.Colors.warning)
                 }
             }
             .padding(12)

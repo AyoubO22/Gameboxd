@@ -144,7 +144,7 @@ struct RecommendationSectionView: View {
             // Header
             HStack {
                 Image(systemName: section.icon)
-                    .foregroundColor(.gbBrass)
+                    .foregroundColor(.gbCoral)
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(section.title)
@@ -207,7 +207,7 @@ struct RecommendationGameCard: View {
                 // In Library Badge
                 if isInLibrary {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.gbBrass)
+                        .foregroundColor(.gbCoral)
                         .background(Circle().fill(Color.gbDark))
                         .padding(6)
                 }
@@ -251,7 +251,7 @@ struct LoadingRecommendationsView: View {
             Spacer()
             
             ProgressView()
-                .progressViewStyle(CircularProgressViewStyle(tint: .gbBrass))
+                .progressViewStyle(CircularProgressViewStyle(tint: .gbCoral))
                 .scaleEffect(1.5)
             
             Text("Analyse de tes goûts...")

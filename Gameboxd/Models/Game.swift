@@ -25,10 +25,10 @@ enum GameStatus: String, CaseIterable, Codable {
     
     var color: Color {
         switch self {
-        case .wantToPlay: return Color(hex: "6FB1FF")   // bleu poussière
-        case .playing: return .gbBrass
-        case .completed: return Color(hex: "5FD38D")    // sauge
-        case .shelved: return Color(hex: "FF6150")      // brique
+        case .wantToPlay: return DS.Colors.warning       // jaune backlog
+        case .playing: return DS.Colors.success          // vert
+        case .completed: return Color(hex: "5B7CFA")     // bleu
+        case .shelved: return Color(hex: "8A929C")       // gris
         case .platinum: return Color(hex: "C79BFF")     // lilas
         case .none: return .textTertiary
         }

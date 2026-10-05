@@ -48,7 +48,7 @@ struct ListsView: View {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: { showingCreateList = true }) {
                         Image(systemName: "plus.circle.fill")
-                            .foregroundColor(.gbBrass)
+                            .foregroundColor(.gbCoral)
                     }
                     .accessibilityLabel("Créer une liste")
                 }
@@ -212,7 +212,7 @@ struct ListDetailView: View {
                             .accessibilityLabel("Ajouter un jeu à la liste")
                             .padding(.horizontal, 20)
                             .padding(.vertical, 10)
-                            .background(Color.gbBrass)
+                            .background(Color.gbCoral)
                             .foregroundColor(.gbDark)
                             .cornerRadius(20)
                         }
@@ -243,7 +243,7 @@ struct ListDetailView: View {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button(action: { showingAddGame = true }) {
                     Image(systemName: "plus")
-                        .foregroundColor(.gbBrass)
+                        .foregroundColor(.gbCoral)
                 }
             }
         }
@@ -336,7 +336,7 @@ struct CreateListView: View {
                         saveList()
                     }
                     .disabled(name.isEmpty)
-                    .foregroundColor(name.isEmpty ? .gray : .gbBrass)
+                    .foregroundColor(name.isEmpty ? .gray : .gbCoral)
                 }
             }
             .onAppear {
@@ -426,7 +426,7 @@ struct AddGameToListView: View {
                         Spacer()
                         
                         Image(systemName: "plus.circle")
-                            .foregroundColor(.gbBrass)
+                            .foregroundColor(.gbCoral)
                     }
                 }
             }
@@ -439,7 +439,7 @@ struct AddGameToListView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Terminé") { dismiss() }
-                        .foregroundColor(.gbBrass)
+                        .foregroundColor(.gbCoral)
                 }
             }
         }

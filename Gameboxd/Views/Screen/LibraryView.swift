@@ -155,6 +155,8 @@ struct LibraryView: View {
                         HStack(spacing: 4) {
                             Image(systemName: "line.3.horizontal.decrease.circle")
                             Text("Filtres")
+                                .lineLimit(1)
+                                .fixedSize()
                             if activeFiltersCount > 0 {
                                 Text("\(activeFiltersCount)")
                                     .font(DS.Typography.label)
@@ -268,7 +270,7 @@ struct LibraryView: View {
                             Button(action: clearAllFilters) {
                                 Text("Tout effacer")
                                     .font(DS.Typography.caption)
-                                    .foregroundStyle(Color(hex: "FF6150"))
+                                    .foregroundStyle(DS.Colors.error)
                             }
                         }
                         .padding(.horizontal)
@@ -311,7 +313,7 @@ struct LibraryView: View {
                             }
                             .padding()
                         } else {
-                            LazyVStack(spacing: 12) {
+                            LazyVStack(spacing: 0) {
                                 ForEach(games) { game in
                                     NavigationLink(destination: GameDetailView(game: game)) {
                                         GameListRow(game: game)
@@ -508,7 +510,7 @@ struct AdvancedFiltersSheet: View {
                         minimumRating = 0
                         selectedYear = nil
                     }
-                    .foregroundStyle(Color(hex: "FF6150"))
+                    .foregroundStyle(DS.Colors.error)
                 }
 
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -590,12 +592,9 @@ struct GameListRow: View {
                     Rectangle().fill(game.coverColor.gradient)
                 }
             }
-            .frame(width: 44, height: 58)
-            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
-                    .stroke(Color.gbBorder, lineWidth: 1)
-            )
+            .frame(width: 40, height: 54)
+            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+            .shadow(color: .black.opacity(0.4), radius: 3, y: 2)
 
             // Info
             VStack(alignment: .leading, spacing: 6) {
@@ -608,7 +607,7 @@ struct GameListRow: View {
                     if game.isFavorite {
                         Image(systemName: "heart.fill")
                             .font(DS.Typography.caption)
-                            .foregroundStyle(Color(hex: "FF6150"))
+                            .foregroundStyle(DS.Colors.error)
                     }
                 }
 
@@ -620,12 +619,13 @@ struct GameListRow: View {
                     // Rating
                     if game.rating > 0 {
                         HStack(spacing: 2) {
-                            ForEach(1...game.rating, id: \.self) { _ in
+                            ForEach(1...5, id: \.self) { star in
                                 Image(systemName: "star.fill")
-                                    .font(.system(size: 8))
+                                    .foregroundStyle(star <= game.rating ? DS.Colors.warning : Color.surfaceSecondary)
                             }
                         }
-                        .foregroundStyle(Color.accent)
+                        .font(.system(size: 9))
+                        .accessibilityLabel("\(game.rating) étoiles sur 5")
                     }
 
                     // Play time
@@ -672,7 +672,11 @@ struct GameListRow: View {
                 .font(DS.Typography.caption)
                 .foregroundStyle(Color.textTertiary)
         }
-        .cardStyle()
+        .padding(.vertical, DS.Spacing.sm)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(Color.gbBorder).frame(height: 0.5).padding(.leading, 52)
+        }
+        .contentShape(Rectangle())
     }
 }
 
@@ -737,10 +741,10 @@ struct StatsHeaderView: View {
 
     var body: some View {
         HStack(spacing: DS.Spacing.xs) {
-            MetricCard(value: "\(store.totalGames)", label: "Jeux", icon: "gamecontroller.fill", tint: Color(hex: "6FB1FF"), compact: true)
-            MetricCard(value: store.totalPlayTimeFormatted, label: "Joué", icon: "clock.fill", tint: Color(hex: "FFA630"), compact: true)
+            MetricCard(value: "\(store.totalGames)", label: "Jeux", icon: "gamecontroller.fill", tint: GameStatus.completed.color, compact: true)
+            MetricCard(value: store.totalPlayTimeFormatted, label: "Joué", icon: "clock.fill", tint: DS.Colors.warning, compact: true)
             MetricCard(value: String(format: "%.1f", store.averageRating), label: "Moyenne", icon: "star.fill", tint: .accent, compact: true)
-            MetricCard(value: "\(store.gamesCount(for: .completed) + store.gamesCount(for: .platinum))", label: "Finis", icon: "checkmark.circle.fill", tint: Color(hex: "FFA630"), compact: true)
+            MetricCard(value: "\(store.gamesCount(for: .completed) + store.gamesCount(for: .platinum))", label: "Finis", icon: "checkmark.circle.fill", tint: DS.Colors.warning, compact: true)
         }
         .padding(DS.Spacing.md)
         .background(Color.gbDark)

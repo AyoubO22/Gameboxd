@@ -176,7 +176,7 @@ struct ChartTypeButton: View {
                 .fontWeight(selected == type ? .semibold : .regular)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
-                .background(selected == type ? Color.gbBrass : Color.gbCard)
+                .background(selected == type ? Color.gbCoral : Color.gbCard)
                 .foregroundColor(selected == type ? .gbDark : .gray)
                 .cornerRadius(20)
         }
@@ -266,7 +266,7 @@ struct GamesPerMonthChart: View {
                 x: .value("Mois", item.month),
                 y: .value("Jeux", item.count)
             )
-            .foregroundStyle(Color.gbBrass.gradient)
+            .foregroundStyle(Color.gbCoral.gradient)
             .cornerRadius(4)
         }
         .frame(height: 200)
@@ -431,7 +431,7 @@ struct RatingChart: View {
         case 2: return .orange
         case 3: return .yellow
         case 4: return .green
-        case 5: return .gbBrass
+        case 5: return .gbCoral
         default: return .gray
         }
     }

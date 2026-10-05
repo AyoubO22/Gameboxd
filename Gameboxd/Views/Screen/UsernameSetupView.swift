@@ -30,7 +30,7 @@ struct UsernameSetupView: View {
                 HStack(spacing: 8) {
                     ForEach(Array(0..<3), id: \.self) { step in
                         Capsule()
-                            .fill(step <= currentStep ? Color.gbBrass : Color.gray.opacity(0.3))
+                            .fill(step <= currentStep ? Color.gbCoral : Color.gray.opacity(0.3))
                             .frame(height: 4)
                     }
                 }
@@ -81,7 +81,7 @@ struct UsernameSetupView: View {
                         .frame(minWidth: 160)
                         .padding(.vertical, 14)
                         .padding(.horizontal, 24)
-                        .background(canProceed ? Color.gbBrass : Color.gray.opacity(0.3))
+                        .background(canProceed ? Color.gbCoral : Color.gray.opacity(0.3))
                         .foregroundColor(canProceed ? .black : .gray)
                         .cornerRadius(14)
                     }
@@ -108,7 +108,7 @@ struct UsernameSetupView: View {
             VStack(spacing: 16) {
                 ZStack {
                     Circle()
-                        .fill(Color.gbBrass.gradient)
+                        .fill(Color.gbCoral.gradient)
                         .frame(width: 100, height: 100)
                         .scaleEffect(isAnimating ? 1.05 : 1.0)
                     
@@ -116,7 +116,7 @@ struct UsernameSetupView: View {
                         .font(.system(size: 40))
                         .foregroundColor(.gbDark)
                 }
-                .shadow(color: .gbBrass.opacity(0.3), radius: 20)
+                .shadow(color: .gbCoral.opacity(0.3), radius: 20)
                 .onAppear {
                     withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
                         isAnimating = true
@@ -157,7 +157,7 @@ struct UsernameSetupView: View {
                     } else {
                         Label("Super pseudo !", systemImage: "checkmark.circle.fill")
                             .font(DS.Typography.caption)
-                            .foregroundColor(.gbBrass)
+                            .foregroundColor(.gbCoral)
                     }
                 }
             }
@@ -176,13 +176,13 @@ struct UsernameSetupView: View {
             VStack(spacing: 16) {
                 ZStack {
                     Circle()
-                        .fill(Color.gbBrass.gradient)
+                        .fill(Color.gbCoral.gradient)
                         .frame(width: 100, height: 100)
                     
                     Text(selectedEmoji)
                         .font(.system(size: 50))
                 }
-                .shadow(color: .gbBrass.opacity(0.3), radius: 20)
+                .shadow(color: .gbCoral.opacity(0.3), radius: 20)
                 
                 Text("Choisis ton avatar")
                     .font(DS.Typography.title)
@@ -206,11 +206,11 @@ struct UsernameSetupView: View {
                             .frame(width: 55, height: 55)
                             .background(
                                 RoundedRectangle(cornerRadius: 12)
-                                    .fill(selectedEmoji == emoji ? Color.gbBrass.opacity(0.25) : Color.gbCard)
+                                    .fill(selectedEmoji == emoji ? Color.gbCoral.opacity(0.25) : Color.gbCard)
                             )
                             .overlay(
                                 RoundedRectangle(cornerRadius: 12)
-                                    .stroke(selectedEmoji == emoji ? Color.gbBrass : Color.clear, lineWidth: 2)
+                                    .stroke(selectedEmoji == emoji ? Color.gbCoral : Color.clear, lineWidth: 2)
                             )
                             .scaleEffect(selectedEmoji == emoji ? 1.1 : 1.0)
                     }
@@ -231,14 +231,14 @@ struct UsernameSetupView: View {
             VStack(spacing: 16) {
                 ZStack {
                     Circle()
-                        .fill(Color.gbBrass.gradient)
+                        .fill(Color.gbCoral.gradient)
                         .frame(width: 100, height: 100)
                     
                     Image(systemName: "gamecontroller.fill")
                         .font(.system(size: 40))
                         .foregroundColor(.gbDark)
                 }
-                .shadow(color: .gbBrass.opacity(0.3), radius: 20)
+                .shadow(color: .gbCoral.opacity(0.3), radius: 20)
                 
                 Text("Tes plateformes")
                     .font(DS.Typography.title)
@@ -270,12 +270,12 @@ struct UsernameSetupView: View {
                         }
                         .padding(.horizontal, 16)
                         .padding(.vertical, 10)
-                        .background(selectedPlatforms.contains(platform) ? Color.gbBrass.opacity(0.2) : Color.gbCard)
-                        .foregroundColor(selectedPlatforms.contains(platform) ? .gbBrass : .gray)
+                        .background(selectedPlatforms.contains(platform) ? Color.gbCoral.opacity(0.2) : Color.gbCard)
+                        .foregroundColor(selectedPlatforms.contains(platform) ? .gbCoral : .gray)
                         .cornerRadius(20)
                         .overlay(
                             RoundedRectangle(cornerRadius: 20)
-                                .stroke(selectedPlatforms.contains(platform) ? Color.gbBrass : Color.gray.opacity(0.3), lineWidth: 1)
+                                .stroke(selectedPlatforms.contains(platform) ? Color.gbCoral : Color.gray.opacity(0.3), lineWidth: 1)
                         )
                     }
                 }

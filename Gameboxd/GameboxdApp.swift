@@ -30,20 +30,14 @@ struct GameboxdApp: App {
         Self.styleNavigationBars()
     }
 
-    /// Navigation titles are UIKit: give them the display face (Big Shoulders is a
-    /// variable font, so the weight goes through the 'wght' axis).
+    /// Navigation titles are UIKit: heavy system face, scaled for Dynamic Type.
     private static func styleNavigationBars() {
-        func display(_ size: CGFloat, weight: CGFloat, style: UIFont.TextStyle) -> UIFont {
-            let wght = 0x7767_6874 // 'wght'
-            let descriptor = UIFontDescriptor(fontAttributes: [
-                .name: "BigShouldersDisplay-Thin",
-                UIFontDescriptor.AttributeName(rawValue: kCTFontVariationAttribute as String): [wght: weight],
-            ])
-            return UIFontMetrics(forTextStyle: style).scaledFont(for: UIFont(descriptor: descriptor, size: size))
+        func display(_ size: CGFloat, weight: UIFont.Weight, style: UIFont.TextStyle) -> UIFont {
+            UIFontMetrics(forTextStyle: style).scaledFont(for: .systemFont(ofSize: size, weight: weight))
         }
         let text = UIColor(Color.textPrimary)
-        let large: [NSAttributedString.Key: Any] = [.font: display(42, weight: 900, style: .largeTitle), .foregroundColor: text]
-        let inline: [NSAttributedString.Key: Any] = [.font: display(21, weight: 800, style: .headline), .foregroundColor: text]
+        let large: [NSAttributedString.Key: Any] = [.font: display(34, weight: .bold, style: .largeTitle), .foregroundColor: text]
+        let inline: [NSAttributedString.Key: Any] = [.font: display(17, weight: .semibold, style: .headline), .foregroundColor: text]
 
         let standard = UINavigationBarAppearance()
         standard.configureWithDefaultBackground()

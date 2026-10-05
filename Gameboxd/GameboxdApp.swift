@@ -13,7 +13,7 @@ class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
 @main
 struct GameboxdApp: App {
     // On instancie le store ici pour qu'il vive pendant toute la durée de vie de l'app
-    @StateObject private var store = GameStore()
+    @State private var store = GameStore()
     @State private var timerManager = TimerManager()
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @Environment(\.scenePhase) private var scenePhase
@@ -58,7 +58,7 @@ struct GameboxdApp: App {
         WindowGroup {
             if hasCompletedOnboarding {
                 ContentView()
-                    .environmentObject(store)
+                    .environment(store)
                     .environment(timerManager)
                     .preferredColorScheme(.dark)
                     .onOpenURL { url in
@@ -67,7 +67,7 @@ struct GameboxdApp: App {
                     }
             } else {
                 OnboardingView(hasCompletedOnboarding: $hasCompletedOnboarding)
-                    .environmentObject(store)
+                    .environment(store)
                     .environment(timerManager)
                     .preferredColorScheme(.dark)
                     .onOpenURL { url in

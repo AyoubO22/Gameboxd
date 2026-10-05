@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct AchievementsView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @State private var selectedCategory: AchievementCategory? = nil
     @State private var showingUnlockedOnly = false
     
@@ -462,6 +462,6 @@ struct AchievementDetailSheet: View {
 #Preview {
     NavigationStack {
         AchievementsView()
-            .environmentObject(GameStore())
+            .environment(GameStore())
     }
 }

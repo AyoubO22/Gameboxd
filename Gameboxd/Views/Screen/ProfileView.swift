@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct ProfileView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @State private var showingEditProfile = false
     @State private var showingLists = false
     @Namespace private var showcaseNamespace
@@ -58,7 +58,7 @@ struct ProfileView: View {
 
 // MARK: - Profile Navigation Section
 struct ProfileNavigationSection: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     
     var body: some View {
         VStack(spacing: 0) {
@@ -147,7 +147,7 @@ struct ProfileNavRow: View {
 
 // MARK: - My Lists Section
 struct MyListsSection: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @Binding var showingLists: Bool
     
     var body: some View {
@@ -189,7 +189,7 @@ struct MyListsSection: View {
 
 struct ListPreviewCard: View {
     let list: GameList
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -214,7 +214,7 @@ struct ListPreviewCard: View {
 
 // MARK: - Year In Review View
 struct YearInReviewView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @State private var selectedYear = Calendar.current.component(.year, from: Date())
     
     var stats: YearStats {
@@ -323,7 +323,7 @@ struct YearInReviewView: View {
 // MARK: - List Detail View (from Profile)
 struct ListDetailViewFromProfile: View {
     let list: GameList
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     
     var gamesInList: [Game] {
         store.myGames.filter { list.gameIds.contains($0.id) }
@@ -379,14 +379,14 @@ struct ListDetailViewFromProfile: View {
 // MARK: - Preview
 #Preview {
     ProfileView()
-        .environmentObject(GameStore())
+        .environment(GameStore())
 }
 
 // MARK: - Nameplate
 
 /// Your name set large, like an engraved plate: the page is about you, not a stats dashboard.
 struct ProfileNameplate: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @Binding var showingEditProfile: Bool
 
     private var profile: UserProfile { store.userProfile }
@@ -439,7 +439,7 @@ struct ProfileNameplate: View {
 
 /// Your four favourite games, face out on a lit plank, like a shop's display case.
 struct ShowcaseSection: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     let namespace: Namespace.ID
     /// Width available to the row of cases.
     let rowWidth: CGFloat
@@ -510,7 +510,7 @@ struct ShowcaseSection: View {
 
 /// Picks a library game to put in the showcase.
 struct ShowcasePicker: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @Environment(\.dismiss) private var dismiss
 
     private var candidates: [Game] {
@@ -562,7 +562,7 @@ struct ShowcasePicker: View {
 // MARK: - Your year, told in sentences
 
 struct YearStorySection: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     private let year = Calendar.current.component(.year, from: Date())
 
     private var headline: String {

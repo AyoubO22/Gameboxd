@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct DiaryView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @State private var showingAddSession = false
     @State private var selectedDate = Date()
     @State private var viewMode: DiaryViewMode = .list
@@ -53,7 +53,7 @@ struct DiaryView: View {
 // MARK: - Diary List View
 /// Sessions grouped by month, newest first, filterable by the game's status.
 struct DiaryListView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @Binding var showingAddSession: Bool
     @State private var filter: GameStatus?
 
@@ -206,7 +206,7 @@ struct PlaySessionCard: View {
 // MARK: - Play Session Detail View
 struct PlaySessionDetailView: View {
     let session: PlaySession
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @Environment(\.dismiss) var dismiss
     @State private var showingSpoiler = false
     @State private var showingDeleteConfirmation = false
@@ -432,7 +432,7 @@ struct SessionDetailRow: View {
 
 // MARK: - Calendar View
 struct DiaryCalendarView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @Binding var selectedDate: Date
     @State private var currentMonth = Date()
     
@@ -680,7 +680,7 @@ struct EmptyDiaryView: View {
 
 // MARK: - Add Play Session View
 struct AddPlaySessionView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @Environment(\.dismiss) var dismiss
     
     var preselectedGame: Game? = nil
@@ -909,7 +909,7 @@ struct AddPlaySessionView: View {
 
 // MARK: - Game Picker View
 struct GamePickerView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @Environment(\.dismiss) var dismiss
     @Binding var selectedGame: Game?
     @State private var searchText = ""
@@ -980,5 +980,5 @@ struct GamePickerView: View {
 // MARK: - Preview
 #Preview {
     DiaryView()
-        .environmentObject(GameStore())
+        .environment(GameStore())
 }

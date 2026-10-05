@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct SocialView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @State private var selectedTab = 0
     
     var body: some View {
@@ -47,7 +47,7 @@ struct SocialView: View {
 
 // MARK: - Activity Feed
 struct ActivityFeedView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     
     var body: some View {
         if store.activityFeed.isEmpty {
@@ -210,7 +210,7 @@ struct ActivityCard: View {
 
 // MARK: - Friends List
 struct FriendsListView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     
     var body: some View {
         if store.friends.isEmpty {
@@ -262,7 +262,7 @@ struct EmptyFriendsView: View {
 
 struct FriendRow: View {
     let friend: Friend
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     
     var body: some View {
         HStack(spacing: 12) {
@@ -314,7 +314,7 @@ struct FriendRow: View {
 // MARK: - Find Friends
 struct FindFriendsView: View {
     @State private var searchText = ""
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     
     // Mock suggested users
     let suggestedUsers = [
@@ -401,7 +401,7 @@ struct FindFriendsView: View {
 }
 
 struct SuggestedUserRow: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     let user: Friend
 
     private var isFollowing: Bool {
@@ -457,5 +457,5 @@ struct SuggestedUserRow: View {
 // MARK: - Preview
 #Preview {
     NavigationStack { SocialView() }
-        .environmentObject(GameStore())
+        .environment(GameStore())
 }

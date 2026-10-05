@@ -36,13 +36,6 @@ struct PlayStationConfig {
 
 // MARK: - PSN API Response Models
 
-struct PSNAuthTokenResponse: Codable {
-    let access_token: String
-    let token_type: String
-    let expires_in: Int
-    let refresh_token: String?
-    let scope: String?
-}
 
 struct PSNProfileResponse: Codable {
     let onlineId: String
@@ -85,10 +78,6 @@ struct PSNGameTitle: Codable {
     let npTitleId: String?                 // Game title ID
 }
 
-struct PSNGameTrophiesResponse: Codable {
-    let totalItemCount: Int?
-    let trophies: [PSNTrophy]?
-}
 
 struct PSNTrophy: Codable {
     let trophyId: Int
@@ -206,18 +195,6 @@ class PlayStationService {
         throw PlayStationServiceError.notConfigured
     }
     
-    /// Authenticate with NPSSO token (advanced users / development)
-    func authenticateWithNPSSO(npsso: String) async throws {
-        // Step 1: Exchange NPSSO for authorization code
-        // var request = URLRequest(url: URL(string: "\(PlayStationConfig.authURL)/authorize")!)
-        // request.setValue("npsso=\(npsso)", forHTTPHeaderField: "Cookie")
-        // ... follow redirects to get ?code=xxx
-        
-        // Step 2: Exchange code for access token
-        // let tokenResponse = try await exchangeCodeForTokens(code: authCode)
-        
-        throw PlayStationServiceError.notConfigured
-    }
     
     // MARK: - Game Library
     
@@ -248,14 +225,6 @@ class PlayStationService {
         return []
     }
     
-    /// Fetches detailed trophies for a specific game
-    func getGameTrophies(accountId: String, communicationId: String) async throws -> [PSNTrophy] {
-        // Real endpoint:
-        // GET \(baseURL)/trophy/v1/users/\(accountId)/npCommunicationIds/\(communicationId)/trophyGroups/all/trophies
-        
-        // Placeholder
-        return []
-    }
     
     // MARK: - Full Library Sync
     

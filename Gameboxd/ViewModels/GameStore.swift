@@ -6,52 +6,53 @@
 //
 
 import SwiftUI
-import Combine
+
 import UserNotifications
 
 @MainActor
-class GameStore: ObservableObject {
-    // MARK: - Published Properties
-    @Published var myGames: [Game] = []
-    @Published var playSessions: [PlaySession] = []
-    @Published var gameLists: [GameList] = []
-    @Published var userProfile: UserProfile = UserProfile()
-    @Published var isLoggedIn: Bool = false
+@Observable
+final class GameStore {
+    // MARK: - State
+    var myGames: [Game] = []
+    var playSessions: [PlaySession] = []
+    var gameLists: [GameList] = []
+    var userProfile: UserProfile = UserProfile()
+    var isLoggedIn: Bool = false
     
     // API Data
-    @Published var trendingGames: [Game] = []
-    @Published var newReleases: [Game] = []
-    @Published var topRated: [Game] = []
-    @Published var upcomingGames: [Game] = []
-    @Published var searchResults: [Game] = []
+    var trendingGames: [Game] = []
+    var newReleases: [Game] = []
+    var topRated: [Game] = []
+    var upcomingGames: [Game] = []
+    var searchResults: [Game] = []
     
     // Loading States
-    @Published var isLoadingTrending = false
-    @Published var isLoadingNewReleases = false
-    @Published var isLoadingTopRated = false
-    @Published var isLoadingUpcoming = false
-    @Published var isSearching = false
+    var isLoadingTrending = false
+    var isLoadingNewReleases = false
+    var isLoadingTopRated = false
+    var isLoadingUpcoming = false
+    var isSearching = false
     
     // NEW: Achievements, Social
-    @Published var achievements: [Achievement] = []
-    @Published var customTags: [CustomTag] = []
-    @Published var friends: [Friend] = []
-    @Published var activityFeed: [ActivityItem] = []
-    @Published var notifications: [GameNotification] = []
-    @Published var recentlyUnlockedAchievements: [Achievement] = []
+    var achievements: [Achievement] = []
+    var customTags: [CustomTag] = []
+    var friends: [Friend] = []
+    var activityFeed: [ActivityItem] = []
+    var notifications: [GameNotification] = []
+    var recentlyUnlockedAchievements: [Achievement] = []
     
     // Monthly Goals
-    @Published var monthlyGoals: [MonthlyGoal] = []
-    @Published var completedGoals: [MonthlyGoal] = []
+    var monthlyGoals: [MonthlyGoal] = []
+    var completedGoals: [MonthlyGoal] = []
     
     // Notification Settings
-    @Published var achievementAlerts: Bool = UserDefaults.standard.object(forKey: StorageKeys.achievementAlerts) as? Bool ?? true {
+    var achievementAlerts: Bool = UserDefaults.standard.object(forKey: StorageKeys.achievementAlerts) as? Bool ?? true {
         didSet { UserDefaults.standard.set(achievementAlerts, forKey: StorageKeys.achievementAlerts) }
     }
     
     // Linked Gaming Accounts
-    @Published var linkedAccounts: [LinkedAccount] = []
-    @Published var importedGames: [ImportedGame] = []
+    var linkedAccounts: [LinkedAccount] = []
+    var importedGames: [ImportedGame] = []
     
     // Services
     private let rawgService = RAWGService.shared
@@ -485,7 +486,7 @@ class GameStore: ObservableObject {
     
     private var latestSearchQuery = ""
     /// The query `searchResults` answers. Until it equals what's typed, a search is pending.
-    @Published private(set) var searchedQuery = ""
+    private(set) var searchedQuery = ""
 
     func searchGamesOnline(query: String) async {
         latestSearchQuery = query
@@ -689,9 +690,6 @@ class GameStore: ObservableObject {
         playSessions.filter { Calendar.current.isDate($0.date, inSameDayAs: date) }
     }
     
-    func recentSessions(limit: Int = 10) -> [PlaySession] {
-        Array(playSessions.prefix(limit))
-    }
     
     // MARK: - Game Lists Methods
     
@@ -741,10 +739,6 @@ class GameStore: ObservableObject {
     
     // MARK: - Profile Methods
     
-    func updateProfile(_ profile: UserProfile) {
-        userProfile = profile
-        saveUserProfile()
-    }
     
     func addFavoriteGame(_ game: Game) {
         guard userProfile.favoriteGameIds.count < 4 else { return }
@@ -928,65 +922,70 @@ class GameStore: ObservableObject {
             return year < 2000
         }.count
 
-        for i in achievements.indices {
-            let oldUnlocked = achievements[i].isUnlocked
+        // Work on a copy: one store update (and one write) instead of one per achievement.
+        var updated = achievements
+        for i in updated.indices {
+            let oldUnlocked = updated[i].isUnlocked
 
-            switch achievements[i].id {
+            switch updated[i].id {
             case "first_game":
-                achievements[i].currentProgress = min(gameCount, 1)
+                updated[i].currentProgress = min(gameCount, 1)
             case "collector_10":
-                achievements[i].currentProgress = min(gameCount, 10)
+                updated[i].currentProgress = min(gameCount, 10)
             case "collector_50":
-                achievements[i].currentProgress = min(gameCount, 50)
+                updated[i].currentProgress = min(gameCount, 50)
             case "collector_100":
-                achievements[i].currentProgress = min(gameCount, 100)
+                updated[i].currentProgress = min(gameCount, 100)
             case "complete_10":
-                achievements[i].currentProgress = min(completedCount, 10)
+                updated[i].currentProgress = min(completedCount, 10)
             case "complete_25":
-                achievements[i].currentProgress = min(completedCount, 25)
+                updated[i].currentProgress = min(completedCount, 25)
             case "platinum_5":
-                achievements[i].currentProgress = min(platinumCount, 5)
+                updated[i].currentProgress = min(platinumCount, 5)
             case "time_100":
-                achievements[i].currentProgress = min(totalHours, 100)
+                updated[i].currentProgress = min(totalHours, 100)
             case "time_500":
-                achievements[i].currentProgress = min(totalHours, 500)
+                updated[i].currentProgress = min(totalHours, 500)
             case "time_1000":
-                achievements[i].currentProgress = min(totalHours, 1000)
+                updated[i].currentProgress = min(totalHours, 1000)
             case "genres_5":
-                achievements[i].currentProgress = min(uniqueGenres.count, 5)
+                updated[i].currentProgress = min(uniqueGenres.count, 5)
             case "platforms_3":
-                achievements[i].currentProgress = min(uniquePlatforms.count, 3)
+                updated[i].currentProgress = min(uniquePlatforms.count, 3)
             case "reviews_10":
-                achievements[i].currentProgress = min(reviewCount, 10)
+                updated[i].currentProgress = min(reviewCount, 10)
             case "streak_7":
-                achievements[i].currentProgress = min(streak, 7)
+                updated[i].currentProgress = min(streak, 7)
             case "streak_30":
-                achievements[i].currentProgress = min(streak, 30)
+                updated[i].currentProgress = min(streak, 30)
             case "favorite_genre":
                 if let topGenre = topGenres.first, topGenre.1 >= 10 {
-                    achievements[i].currentProgress = 10
+                    updated[i].currentProgress = 10
                 }
             case "lists_5":
-                achievements[i].currentProgress = min(gameLists.count, 5)
+                updated[i].currentProgress = min(gameLists.count, 5)
             case "indie_lover":
-                achievements[i].currentProgress = min(indieCount, 20)
+                updated[i].currentProgress = min(indieCount, 20)
             case "retro_gamer":
-                achievements[i].currentProgress = min(retroCount, 10)
+                updated[i].currentProgress = min(retroCount, 10)
             default:
                 break
             }
 
             // Check if newly unlocked
-            if achievements[i].currentProgress >= achievements[i].requirement && !oldUnlocked {
-                achievements[i].isUnlocked = true
-                achievements[i].unlockedDate = Date()
-                newlyUnlocked.append(achievements[i])
+            if updated[i].currentProgress >= updated[i].requirement && !oldUnlocked {
+                updated[i].isUnlocked = true
+                updated[i].unlockedDate = Date()
+                newlyUnlocked.append(updated[i])
             }
         }
 
-        // Always persist progress so progress bars survive a relaunch,
-        // not only when an achievement is newly unlocked.
-        saveAchievements()
+        // Persist progress (not only unlocks) so progress bars survive a relaunch;
+        // skip the write when nothing moved.
+        if updated != achievements {
+            achievements = updated
+            saveAchievements()
+        }
 
         if !newlyUnlocked.isEmpty {
             recentlyUnlockedAchievements = newlyUnlocked
@@ -1034,10 +1033,6 @@ class GameStore: ObservableObject {
         achievements.filter { !$0.isUnlocked }
     }
     
-    func achievementProgress() -> Double {
-        guard !achievements.isEmpty else { return 0 }
-        return Double(unlockedAchievements.count) / Double(achievements.count)
-    }
     
     // MARK: - Custom Tags
     
@@ -1056,10 +1051,6 @@ class GameStore: ObservableObject {
         saveCustomTags()
     }
     
-    func removeCustomTag(_ tag: CustomTag) {
-        customTags.removeAll { $0.id == tag.id }
-        saveCustomTags()
-    }
     
     // MARK: - Friends & Social
     
@@ -1100,11 +1091,13 @@ class GameStore: ObservableObject {
         let calendar = Calendar.current
         let currentMonth = calendar.component(.month, from: Date())
         let currentYear = calendar.component(.year, from: Date())
-        
-        for i in monthlyGoals.indices {
+        var goals = monthlyGoals
+        var doneGoals = completedGoals
+
+        for i in goals.indices {
             // Check if goal is for current month
-            guard calendar.component(.month, from: monthlyGoals[i].month) == currentMonth,
-                  calendar.component(.year, from: monthlyGoals[i].month) == currentYear else {
+            guard calendar.component(.month, from: goals[i].month) == currentMonth,
+                  calendar.component(.year, from: goals[i].month) == currentYear else {
                 continue
             }
             
@@ -1114,19 +1107,19 @@ class GameStore: ObservableObject {
                                 continue
                         }
             
-            switch monthlyGoals[i].type {
+            switch goals[i].type {
             case .gamesCompleted:
                 let completed = myGames.filter { game in
                     guard let completedDate = game.completedDate else { return false }
                     return completedDate >= monthStart && completedDate <= monthEnd &&
                            (game.status == .completed || game.status == .platinum)
                 }.count
-                monthlyGoals[i].current = completed
+                goals[i].current = completed
                 
             case .hoursPlayed:
                 let sessions = playSessions.filter { $0.date >= monthStart && $0.date <= monthEnd }
                 let totalMinutes = sessions.reduce(0) { $0 + $1.duration }
-                monthlyGoals[i].current = totalMinutes / 60
+                goals[i].current = totalMinutes / 60
                 
             case .reviewsWritten:
                 // Note: uses startedDate as a proxy since there's no dedicated reviewedDate field
@@ -1134,14 +1127,14 @@ class GameStore: ObservableObject {
                     guard let started = game.startedDate, !game.review.isEmpty else { return false }
                     return started >= monthStart && started <= monthEnd
                 }.count
-                monthlyGoals[i].current = reviews
+                goals[i].current = reviews
                 
             case .newGames:
                 let newGames = myGames.filter { game in
                     guard let started = game.startedDate else { return false }
                     return started >= monthStart && started <= monthEnd
                 }.count
-                monthlyGoals[i].current = newGames
+                goals[i].current = newGames
                 
             case .platinums:
                 let platinums = myGames.filter { game in
@@ -1149,7 +1142,7 @@ class GameStore: ObservableObject {
                     return completedDate >= monthStart && completedDate <= monthEnd &&
                            game.status == .platinum
                 }.count
-                monthlyGoals[i].current = platinums
+                goals[i].current = platinums
                 
             case .backlogCleared:
                 // For backlog cleared, we count games completed this month
@@ -1159,23 +1152,22 @@ class GameStore: ObservableObject {
                     return completedDate >= monthStart && completedDate <= monthEnd &&
                            (game.status == .completed || game.status == .platinum)
                 }.count
-                monthlyGoals[i].current = cleared
+                goals[i].current = cleared
             }
             
             // Check if goal is completed
-            if monthlyGoals[i].current >= monthlyGoals[i].target && monthlyGoals[i].completedDate == nil {
-                monthlyGoals[i].completedDate = Date()
-                completedGoals.append(monthlyGoals[i])
+            if goals[i].current >= goals[i].target && goals[i].completedDate == nil {
+                goals[i].completedDate = Date()
+                doneGoals.append(goals[i])
             }
         }
         
+        guard goals != monthlyGoals || doneGoals != completedGoals else { return }
+        monthlyGoals = goals
+        completedGoals = doneGoals
         saveMonthlyGoals()
     }
     
-    func removeMonthlyGoal(_ goal: MonthlyGoal) {
-        monthlyGoals.removeAll { $0.id == goal.id }
-        saveMonthlyGoals()
-    }
     
     func addFriend(_ friend: Friend) {
         var newFriend = friend

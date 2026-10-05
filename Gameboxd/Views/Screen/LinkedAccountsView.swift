@@ -9,7 +9,7 @@
 import SwiftUI
 
 struct LinkedAccountsView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @State private var showingLinkSheet: GamingPlatform?
     @State private var showingUnlinkConfirm: LinkedAccount?
     @State private var showingSyncResult = false
@@ -350,7 +350,7 @@ struct PlatformLinkCard: View {
 // MARK: - Link Platform Sheet
 struct LinkPlatformSheet: View {
     let platform: GamingPlatform
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @Environment(\.dismiss) var dismiss
     
     @State private var platformId = ""
@@ -578,7 +578,7 @@ struct ImportedGameRow: View {
 
 // MARK: - All Imported Games View
 struct AllImportedGamesView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @State private var searchText = ""
     @State private var selectedPlatform: GamingPlatform?
     
@@ -669,6 +669,6 @@ private struct LinkedAccountsFilterChip: View {
 #Preview {
     NavigationStack {
         LinkedAccountsView()
-            .environmentObject(GameStore())
+            .environment(GameStore())
     }
 }

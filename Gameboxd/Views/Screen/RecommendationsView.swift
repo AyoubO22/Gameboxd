@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct RecommendationsView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @State private var recommendations: [RecommendationSection] = []
     @State private var isLoading = true
     
@@ -178,7 +178,7 @@ struct RecommendationSectionView: View {
 // MARK: - Recommendation Game Card
 struct RecommendationGameCard: View {
     let game: Game
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     
     var isInLibrary: Bool {
         store.isInLibrary(game)
@@ -266,5 +266,5 @@ struct LoadingRecommendationsView: View {
 // MARK: - Preview
 #Preview {
     NavigationStack { RecommendationsView() }
-        .environmentObject(GameStore())
+        .environment(GameStore())
 }

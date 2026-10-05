@@ -94,21 +94,10 @@ struct CardStyle: ViewModifier {
     }
 }
 
-struct SectionHeaderStyle: ViewModifier {
-    func body(content: Content) -> some View {
-        content
-            .font(DS.Typography.title)
-            .foregroundStyle(Color.textPrimary)
-    }
-}
 
 extension View {
     func cardStyle() -> some View {
         modifier(CardStyle())
-    }
-
-    func sectionHeader() -> some View {
-        modifier(SectionHeaderStyle())
     }
 }
 

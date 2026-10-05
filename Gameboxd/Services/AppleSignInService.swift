@@ -97,15 +97,6 @@ class AppleSignInService: NSObject, ObservableObject {
         }
     }
     
-    /// Check if an existing Apple ID credential is still valid
-    func checkCredentialState(userId: String) async -> ASAuthorizationAppleIDProvider.CredentialState {
-        return await withCheckedContinuation { continuation in
-            let provider = ASAuthorizationAppleIDProvider()
-            provider.getCredentialState(forUserID: userId) { state, _ in
-                continuation.resume(returning: state)
-            }
-        }
-    }
     
     // MARK: - Nonce Generation (Replay Attack Prevention)
     

@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct GameDetailView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @State var game: Game
     @Environment(\.dismiss) var dismiss
     
@@ -171,7 +171,7 @@ struct GameDetailView: View {
                 originalGame = game
             }
         }
-        .onReceive(store.$myGames) { games in
+        .onChange(of: store.myGames) { _, games in
             // Sessions and the toolbar favorite button change the stored game directly.
             // Pull those fields in so Save doesn't write the stale values back.
             guard let stored = games.first(where: { $0.id == game.id }), var original = originalGame else { return }
@@ -317,7 +317,7 @@ struct SubRatingRow: View {
 // MARK: - Add to List Sheet
 struct AddToListSheet: View {
     let game: Game
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @Environment(\.dismiss) var dismiss
     
     var body: some View {
@@ -380,7 +380,7 @@ struct AddToListSheet: View {
             playTime: "45h",
             genres: ["Action", "Adventure"]
         ))
-        .environmentObject(GameStore())
+        .environment(GameStore())
     }
 }
 

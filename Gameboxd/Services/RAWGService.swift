@@ -255,12 +255,6 @@ class RAWGService: ObservableObject {
         return response.results
     }
     
-    // MARK: - Get Games by Genre
-    func getGamesByGenre(genreSlug: String, page: Int = 1) async throws -> [RAWGGame] {
-        guard hasValidAPIKey else { return [] }
-        let response: RAWGGameResponse = try await fetch("/games", ["genres": genreSlug, "ordering": "-rating", "page": "\(page)", "page_size": "20"])
-        return response.results
-    }
 }
 
 // MARK: - Convert RAWG Game to App Game Model

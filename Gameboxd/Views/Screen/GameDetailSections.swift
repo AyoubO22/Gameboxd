@@ -676,7 +676,7 @@ struct PlayDetailsSection: View {
 // MARK: - Similar games
 
 struct SimilarGamesShelf: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     let games: [Game]
     let isLoading: Bool
     let namespace: Namespace.ID

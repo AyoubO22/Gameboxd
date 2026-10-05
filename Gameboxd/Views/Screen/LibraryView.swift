@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct LibraryView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @State private var selectedFilter: GameStatus = .playing
     @State private var showingStats = false
     @State private var sortOption: SortOption = .title
@@ -576,7 +576,7 @@ struct FilterButton: View {
 // MARK: - Game List Row
 struct GameListRow: View {
     let game: Game
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     
     var body: some View {
         HStack(spacing: DS.Spacing.sm) {
@@ -683,7 +683,7 @@ struct GameListRow: View {
 // MARK: - Game Context Menu
 struct GameContextMenu: View {
     let game: Game
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     var onDelete: ((Game) -> Void)? = nil
     
     var body: some View {
@@ -737,7 +737,7 @@ struct GameContextMenu: View {
 
 // Vue des statistiques
 struct StatsHeaderView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
 
     var body: some View {
         HStack(spacing: DS.Spacing.xs) {
@@ -781,5 +781,5 @@ struct EmptyStateView: View {
 // MARK: - Preview
 #Preview {
     LibraryView()
-        .environmentObject(GameStore())
+        .environment(GameStore())
 }

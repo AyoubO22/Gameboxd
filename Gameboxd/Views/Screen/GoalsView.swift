@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct GoalsView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @State private var showingAddGoal = false
     
     /// Goals from past months stop updating, so only this month's are "active".
@@ -133,7 +133,7 @@ struct MonthHeaderView: View {
 // MARK: - Goal Card
 struct GoalCard: View {
     let goal: MonthlyGoal
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     
     var progress: Double {
         guard goal.target > 0 else { return 0 }
@@ -324,7 +324,7 @@ struct CompletedGoalBadge: View {
 // MARK: - Add Goal Sheet
 struct AddGoalSheet: View {
     @Environment(\.dismiss) var dismiss
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     
     @State private var title = ""
     @State private var selectedType: GoalType = .gamesCompleted
@@ -389,5 +389,5 @@ struct AddGoalSheet: View {
 // MARK: - Preview
 #Preview {
     NavigationStack { GoalsView() }
-        .environmentObject(GameStore())
+        .environment(GameStore())
 }

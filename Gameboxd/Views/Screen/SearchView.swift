@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct SearchView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @State private var searchText = ""
     @State private var searchTask: Task<Void, Never>?
 
@@ -304,5 +304,5 @@ struct SearchResultRow: View {
 // MARK: - Preview
 #Preview {
     SearchView()
-        .environmentObject(GameStore())
+        .environment(GameStore())
 }

@@ -9,7 +9,7 @@ import SwiftUI
 import AuthenticationServices
 
 struct AuthView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     private let securityManager = SecurityManager.shared
     private let appleSignInService = AppleSignInService.shared
     private let googleSignInService = GoogleSignInService.shared
@@ -412,5 +412,5 @@ struct SocialLoginButton: View {
 // MARK: - Preview
 #Preview {
     AuthView()
-        .environmentObject(GameStore())
+        .environment(GameStore())
 }

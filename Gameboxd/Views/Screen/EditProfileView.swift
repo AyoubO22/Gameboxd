@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct EditProfileView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @Environment(\.dismiss) var dismiss
     
     @State private var username: String = ""

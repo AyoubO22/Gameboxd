@@ -10,7 +10,7 @@ import UniformTypeIdentifiers
 import UserNotifications
 
 struct SettingsView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @State private var showingExportSheet = false
     @State private var showingImportPicker = false
     @State private var showingDeleteConfirmation = false
@@ -249,7 +249,7 @@ struct AppIconPickerView: View {
 
 // MARK: - Notifications Settings
 struct NotificationsSettingsView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @AppStorage("gameboxd_backlog_reminders") private var backlogReminders = true
     @AppStorage("gameboxd_backlog_reminder_days") private var backlogReminderDays = 7
     @State private var notificationStatus: UNAuthorizationStatus = .notDetermined
@@ -273,7 +273,7 @@ struct NotificationsSettingsView: View {
             .listRowBackground(Color.gbCard)
             
             Section {
-                Toggle("Succès débloqués", isOn: $store.achievementAlerts)
+                Toggle("Succès débloqués", isOn: Bindable(store).achievementAlerts)
                     .toggleStyle(SwitchToggleStyle(tint: .gbCoral))
             } header: {
                 Text("Succès")
@@ -431,7 +431,7 @@ struct NotificationsSettingsView: View {
 
 // MARK: - Custom Tags View
 struct CustomTagsView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @State private var showingAddTag = false
     @State private var newTagName = ""
     @State private var newTagColor = Color.blue
@@ -604,7 +604,7 @@ struct ShareSheet: UIViewControllerRepresentable {
 
 // MARK: - iCloud Sync View
 struct iCloudSyncView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @State private var iCloudEnabled = false
     @State private var autoSync = true
     @State private var lastSyncDate: Date?
@@ -825,6 +825,6 @@ struct DataInfoRow: View {
 #Preview {
     NavigationStack {
         SettingsView()
-            .environmentObject(GameStore())
+            .environment(GameStore())
     }
 }

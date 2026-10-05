@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct OnboardingView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @State private var currentPage = 0
     @Binding var hasCompletedOnboarding: Bool
     
@@ -212,5 +212,5 @@ struct OnboardingPageView: View {
 // MARK: - Preview
 #Preview {
     OnboardingView(hasCompletedOnboarding: .constant(false))
-        .environmentObject(GameStore())
+        .environment(GameStore())
 }

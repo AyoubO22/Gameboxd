@@ -9,7 +9,7 @@
 import SwiftUI
 
 struct DiscoverView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @State private var randomPick: Game?
     @Namespace private var aisle
 
@@ -125,7 +125,7 @@ struct StoreSticker: View {
 // MARK: - A bin of cases
 
 struct StoreShelf<Sticker: View>: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     let title: String
     let subtitle: String
     let games: [Game]
@@ -193,7 +193,7 @@ struct StoreShelf<Sticker: View>: View {
 /// The endcap at the head of the aisle: the n° 1 trending game, its case standing
 /// in front of its own artwork.
 struct EndcapFeature: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     let game: Game
     let namespace: Namespace.ID
 
@@ -343,5 +343,5 @@ struct APIKeyWarningView: View {
 // MARK: - Preview
 #Preview {
     DiscoverView()
-        .environmentObject(GameStore())
+        .environment(GameStore())
 }

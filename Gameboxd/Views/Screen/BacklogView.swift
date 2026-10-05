@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct BacklogView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @State private var selectedPriority: GamePriority? = nil
     @State private var showingRandomPicker = false
     @State private var randomGame: Game? = nil
@@ -276,7 +276,7 @@ struct PriorityFilterChip: View {
 // MARK: - Backlog Game Row
 struct BacklogGameRow: View {
     let game: Game
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     
     var body: some View {
         HStack(spacing: 12) {
@@ -380,5 +380,5 @@ struct BacklogGameRow: View {
 // MARK: - Preview
 #Preview {
     NavigationStack { BacklogView() }
-        .environmentObject(GameStore())
+        .environment(GameStore())
 }

@@ -9,7 +9,7 @@ import SwiftUI
 import Charts
 
 struct StatisticsView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @State private var selectedPeriod: StatPeriod = .year
     @State private var selectedChart: ChartType = .gamesPerMonth
     
@@ -91,7 +91,7 @@ struct StatisticsView: View {
 // MARK: - Summary Cards
 struct SummaryCardsView: View {
     let games: [Game]
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     
     var body: some View {
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
@@ -188,7 +188,7 @@ struct ChartContainer: View {
     let chartType: StatisticsView.ChartType
     let period: StatisticsView.StatPeriod
     let games: [Game]
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -478,7 +478,7 @@ struct StatusChart: View {
 // MARK: - Additional Stats
 struct AdditionalStatsView: View {
     let games: [Game]
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     
     var completionRate: Double {
         guard !games.isEmpty else { return 0 }
@@ -529,7 +529,7 @@ struct StatRow: View {
 
 // MARK: - Gaming Habits
 struct GamingHabitsView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     
     var mostPlayedGenre: String {
         var genreCount: [String: Int] = [:]
@@ -600,6 +600,6 @@ struct HabitCard: View {
 #Preview {
     NavigationStack {
         StatisticsView()
-            .environmentObject(GameStore())
+            .environment(GameStore())
     }
 }

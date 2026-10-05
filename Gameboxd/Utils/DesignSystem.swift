@@ -56,9 +56,9 @@ enum DS {
 
     // MARK: - Semantic Colors
     enum Colors {
-        static let success = Color(hex: "93B874")   // sauge
-        static let warning = Color(hex: "E3A24C")   // ambre
-        static let error = Color(hex: "D9695A")     // brique
+        static let success = Color(hex: "5FD38D")   // sauge
+        static let warning = Color(hex: "FFA630")   // ambre
+        static let error = Color(hex: "FF6150")     // brique
 
         // Metacritic-style score color
         static func score(_ value: Int) -> Color {

@@ -2,19 +2,19 @@ import SwiftUI
 
 extension Color {
     // Palette « L'Étagère » : bois de noyer, laiton, os.
-    static let gbBrass = Color(hex: "D1AE66")      // laiton : actions, sélection
-    static let gbDark = Color(hex: "1E1915")       // noyer foncé : fond
-    static let gbCard = Color(hex: "2B241F")       // noyer : surfaces
-    static let gbSurface2 = Color(hex: "362D27")   // noyer clair : surfaces imbriquées
-    static let gbBorder = Color(hex: "463B33")     // arête de planche
+    static let gbBrass = Color(hex: "F5B942")      // laiton : actions, sélection
+    static let gbDark = Color(hex: "170F0A")       // noyer foncé : fond
+    static let gbCard = Color(hex: "2A1C13")       // noyer : surfaces
+    static let gbSurface2 = Color(hex: "3A281B")   // noyer clair : surfaces imbriquées
+    static let gbBorder = Color(hex: "54392A")     // arête de planche
 
-    static let gbTextSecondary = Color(hex: "ADA092")
+    static let gbTextSecondary = Color(hex: "CDB49A")
 
     // MARK: - Semantic Design System Colors
     static let accent = Color.gbBrass
-    static let textPrimary = Color(hex: "F1EADF")  // os
+    static let textPrimary = Color(hex: "FFF4E4")  // os
     static let textSecondary = Color.gbTextSecondary
-    static let textTertiary = Color(hex: "85786B")
+    static let textTertiary = Color(hex: "957A63")
     static let surfacePrimary = Color.gbCard
     static let surfaceSecondary = Color.gbSurface2
     static let separator = Color.gbBorder

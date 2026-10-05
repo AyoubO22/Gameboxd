@@ -155,12 +155,7 @@ struct ImportedGame: Identifiable, Codable, Hashable {
     }
     
     var formattedPlaytime: String {
-        let hours = playtimeMinutes / 60
-        let mins = playtimeMinutes % 60
-        if hours > 0 {
-            return "\(hours)h \(mins)m"
-        }
-        return "\(mins)m"
+        formatDuration(minutes: playtimeMinutes)
     }
     
     var completionPercentage: Int {

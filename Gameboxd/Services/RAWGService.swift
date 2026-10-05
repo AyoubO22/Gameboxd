@@ -54,15 +54,22 @@ struct RAWGGame: Codable, Identifiable {
     let publishers: [RAWGPublisher]?
     let description: String?
     let descriptionRaw: String?
+    let esrbRating: RAWGEsrbRating?
     
     enum CodingKeys: String, CodingKey {
         case id, name, slug, released, rating, metacritic, playtime, genres, platforms, stores, developers, publishers, description
+        case esrbRating = "esrb_rating"
         case backgroundImage = "background_image"
         case ratingTop = "rating_top"
         case ratingsCount = "ratings_count"
         case shortScreenshots = "short_screenshots"
         case descriptionRaw = "description_raw"
     }
+}
+
+/// US age rating; converted to its PEGI equivalent for the case spine.
+struct RAWGEsrbRating: Codable {
+    let slug: String
 }
 
 struct RAWGGenre: Codable, Identifiable {
@@ -126,9 +133,11 @@ struct RAWGGameDetail: Codable {
     let website: String?
     let redditUrl: String?
     let metacriticUrl: String?
+    let esrbRating: RAWGEsrbRating?
     
     enum CodingKeys: String, CodingKey {
         case id, name, slug, released, rating, metacritic, playtime, genres, platforms, developers, publishers, website
+        case esrbRating = "esrb_rating"
         case backgroundImage = "background_image"
         case backgroundImageAdditional = "background_image_additional"
         case descriptionRaw = "description_raw"
@@ -267,6 +276,8 @@ extension RAWGGame {
             developer: developerName,
             platform: platformName,
             releaseYear: year,
+            releaseDate: released,
+            ageRating: esrbRating?.slug,
             coverImageURL: backgroundImage,
             coverColor: .purple,
             rating: 0,

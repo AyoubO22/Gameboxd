@@ -11,10 +11,10 @@ import SwiftUI
 // MARK: - Shelf palette
 
 enum Shelf {
-    static let plankTop = Color(hex: "54473C")
-    static let plankFace = Color(hex: "43382F")
-    static let plankEdge = Color(hex: "342B24")
-    static let wallTop = Color(hex: "2E2620")
+    static let plankTop = Color(hex: "A0714A")
+    static let plankFace = Color(hex: "74492C")
+    static let plankEdge = Color(hex: "4A2D1A")
+    static let wallTop = Color(hex: "36221A")
 }
 
 /// One walnut plank. Runs edge to edge, whatever padding its parent has.
@@ -62,45 +62,118 @@ extension PlatformBand {
 
 struct GameSpine: View {
     let game: Game
+    @State private var cover: UIImage?
     @State private var color: UIColor?
 
     private var band: PlatformBand { PlatformBand(platform: game.platform) }
 
     var body: some View {
-        let base = color ?? UIColor(game.coverColor)
+        SpineFace(title: game.title, band: band, cover: cover, tint: color ?? UIColor(game.coverColor),
+                  pegi: game.pegi, width: band.spineWidth, height: band.caseHeight)
+            // Printed-plastic sheen and the edge where the case folds.
+            .overlay(
+                LinearGradient(colors: [.white.opacity(0.16), .clear, .black.opacity(0.22)], startPoint: .leading, endPoint: .trailing)
+            )
+            .clipShape(UnevenRoundedRectangle(topLeadingRadius: 3, bottomLeadingRadius: 1, bottomTrailingRadius: 1, topTrailingRadius: 3))
+            .task(id: game.artURL) {
+                guard let url = game.artURL else { return }
+                let image = await ImageCache.shared.load(url)
+                let tint = await ImageCache.shared.dominantColor(for: url)
+                withAnimation(.easeOut(duration: 0.25)) {
+                    cover = image
+                    color = tint
+                }
+            }
+            .accessibilityElement()
+            .accessibilityLabel("\(game.title), \(band.label.capitalized)")
+    }
+}
+
+/// A printed case spine, as on European cases: the platform band, a slice of the cover art
+/// under the title (fading into the cover's own colour), and the PEGI badge at the foot.
+/// Shared by the shelf and the 3D box, so both show the same spine.
+struct SpineFace: View {
+    let title: String
+    let band: PlatformBand
+    let cover: UIImage?
+    let tint: UIColor
+    let pegi: Int?
+    let width: CGFloat
+    let height: CGFloat
+
+    private var bandHeight: CGFloat { (height * 0.105).rounded() }
+    private var badgeZone: CGFloat { pegi == nil ? 0 : (width * 0.95).rounded() }
+
+    var body: some View {
+        let bodyHeight = height - bandHeight
         VStack(spacing: 0) {
             Text(band.label)
-                .font(DS.Typography.text(8, weight: .bold, relativeTo: .caption2))
+                .font(DS.Typography.text(max(7, width * 0.2), weight: .bold, relativeTo: .caption2))
                 .foregroundStyle(.white)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
-                .frame(maxWidth: .infinity)
-                .frame(height: 18)
+                .frame(width: width, height: bandHeight)
                 .background(band.color)
 
-            Text(game.title.uppercased())
-                .font(DS.Typography.display(16, weight: .black, relativeTo: .headline))
-                .foregroundStyle(base.isLight ? Color.black.opacity(0.82) : Color.white.opacity(0.94))
-                .lineLimit(1)
-                .minimumScaleFactor(0.55)
-                .frame(width: band.caseHeight - 30)
-                .rotationEffect(.degrees(90))
-                .frame(width: band.spineWidth, height: band.caseHeight - 18)
+            ZStack(alignment: .bottom) {
+                // A vertical slice through the middle of the cover art…
+                Group {
+                    if let cover {
+                        Image(uiImage: cover).resizable().scaledToFill()
+                    } else {
+                        Color(tint)
+                    }
+                }
+                .frame(width: width, height: bodyHeight)
+                .clipped()
+
+                // …fading into the cover's own colour towards the foot, and dimmed under the title.
+                LinearGradient(colors: [Color(tint).opacity(0.2), Color(tint).opacity(0.95)], startPoint: .top, endPoint: .bottom)
+                Color.black.opacity(0.2)
+
+                Text(title.uppercased())
+                    .font(DS.Typography.display(width * 0.44, weight: .black, relativeTo: .headline))
+                    .foregroundStyle(.white)
+                    .shadow(color: .black.opacity(0.6), radius: 1.5)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+                    .frame(width: bodyHeight - badgeZone - width * 0.3)
+                    .rotationEffect(.degrees(90))
+                    .frame(width: width, height: bodyHeight - badgeZone)
+                    .frame(maxHeight: .infinity, alignment: .top)
+
+                if let pegi {
+                    PEGIBadge(age: pegi, size: (width * 0.62).rounded())
+                        .padding(.bottom, (width * 0.18).rounded())
+                }
+            }
+            .frame(width: width, height: bodyHeight)
         }
-        .frame(width: band.spineWidth, height: band.caseHeight)
-        .background(Color(base))
-        // Printed-plastic sheen and the edge where the case folds.
-        .overlay(
-            LinearGradient(colors: [.white.opacity(0.16), .clear, .black.opacity(0.22)], startPoint: .leading, endPoint: .trailing)
-        )
-        .clipShape(UnevenRoundedRectangle(topLeadingRadius: 3, bottomLeadingRadius: 1, bottomTrailingRadius: 1, topTrailingRadius: 3))
-        .task(id: game.artURL) {
-            guard let url = game.artURL else { return }
-            let loaded = await ImageCache.shared.dominantColor(for: url)
-            withAnimation(.easeOut(duration: 0.25)) { color = loaded }
+        .frame(width: width, height: height)
+    }
+}
+
+/// The PEGI age mark printed at the foot of European game cases.
+struct PEGIBadge: View {
+    let age: Int
+    let size: CGFloat
+
+    private var color: Color {
+        switch age {
+        case ..<8: return Color(hex: "7AB829")    // PEGI 3, 7
+        case ..<17: return Color(hex: "F7A600")   // PEGI 12, 16
+        default: return Color(hex: "E3001B")      // PEGI 18
         }
-        .accessibilityElement()
-        .accessibilityLabel("\(game.title), \(band.label.capitalized)")
+    }
+
+    var body: some View {
+        Text("\(age)")
+            .font(DS.Typography.text(size * 0.52, weight: .bold, relativeTo: .caption2))
+            .foregroundStyle(.white)
+            .frame(width: size, height: size)
+            .background(color, in: RoundedRectangle(cornerRadius: size * 0.12, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: size * 0.12, style: .continuous).stroke(.white.opacity(0.9), lineWidth: max(0.8, size * 0.05)))
+            .accessibilityLabel("PEGI \(age)")
     }
 }
 
@@ -108,11 +181,19 @@ struct GameSpine: View {
 
 struct FaceOutCase: View {
     let game: Game
+    /// Width of the printed cover; the case keeps DVD-case proportions around it.
+    var coverWidth: CGFloat = 115
+    var showsProgress = true
     @State private var spineColor: UIColor?
+
+    private var coverHeight: CGFloat { (coverWidth * 1.39).rounded() }
 
     var body: some View {
         HStack(spacing: 0) {
-            Color(spineColor ?? UIColor(game.coverColor)).frame(width: 7)
+            // Fixed height: a bare Color is flexible and would stretch to whatever height
+            // the parent offers (e.g. the Discover endcap).
+            Color(spineColor ?? UIColor(game.coverColor))
+                .frame(width: max(4, (coverWidth * 0.06).rounded()), height: coverHeight)
             ZStack(alignment: .bottom) {
                 Group {
                     if let url = game.artURL {
@@ -125,19 +206,19 @@ struct FaceOutCase: View {
                         game.coverColor
                     }
                 }
-                .frame(width: 115, height: 160)
+                .frame(width: coverWidth, height: coverHeight)
                 .clipped()
 
                 LinearGradient(colors: [.white.opacity(0.2), .clear], startPoint: .topLeading, endPoint: .center)
 
-                if game.completionPercentage > 0 {
+                if showsProgress && game.completionPercentage > 0 {
                     ProgressView(value: Double(game.completionPercentage), total: 100)
                         .tint(Color.accent)
                         .background(Color.black.opacity(0.5), in: Capsule())
                         .padding(8)
                 }
             }
-            .frame(width: 115, height: 160)
+            .frame(width: coverWidth, height: coverHeight)
         }
         .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
         .shadow(color: .black.opacity(0.5), radius: 7, y: 6)

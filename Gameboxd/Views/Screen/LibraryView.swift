@@ -268,7 +268,7 @@ struct LibraryView: View {
                             Button(action: clearAllFilters) {
                                 Text("Tout effacer")
                                     .font(DS.Typography.caption)
-                                    .foregroundStyle(Color(hex: "D9695A"))
+                                    .foregroundStyle(Color(hex: "FF6150"))
                             }
                         }
                         .padding(.horizontal)
@@ -508,7 +508,7 @@ struct AdvancedFiltersSheet: View {
                         minimumRating = 0
                         selectedYear = nil
                     }
-                    .foregroundStyle(Color(hex: "D9695A"))
+                    .foregroundStyle(Color(hex: "FF6150"))
                 }
 
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -608,7 +608,7 @@ struct GameListRow: View {
                     if game.isFavorite {
                         Image(systemName: "heart.fill")
                             .font(DS.Typography.caption)
-                            .foregroundStyle(Color(hex: "D9695A"))
+                            .foregroundStyle(Color(hex: "FF6150"))
                     }
                 }
 
@@ -737,10 +737,10 @@ struct StatsHeaderView: View {
 
     var body: some View {
         HStack(spacing: DS.Spacing.xs) {
-            MetricCard(value: "\(store.totalGames)", label: "Jeux", icon: "gamecontroller.fill", tint: Color(hex: "8EA9C9"), compact: true)
-            MetricCard(value: store.totalPlayTimeFormatted, label: "Joué", icon: "clock.fill", tint: Color(hex: "E3A24C"), compact: true)
+            MetricCard(value: "\(store.totalGames)", label: "Jeux", icon: "gamecontroller.fill", tint: Color(hex: "6FB1FF"), compact: true)
+            MetricCard(value: store.totalPlayTimeFormatted, label: "Joué", icon: "clock.fill", tint: Color(hex: "FFA630"), compact: true)
             MetricCard(value: String(format: "%.1f", store.averageRating), label: "Moyenne", icon: "star.fill", tint: .accent, compact: true)
-            MetricCard(value: "\(store.gamesCount(for: .completed) + store.gamesCount(for: .platinum))", label: "Finis", icon: "checkmark.circle.fill", tint: Color(hex: "E3A24C"), compact: true)
+            MetricCard(value: "\(store.gamesCount(for: .completed) + store.gamesCount(for: .platinum))", label: "Finis", icon: "checkmark.circle.fill", tint: Color(hex: "FFA630"), compact: true)
         }
         .padding(DS.Spacing.md)
         .background(Color.gbDark)

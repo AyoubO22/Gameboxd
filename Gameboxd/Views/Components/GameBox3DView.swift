@@ -80,7 +80,6 @@ final class SpinState {
     private var lastDragYaw: Float = 0
     private var lastDragTime = Date()
     private var isSettled = true
-    private var time: Float = 0
 
     weak var pivot: Entity?
     var subscription: EventSubscription?
@@ -134,8 +133,9 @@ final class SpinState {
 
     /// Advances one frame. Returns true on the frame the box comes to rest.
     func step(_ dt: Float) -> Bool {
-        time += dt
-        guard let pivot, !isDragging else { return false }
+        // At rest nothing moves, so nothing is touched: the scene stops re-rendering
+        // (a perpetual idle animation kept the page at ~40 % CPU).
+        guard let pivot, !isDragging, !isSettled else { return false }
         let dt = min(dt, 1.0 / 30.0)
 
         // Slightly under-damped spring: settles with a small, physical overshoot.
@@ -147,8 +147,6 @@ final class SpinState {
         pitch += pitchVelocity * dt
 
         pivot.orientation = Self.orientation(yaw: yaw, pitch: pitch)
-        // A barely-there float, so the box feels held rather than printed.
-        pivot.position.y = sin(time * 1.6) * 0.0015
 
         let resting = abs(targetYaw - yaw) < 0.004 && abs(yawVelocity) < 0.02
         if resting && !isSettled {
@@ -195,10 +193,18 @@ enum GameBoxFactory {
         }
         let spineColor = cover.flatMap { ImageCache.averageColor(of: $0)?.printed() } ?? UIColor(game.coverColor)
         let platform = PlatformBand(platform: game.platform)
+        var screenshots: [UIImage] = []
+        for string in game.screenshotURLs.prefix(2) {
+            if let url = URL(string: string), let image = await ImageCache.shared.load(url) {
+                screenshots.append(image)
+            }
+        }
 
         guard let front = render(BoxFront(cover: cover, fallback: game.coverColor, band: platform)),
-              let back = render(BoxBack(game: game, cover: cover)),
-              let spine = render(BoxSpine(title: game.title, color: Color(spineColor), textColor: spineColor.isLight ? .black.opacity(0.85) : .white.opacity(0.92), band: platform)),
+              let back = render(BoxBack(game: game, cover: cover, screenshots: screenshots,
+                                        band: platform, background: Color(spineColor.darker(0.42)))),
+              let spine = render(SpineFace(title: game.title, band: platform, cover: cover, tint: spineColor,
+                                           pegi: game.pegi, width: 28, height: faceSize.height)),
               let edge = render(Rectangle().fill(Color(spineColor.darker(0.25))).frame(width: 60, height: 60)) else {
             return nil
         }
@@ -244,9 +250,14 @@ struct PlatformBand {
     let label: String
     let color: Color
 
+    /// Platforms offered on the game page. RAWG's list is often incomplete (a PS5 release
+    /// added after launch is missing), so the choice is never limited to it.
+    static let choices = ["PlayStation 5", "PlayStation 4", "Xbox Series X|S", "Xbox One",
+                          "Nintendo Switch", "PC", "Mac", "iOS", "Android"]
+
     init(platform: String) {
         let p = platform.lowercased()
-        if p.contains("playstation") || p.contains("ps") {
+        if p.contains("playstation") || p.hasPrefix("ps") {
             label = p.contains("4") ? "PS4" : "PS5"
             color = Color(hex: "1F4FD8")
         } else if p.contains("xbox") {
@@ -255,6 +266,12 @@ struct PlatformBand {
         } else if p.contains("switch") || p.contains("nintendo") {
             label = "SWITCH"
             color = Color(hex: "E60012")
+        } else if p.contains("ios") || p.contains("android") || p.contains("mobile") {
+            label = "MOBILE"
+            color = Color(hex: "5C6167")
+        } else if p.contains("mac") {
+            label = "MAC"
+            color = Color(hex: "8E8E93")
         } else {
             label = "PC"
             color = Color(hex: "3A3A3A")
@@ -263,7 +280,7 @@ struct PlatformBand {
 }
 
 // Faces are drawn at 2 px per millimetre (×3 when rendered): 270 × 382 for the front and back.
-private let faceSize = CGSize(width: 270, height: 382)
+let faceSize = CGSize(width: 270, height: 382)
 
 private struct BoxFront: View {
     let cover: UIImage?
@@ -295,74 +312,86 @@ private struct BoxFront: View {
     }
 }
 
-private struct BoxSpine: View {
-    let title: String
-    let color: Color
-    let textColor: Color
-    let band: PlatformBand
-
-    var body: some View {
-        VStack(spacing: 0) {
-            band.color.frame(height: 22)
-            Text(title.uppercased())
-                .font(.system(size: 15, weight: .black).width(.condensed))
-                .foregroundStyle(textColor)
-                .lineLimit(1)
-                .minimumScaleFactor(0.5)
-                .frame(width: faceSize.height - 60)
-                .rotationEffect(.degrees(90))
-                .frame(width: 28, height: faceSize.height - 22)
-        }
-        .frame(width: 28, height: faceSize.height)
-        .background(color)
-    }
-}
-
+/// The back of the case, as a publisher prints it: screenshots and a blurb about the game.
 private struct BoxBack: View {
     let game: Game
     let cover: UIImage?
+    let screenshots: [UIImage]
+    let band: PlatformBand
+    let background: Color
 
-    private var hours: String {
-        let h = game.playTimeMinutes / 60
-        return h > 0 ? "\(h) h jouées" : "Pas encore joué"
+    /// As much of the description as the back holds (~520 characters), cut on the last
+    /// sentence end before the limit so it never stops mid-word.
+    private var blurb: String? {
+        guard let text = game.description?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else { return nil }
+        let joined = text.components(separatedBy: "\n")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n")
+        guard joined.count > 520 else { return joined }
+        let cut = joined.prefix(520)
+        if let end = cut.lastIndex(where: { ".!?".contains($0) }) { return String(cut[...end]) }
+        return cut + "…"
+    }
+
+    private var credits: String {
+        [game.developer, game.releaseYear]
+            .filter { !$0.isEmpty && $0 != "Unknown" && $0 != "—" && $0 != "TBA" }
+            .joined(separator: ", ")
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            if let cover {
-                Image(uiImage: cover).resizable().scaledToFill()
-                    .frame(height: 92).frame(maxWidth: .infinity).clipped()
-                    .clipShape(RoundedRectangle(cornerRadius: 4))
-            }
-            Text(game.title)
-                .font(.system(size: 22, weight: .heavy).width(.condensed))
-                .foregroundStyle(Color(hex: "EFE8DD"))
-                .lineLimit(2)
-            HStack(spacing: 3) {
-                ForEach(1...5, id: \.self) { i in
-                    Image(systemName: i <= game.rating ? "star.fill" : "star")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(Color(hex: "C9A45C"))
+        VStack(alignment: .leading, spacing: 0) {
+            Text(band.label)
+                .font(.system(size: 13, weight: .heavy).width(.condensed))
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+                .padding(.trailing, 12)
+                .frame(height: 22)
+                .background(band.color)
+
+            VStack(alignment: .leading, spacing: 9) {
+                Text(game.title)
+                    .font(.system(size: 18, weight: .black).width(.condensed))
+                    .foregroundStyle(.white)
+                    .lineLimit(2)
+
+                // Screenshots, or the cover art when RAWG has none.
+                HStack(spacing: 6) {
+                    let pictures = screenshots.isEmpty ? [cover].compactMap { $0 } : screenshots
+                    ForEach(pictures.indices, id: \.self) { index in
+                        Image(uiImage: pictures[index]).resizable().scaledToFill()
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 64)
+                            .clipped()
+                            .clipShape(RoundedRectangle(cornerRadius: 3))
+                    }
                 }
-                Spacer()
-                Text(hours)
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(Color(hex: "A89C8C"))
+
+                if let blurb {
+                    Text(blurb)
+                        .font(.system(size: 9.5))
+                        .lineSpacing(1.5)
+                        .foregroundStyle(.white.opacity(0.88))
+                        .lineLimit(18)
+                }
+
+                Spacer(minLength: 0)
+
+                HStack(alignment: .lastTextBaseline) {
+                    Text(credits)
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.65))
+                    Spacer()
+                    Text("Gameboxd")
+                        .font(.system(size: 11, weight: .heavy).width(.condensed))
+                        .foregroundStyle(Color(hex: "F5B942"))
+                }
             }
-            if !game.review.isEmpty {
-                Text("« \(game.review) »")
-                    .font(.system(size: 12).italic())
-                    .foregroundStyle(Color(hex: "EFE8DD"))
-                    .lineLimit(6)
-            }
-            Spacer(minLength: 0)
-            Text("Gameboxd")
-                .font(.system(size: 11, weight: .heavy).width(.condensed))
-                .foregroundStyle(Color(hex: "A89C8C"))
+            .padding(12)
         }
-        .padding(16)
         .frame(width: faceSize.width, height: faceSize.height, alignment: .topLeading)
-        .background(Color(hex: "231D19"))
+        .background(background)
     }
 }
 

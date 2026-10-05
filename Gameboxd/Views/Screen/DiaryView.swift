@@ -187,7 +187,7 @@ struct PlaySessionCard: View {
                             Text("Voir le spoiler")
                         }
                         .font(DS.Typography.caption)
-                        .foregroundStyle(Color(hex: "E3A24C"))
+                        .foregroundStyle(Color(hex: "FFA630"))
                     }
                 } else {
                     Text(session.notes)
@@ -346,7 +346,7 @@ struct PlaySessionDetailView: View {
                                         .font(DS.Typography.label)
                                         .padding(.horizontal, 8)
                                         .padding(.vertical, 4)
-                                        .background(Color(hex: "E3A24C"))
+                                        .background(Color(hex: "FFA630"))
                                         .foregroundStyle(Color.gbDark)
                                         .clipShape(Capsule())
                                 }
@@ -362,8 +362,8 @@ struct PlaySessionDetailView: View {
                                     }
                                     .frame(maxWidth: .infinity)
                                     .padding()
-                                    .background(Color(hex: "E3A24C").opacity(0.16))
-                                    .foregroundStyle(Color(hex: "E3A24C"))
+                                    .background(Color(hex: "FFA630").opacity(0.16))
+                                    .foregroundStyle(Color(hex: "FFA630"))
                                     .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
                                 }
                             } else {
@@ -384,7 +384,7 @@ struct PlaySessionDetailView: View {
                         .font(DS.Typography.headline)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .foregroundStyle(Color(hex: "D9695A"))
+                        .foregroundStyle(Color(hex: "FF6150"))
                         .contentShape(Rectangle())
                     }
                 }
@@ -763,7 +763,7 @@ struct AddPlaySessionView: View {
                         
                         Picker("Minutes", selection: $minutes) {
                             ForEach(Array(stride(from: 0, to: 60, by: 5)), id: \.self) { m in
-                                Text("\(m)m").tag(m)
+                                Text("\(m) min").tag(m)
                             }
                         }
                         .pickerStyle(.wheel)
@@ -819,7 +819,7 @@ struct AddPlaySessionView: View {
                     Toggle(isOn: $isSpoiler) {
                         Label("Contient des spoilers", systemImage: "eye.slash")
                     }
-                    .tint(Color(hex: "E3A24C"))
+                    .tint(Color(hex: "FFA630"))
                 }
             }
             .scrollContentBackground(.hidden)

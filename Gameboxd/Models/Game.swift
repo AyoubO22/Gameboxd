@@ -7,6 +7,13 @@
 
 import SwiftUI
 
+/// French duration: "45 min", "5 h", "1 h 30".
+func formatDuration(minutes: Int) -> String {
+    let hours = minutes / 60, mins = minutes % 60
+    if hours == 0 { return "\(mins) min" }
+    return mins == 0 ? "\(hours) h" : "\(hours) h \(String(format: "%02d", mins))"
+}
+
 // MARK: - Game Status
 enum GameStatus: String, CaseIterable, Codable {
     case none = "Non suivi"
@@ -18,11 +25,11 @@ enum GameStatus: String, CaseIterable, Codable {
     
     var color: Color {
         switch self {
-        case .wantToPlay: return Color(hex: "8EA9C9")   // bleu poussière
+        case .wantToPlay: return Color(hex: "6FB1FF")   // bleu poussière
         case .playing: return .gbBrass
-        case .completed: return Color(hex: "93B874")    // sauge
-        case .shelved: return Color(hex: "D9695A")      // brique
-        case .platinum: return Color(hex: "BCA5DB")     // lilas
+        case .completed: return Color(hex: "5FD38D")    // sauge
+        case .shelved: return Color(hex: "FF6150")      // brique
+        case .platinum: return Color(hex: "C79BFF")     // lilas
         case .none: return .textTertiary
         }
     }
@@ -147,9 +154,14 @@ struct SubRatings: Codable, Hashable {
 struct Game: Identifiable, Hashable, Codable {
     var id: UUID
     let title: String
-    let developer: String
-    let platform: String
+    var developer: String
+    /// The platform *you* play it on (chosen on the game page), not just RAWG's first one.
+    var platform: String
     let releaseYear: String
+    /// Full release date as RAWG gives it ("2026-11-12"), when known.
+    var releaseDate: String?
+    /// ESRB rating slug from RAWG ("mature"). nil = not looked up yet, "" = unrated.
+    var ageRating: String?
     var coverImageURL: String?
     /// Official portrait box art (IGDB). nil = not looked up yet, "" = looked up, none found.
     var boxArtURL: String?
@@ -177,6 +189,17 @@ struct Game: Identifiable, Hashable, Codable {
     var playthroughCount: Int
     var notes: String
     
+    /// The PEGI age printed on European cases, from the ESRB rating RAWG gives.
+    var pegi: Int? {
+        switch ageRating {
+        case "everyone": return 3
+        case "everyone-10-plus": return 7
+        case "teen": return 12
+        case "mature", "adults-only": return 18
+        default: return nil
+        }
+    }
+
     /// The picture to show for this game: the portrait box art when we have it,
     /// else RAWG's landscape image.
     var artURL: URL? {
@@ -196,6 +219,8 @@ struct Game: Identifiable, Hashable, Codable {
         developer: String,
         platform: String,
         releaseYear: String,
+        releaseDate: String? = nil,
+        ageRating: String? = nil,
         coverImageURL: String? = nil,
         boxArtURL: String? = nil,
         coverColor: Color,
@@ -227,6 +252,8 @@ struct Game: Identifiable, Hashable, Codable {
         self.developer = developer
         self.platform = platform
         self.releaseYear = releaseYear
+        self.releaseDate = releaseDate
+        self.ageRating = ageRating
         self.coverImageURL = coverImageURL
         self.boxArtURL = boxArtURL
         self.coverColorHex = coverColor.toHex()
@@ -263,6 +290,8 @@ struct Game: Identifiable, Hashable, Codable {
         developer = try c.decodeIfPresent(String.self, forKey: .developer) ?? ""
         platform = try c.decodeIfPresent(String.self, forKey: .platform) ?? ""
         releaseYear = try c.decodeIfPresent(String.self, forKey: .releaseYear) ?? ""
+        releaseDate = try c.decodeIfPresent(String.self, forKey: .releaseDate)
+        ageRating = try c.decodeIfPresent(String.self, forKey: .ageRating)
         coverImageURL = try c.decodeIfPresent(String.self, forKey: .coverImageURL)
         boxArtURL = try c.decodeIfPresent(String.self, forKey: .boxArtURL)
         coverColorHex = try c.decodeIfPresent(String.self, forKey: .coverColorHex) ?? "808080"
@@ -292,16 +321,7 @@ struct Game: Identifiable, Hashable, Codable {
 
     // Formatted play time
     var formattedPlayTime: String {
-        if playTimeMinutes > 0 {
-            let hours = playTimeMinutes / 60
-            let mins = playTimeMinutes % 60
-            if hours > 0 {
-                return "\(hours)h \(mins)m"
-            } else {
-                return "\(mins)m"
-            }
-        }
-        return playTime.isEmpty ? "—" : playTime
+        playTimeMinutes > 0 ? formatDuration(minutes: playTimeMinutes) : (playTime.isEmpty ? "—" : playTime)
     }
     
     // Days since started
@@ -356,13 +376,7 @@ struct PlaySession: Identifiable, Codable, Hashable {
     }
     
     var formattedDuration: String {
-        let hours = duration / 60
-        let mins = duration % 60
-        if hours > 0 {
-            return "\(hours)h \(mins)m"
-        } else {
-            return "\(mins)m"
-        }
+        formatDuration(minutes: duration)
     }
 }
 

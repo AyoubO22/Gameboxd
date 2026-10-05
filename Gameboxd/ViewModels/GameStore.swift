@@ -89,7 +89,10 @@ class GameStore: ObservableObject {
         updateGoalProgress()
         syncWidgetData()
         setICloudObservation(UserDefaults.standard.bool(forKey: "icloud_enabled"))
-        Task { await fetchMissingBoxArt() }
+        Task {
+            await fetchMissingBoxArt()
+            await fillMissingAgeRatings()
+        }
         // Discover data is loaded lazily in DiscoverView.onAppear
     }
     
@@ -356,8 +359,57 @@ class GameStore: ObservableObject {
         }
         guard !trendingGames.isEmpty || !newReleases.isEmpty else { return }
         discoverCacheDate = Date()
-        fileStore.save(DiscoverCache(date: Date(), trending: trendingGames, newReleases: newReleases,
+        saveDiscoverCache()
+        await fillDiscoverBoxArt()
+    }
+
+    private func saveDiscoverCache() {
+        fileStore.save(DiscoverCache(date: discoverCacheDate ?? Date(), trending: trendingGames, newReleases: newReleases,
                                      topRated: topRated, upcoming: upcomingGames), key: StorageKeys.discoverCache)
+    }
+
+    private var isFillingDiscoverArt = false
+
+    /// Portrait box art for the Discover shelves, looked up in the background and applied
+    /// in batches (not per game, which would redraw Discover 40 times).
+    func fillDiscoverBoxArt() async {
+        guard IGDBService.shared.isConfigured, !isFillingDiscoverArt else { return }
+        isFillingDiscoverArt = true
+        defer { isFillingDiscoverArt = false }
+
+        let lists: [ReferenceWritableKeyPath<GameStore, [Game]>] = [\.trendingGames, \.newReleases, \.topRated, \.upcomingGames]
+        var pending: [Int: String] = [:]
+        var anyFound = false
+        func apply() {
+            guard !pending.isEmpty else { return }
+            for list in lists {
+                self[keyPath: list] = self[keyPath: list].map { game in
+                    guard let id = game.rawgId, let art = pending[id] else { return game }
+                    var updated = game
+                    updated.boxArtURL = art
+                    return updated
+                }
+            }
+            pending = [:]
+            anyFound = true
+        }
+
+        var seen = Set<Int>()
+        let missing = lists.flatMap { self[keyPath: $0] }.filter { $0.boxArtURL == nil }
+        for game in missing {
+            guard let id = game.rawgId, seen.insert(id).inserted else { continue }
+            let url: URL?
+            do {
+                url = try await IGDBService.shared.boxArtURL(title: game.title, year: game.releaseYear)
+            } catch {
+                break // offline: try again on the next refresh
+            }
+            pending[id] = url?.absoluteString ?? ""
+            if pending.count >= 5 { apply() }
+            try? await Task.sleep(for: .milliseconds(260))
+        }
+        apply()
+        if anyFound { saveDiscoverCache() }
     }
 
     // MARK: - Discover cache
@@ -380,7 +432,10 @@ class GameStore: ObservableObject {
     }
 
     func refreshDiscoverIfStale() async {
-        if let date = discoverCacheDate, Date().timeIntervalSince(date) < 6 * 3600 { return }
+        if let date = discoverCacheDate, Date().timeIntervalSince(date) < 6 * 3600 {
+            await fillDiscoverBoxArt() // a fresh cache may still miss some covers
+            return
+        }
         await loadDiscoverData()
     }
     
@@ -474,6 +529,11 @@ class GameStore: ObservableObject {
             var updatedGame = game
             updatedGame.description = details.descriptionRaw
             updatedGame.screenshotURLs = screenshots.map { $0.image }
+            updatedGame.ageRating = details.esrbRating?.slug ?? ""
+            if game.developer.isEmpty || game.developer == "Unknown" || game.developer == "—",
+               let developer = details.developers?.first?.name {
+                updatedGame.developer = developer
+            }
             return updatedGame
         } catch {
             print("Error fetching details: \(error)")
@@ -720,7 +780,7 @@ class GameStore: ObservableObject {
     
     var totalPlayTimeFormatted: String {
         let hours = totalPlayTimeMinutes / 60
-        return "\(hours)h"
+        return "\(hours) h"
     }
     
     var averageRating: Double {
@@ -1396,6 +1456,29 @@ class GameStore: ObservableObject {
             try? await Task.sleep(for: .milliseconds(260))
         }
         if changed { saveGames() }
+    }
+
+    private var isFillingAgeRatings = false
+
+    /// Age ratings (for the PEGI badge on spines) for library games added before we kept them.
+    func fillMissingAgeRatings() async {
+        guard rawgService.hasValidAPIKey, !isFillingAgeRatings else { return }
+        isFillingAgeRatings = true
+        defer { isFillingAgeRatings = false }
+        var changed = false
+        while let game = myGames.first(where: { $0.ageRating == nil && $0.rawgId != nil }), let rawgId = game.rawgId {
+            let slug: String
+            do {
+                slug = try await rawgService.getGameDetails(id: rawgId).esrbRating?.slug ?? ""
+            } catch {
+                break // offline: next launch
+            }
+            if let index = myGames.firstIndex(where: { $0.id == game.id }) {
+                myGames[index].ageRating = slug
+                changed = true
+            }
+        }
+        if changed { saveGames(syncWidget: false) }
     }
 
     // MARK: - Widget Sync

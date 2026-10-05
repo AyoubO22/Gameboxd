@@ -488,17 +488,8 @@ struct AdditionalStatsView: View {
     
     var averagePlaytime: String {
         let totalMinutes = games.reduce(0) { $0 + $1.playTimeMinutes }
-        guard !games.isEmpty else { return "0h" }
-        let avgMinutes = totalMinutes / games.count
-        let hours = avgMinutes / 60
-        let mins = avgMinutes % 60
-        if hours > 0 && mins > 0 {
-            return "\(hours)h\(mins)m"
-        } else if hours > 0 {
-            return "\(hours)h"
-        } else {
-            return "\(mins)m"
-        }
+        guard !games.isEmpty else { return "0 h" }
+        return formatDuration(minutes: totalMinutes / games.count)
     }
     
     var body: some View {

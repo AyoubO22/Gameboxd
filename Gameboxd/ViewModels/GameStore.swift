@@ -182,6 +182,16 @@ final class GameStore {
         stickers.filter { $0.gameId == game.id }.sorted { $0.reason < $1.reason }
     }
 
+    /// What to show for a game: the stickers whose art is cut. Until the first one is (or
+    /// when the game has no art at all, e.g. on the simulator) a single sticker stands in
+    /// with the cover, so an unlocked game never looks empty and never shows a row of
+    /// identical covers. The rest appear as their art gets cut.
+    func displayedStickers(for game: Game) -> [Sticker] {
+        let all = stickers(for: game)
+        let withArt = all.filter(\.hasArt)
+        return withArt.isEmpty ? Array(all.prefix(1)) : withArt
+    }
+
     /// Adds a sticker for every reason a game has newly earned. Earned stickers are kept
     /// even if the reason goes away (a rating cleared): they're collectibles.
     private func syncStickers() {

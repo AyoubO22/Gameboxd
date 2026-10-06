@@ -43,10 +43,13 @@ nonisolated enum StickerMaker {
         }
     }
 
-    /// Two source images closer than this are the same art in another crop or format
-    /// (with or without the logo). Measured on 1200 px prints: variants of one key art
-    /// 0.31–0.50 (Marvel's Wolverine), distinct artworks 0.53 and up (RDR2, Witcher 3, BioShock).
-    /// ponytail: tight margin on both sides; retune on more games if repeats or losses show up.
+    /// Two artworks closer than this are the same art in another crop or format (with or
+    /// without the logo). Measured on 1200 px prints: variants of one key art 0.31–0.50
+    /// (Marvel's Wolverine), distinct artworks 0.53 and up (RDR2, Witcher 3, BioShock).
+    /// Screenshots aren't compared this way: distinct shots of one game sit at 0.46–0.52.
+    /// ponytail: artworks sharing a template (RDR2's red character posters) also land under
+    /// it, so one of those can be lost; checked on 13 games, losses stay rare and repeats are
+    /// the worse failure. A real fix needs image registration, not feature prints.
     static let sameSourceDistance: Float = 0.515
 
     /// Feature print of a whole image, to skip sources that repeat art already used.
@@ -74,7 +77,7 @@ nonisolated enum StickerMaker {
         let total = CGFloat(image.width * image.height)
         let cutouts: [Cutout] = observation.allInstances.compactMap { instance in
             guard let buffer = try? observation.generateMaskedImage(ofInstances: [instance], from: handler, croppedToInstancesExtent: true) else { return nil }
-            let cut = CIImage(cvPixelBuffer: buffer)
+            let cut = hardened(CIImage(cvPixelBuffer: buffer))
             let extent = cut.extent
             // Quality gate: big enough, not a sliver, not a fragmented cut.
             guard extent.width * extent.height / total >= 0.12,
@@ -98,6 +101,20 @@ nonisolated enum StickerMaker {
         ] as CFDictionary)
     }
 
+    /// Vision's mask is soft: smoke, motion blur and glow around a subject come out
+    /// half-transparent, and the white border then wraps a grey haze. Steepen the alpha
+    /// (below ~40 % goes, above ~60 % is fully opaque), keeping a thin anti-aliased edge.
+    private static func hardened(_ cut: CIImage) -> CIImage {
+        cut.unpremultiplyingAlpha()
+            .applyingFilter("CIColorMatrix", parameters: [
+                "inputAVector": CIVector(x: 0, y: 0, z: 0, w: 5),
+                "inputBiasVector": CIVector(x: 0, y: 0, z: 0, w: -2),
+            ])
+            .applyingFilter("CIColorClamp")
+            .premultiplyingAlpha()
+            .cropped(to: cut.extent) // the bias would otherwise make the image infinite
+    }
+
     /// Share of the crop covered by the subject (low = stringy or fragmented cut).
     private static func coverage(of cut: CIImage) -> Double {
         let average = cut.applyingFilter("CIAreaAverage", parameters: [kCIInputExtentKey: CIVector(cgRect: cut.extent)])
@@ -116,7 +133,7 @@ nonisolated enum StickerMaker {
         ]).composited(over: CIImage(color: .black).cropped(to: canvas))
         let grown = alpha
             .applyingFilter("CIMorphologyMaximum", parameters: ["inputRadius": border])
-            .applyingFilter("CIGaussianBlur", parameters: ["inputRadius": 1.2])
+            .applyingFilter("CIGaussianBlur", parameters: ["inputRadius": 0.6]) // anti-aliasing only: a crisp die-cut edge
             .cropped(to: canvas)
         let backing = CIImage(color: .white).cropped(to: canvas).applyingFilter("CIBlendWithMask", parameters: [
             "inputBackgroundImage": CIImage(color: .clear).cropped(to: canvas),

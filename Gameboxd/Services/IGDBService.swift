@@ -66,19 +66,26 @@ final class IGDBService {
         return url
     }
 
-    /// Art to cut stickers from: character portraits first (the cleanest cut-outs), then
-    /// official artworks. Empty when IGDB isn't configured or has no match.
-    func stickerArtURLs(title: String, year: String?) async throws -> [URL] {
-        guard isConfigured else { return [] }
+    struct StickerArt {
+        /// Main character first (see `byProminence`): the cleanest cut-outs.
+        var portraits: [URL] = []
+        /// Official artworks. IGDB often lists one key art several times (cropped, with or
+        /// without the logo), so these are the ones checked for repeats.
+        var artworks: [URL] = []
+    }
+
+    /// Art to cut stickers from. Empty when IGDB isn't configured or has no match.
+    func stickerArt(title: String, year: String?) async throws -> StickerArt {
+        guard isConfigured else { return StickerArt() }
         let escaped = title.replacingOccurrences(of: "\\", with: "").replacingOccurrences(of: "\"", with: "")
         let games: [SearchResult] = try await post("games", body: "search \"\(escaped)\"; fields name, first_release_date, cover.image_id, artworks.image_id, summary, storyline; where cover != null; limit 10;")
-        guard let game = Self.bestMatch(in: games, title: title, year: year), let id = game.id else { return [] }
+        guard let game = Self.bestMatch(in: games, title: title, year: year), let id = game.id else { return StickerArt() }
         let characters: [Character] = try await post("characters", body: "fields name, mug_shot.image_id, games.name, games.first_release_date; where games = (\(id)) & mug_shot != null; limit 20;")
         let story = [game.summary, game.storyline].compactMap { $0 }.joined(separator: " ")
         let portraits = Self.byProminence(characters.filter { Self.belongs($0, to: title) }, in: story)
             .compactMap { $0.mug_shot.flatMap { Self.imageURL($0.image_id, size: "t_720p") } }
         let artworks = (game.artworks ?? []).compactMap { Self.imageURL($0.image_id, size: "t_1080p") }
-        return portraits + artworks
+        return StickerArt(portraits: portraits, artworks: artworks)
     }
 
     /// IGDB links some characters to games they're not in (Oddworld's Abe shows up under

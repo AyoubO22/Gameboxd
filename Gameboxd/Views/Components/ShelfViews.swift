@@ -54,8 +54,8 @@ struct ShelfLabel: View {
 
 extension PlatformBand {
     /// Switch cases are narrower and shorter than PlayStation, Xbox and PC ones.
-    var spineWidth: CGFloat { label == "SWITCH" ? 30 : 40 }
-    var caseHeight: CGFloat { label == "SWITCH" ? 150 : 172 }
+    var spineWidth: CGFloat { label == "SWITCH" ? 32 : 40 }
+    var caseHeight: CGFloat { label == "SWITCH" ? 176 : 200 }
 }
 
 // MARK: - Spine
@@ -107,7 +107,9 @@ struct SpineFace: View {
 
     var body: some View {
         let base = Color(tint)
-        let titleHeight = height - bandHeight - width - badgeZone
+        // The cover's key art, taller than wide: enough of it to recognise the game.
+        let artHeight = (width * 1.5).rounded()
+        let titleHeight = height - bandHeight - artHeight - badgeZone
         VStack(spacing: 0) {
             Text(band.label)
                 .font(DS.Typography.text(max(7, width * 0.18), weight: .bold, relativeTo: .caption2))
@@ -117,7 +119,7 @@ struct SpineFace: View {
                 .frame(width: width, height: bandHeight)
                 .background(band.color)
 
-            // The cover's key art, as a small square under the band.
+            // The cover's key art, under the band.
             Group {
                 if let cover {
                     Image(uiImage: cover).resizable().scaledToFill()
@@ -125,7 +127,7 @@ struct SpineFace: View {
                     base
                 }
             }
-            .frame(width: width, height: width)
+            .frame(width: width, height: artHeight)
             .clipped()
 
             Text(title.uppercased())
@@ -133,7 +135,7 @@ struct SpineFace: View {
                 .foregroundStyle(.white)
                 .lineLimit(1)
                 .truncationMode(.tail)
-                .minimumScaleFactor(0.85)
+                .minimumScaleFactor(0.55) // long titles shrink rather than lose their end
                 .frame(width: titleHeight - width * 0.3)
                 .rotationEffect(.degrees(90))
                 .frame(width: width, height: titleHeight)
@@ -227,95 +229,55 @@ struct FaceOutCase: View {
 
 // MARK: - The whole shelf
 
+/// The collection as a packed shelf, one row per status that scrolls sideways, spines
+/// touching like real cases. Tapping a spine opens the game's page.
 struct ShelfLibrary<Menu: View>: View {
     let games: [Game]
     let namespace: Namespace.ID
     @ViewBuilder let contextMenu: (Game) -> Menu
 
-    @State private var width: CGFloat = 358
-
     private struct Section: Identifiable {
         let id: String
         let title: String
         let games: [Game]
-        let faceOut: Bool
     }
 
     private var sections: [Section] {
         [
-            Section(id: "playing", title: "En cours", games: games.filter { $0.status == .playing }, faceOut: true),
-            Section(id: "backlog", title: "À jouer", games: games.filter { $0.status == .wantToPlay || $0.status == .none }, faceOut: false),
-            Section(id: "done", title: "Terminés", games: games.filter { $0.status == .completed || $0.status == .platinum }, faceOut: false),
-            Section(id: "shelved", title: "Abandonnés", games: games.filter { $0.status == .shelved }, faceOut: false),
+            Section(id: "playing", title: "En cours", games: games.filter { $0.status == .playing }),
+            Section(id: "backlog", title: "À jouer", games: games.filter { $0.status == .wantToPlay || $0.status == .none }),
+            Section(id: "done", title: "Terminés", games: games.filter { $0.status == .completed || $0.status == .platinum }),
+            Section(id: "shelved", title: "Abandonnés", games: games.filter { $0.status == .shelved }),
         ].filter { !$0.games.isEmpty }
     }
 
-    /// Greedy wrap: as many spines as fit on one plank, then the next plank.
-    private func rows(_ games: [Game]) -> [[Game]] {
-        var rows: [[Game]] = [[]]
-        var used: CGFloat = 0
-        for game in games {
-            let w = PlatformBand(platform: game.platform).spineWidth + 3
-            if used + w > width, !rows[rows.count - 1].isEmpty {
-                rows.append([])
-                used = 0
-            }
-            rows[rows.count - 1].append(game)
-            used += w
-        }
-        return rows
-    }
-
     var body: some View {
-        VStack(alignment: .leading, spacing: DS.Spacing.xl) {
+        VStack(alignment: .leading, spacing: DS.Spacing.lg) {
             ForEach(sections) { section in
-                VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+                VStack(alignment: .leading, spacing: DS.Spacing.xs) {
                     ShelfLabel(title: section.title, count: section.games.count)
-
-                    if section.faceOut {
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(alignment: .bottom, spacing: DS.Spacing.md) {
-                                ForEach(section.games) { game in
-                                    link(game) { FaceOutCase(game: game) }
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        LazyHStack(alignment: .bottom, spacing: 1) {
+                            ForEach(section.games) { game in
+                                NavigationLink {
+                                    GameDetailView(game: game)
+                                        .navigationTransition(.zoom(sourceID: game.id, in: namespace))
+                                } label: {
+                                    GameSpine(game: game)
                                 }
+                                .buttonStyle(.plain)
+                                .matchedTransitionSource(id: game.id, in: namespace)
+                                .contextMenu { contextMenu(game) }
                             }
-                            .padding(.horizontal, DS.Spacing.md)
-                            .padding(.top, DS.Spacing.xs)
                         }
-                        .padding(.horizontal, -DS.Spacing.md)
-                        ShelfPlank()
-                    } else {
-                        let rows = rows(section.games)
-                        ForEach(rows.indices, id: \.self) { index in
-                            let row = rows[index]
-                            let isLastRow = index == rows.count - 1
-                            HStack(alignment: .bottom, spacing: 3) {
-                                ForEach(row) { game in
-                                    link(game) { GameSpine(game: game) }
-                                }
-                            }
-                            .padding(.top, DS.Spacing.xs)
-                            ShelfPlank()
-                                .padding(.bottom, isLastRow ? 0 : DS.Spacing.lg)
-                        }
+                        .padding(.horizontal, DS.Spacing.md)
+                        .padding(.top, DS.Spacing.xs)
                     }
+                    .padding(.horizontal, -DS.Spacing.md)
+                    ShelfPlank()
                 }
             }
         }
         .padding(.horizontal, DS.Spacing.md)
-        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 - DS.Spacing.md * 2 }
-    }
-
-    private func link<Content: View>(_ game: Game, @ViewBuilder content: () -> Content) -> some View {
-        NavigationLink {
-            GameDetailView(game: game)
-                .navigationTransition(.zoom(sourceID: game.id, in: namespace))
-        } label: {
-            content()
-        }
-        .buttonStyle(.plain)
-        .matchedTransitionSource(id: game.id, in: namespace)
-        .contextMenu { contextMenu(game) }
     }
 }
-

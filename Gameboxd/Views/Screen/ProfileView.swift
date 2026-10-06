@@ -26,6 +26,8 @@ struct ProfileView: View {
 
                     YearStorySection()
 
+                    StickerAlbumSection()
+
                     ProfileNavigationSection()
 
                     MyListsSection(showingLists: $showingLists)

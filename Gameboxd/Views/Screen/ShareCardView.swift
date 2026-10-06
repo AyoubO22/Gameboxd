@@ -44,7 +44,7 @@ struct ShareCardView: View {
                                         .font(DS.Typography.body)
                                         .padding(.horizontal, 16)
                                         .padding(.vertical, 10)
-                                        .background(selectedStyle == style ? Color.gbBrass : Color.gbCard)
+                                        .background(selectedStyle == style ? Color.gbCoral : Color.gbCard)
                                         .foregroundColor(selectedStyle == style ? .gbDark : .gray)
                                         .cornerRadius(20)
                                 }
@@ -62,7 +62,7 @@ struct ShareCardView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Color.gbBrass.gradient)
+                        .background(Color.gbCoral.gradient)
                         .foregroundColor(.gbDark)
                         .cornerRadius(16)
                     }

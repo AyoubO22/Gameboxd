@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct MonthlyGoal: Identifiable, Codable {
+struct MonthlyGoal: Identifiable, Codable, Equatable {
     var id = UUID()
     var title: String
     var description: String

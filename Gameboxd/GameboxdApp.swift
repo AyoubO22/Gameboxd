@@ -13,7 +13,7 @@ class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
 @main
 struct GameboxdApp: App {
     // On instancie le store ici pour qu'il vive pendant toute la durée de vie de l'app
-    @StateObject private var store = GameStore()
+    @State private var store = GameStore()
     @State private var timerManager = TimerManager()
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @Environment(\.scenePhase) private var scenePhase
@@ -30,20 +30,14 @@ struct GameboxdApp: App {
         Self.styleNavigationBars()
     }
 
-    /// Navigation titles are UIKit: give them the display face (Big Shoulders is a
-    /// variable font, so the weight goes through the 'wght' axis).
+    /// Navigation titles are UIKit: heavy system face, scaled for Dynamic Type.
     private static func styleNavigationBars() {
-        func display(_ size: CGFloat, weight: CGFloat, style: UIFont.TextStyle) -> UIFont {
-            let wght = 0x7767_6874 // 'wght'
-            let descriptor = UIFontDescriptor(fontAttributes: [
-                .name: "BigShouldersDisplay-Thin",
-                UIFontDescriptor.AttributeName(rawValue: kCTFontVariationAttribute as String): [wght: weight],
-            ])
-            return UIFontMetrics(forTextStyle: style).scaledFont(for: UIFont(descriptor: descriptor, size: size))
+        func display(_ size: CGFloat, weight: UIFont.Weight, style: UIFont.TextStyle) -> UIFont {
+            UIFontMetrics(forTextStyle: style).scaledFont(for: .systemFont(ofSize: size, weight: weight))
         }
         let text = UIColor(Color.textPrimary)
-        let large: [NSAttributedString.Key: Any] = [.font: display(42, weight: 900, style: .largeTitle), .foregroundColor: text]
-        let inline: [NSAttributedString.Key: Any] = [.font: display(21, weight: 800, style: .headline), .foregroundColor: text]
+        let large: [NSAttributedString.Key: Any] = [.font: display(34, weight: .bold, style: .largeTitle), .foregroundColor: text]
+        let inline: [NSAttributedString.Key: Any] = [.font: display(17, weight: .semibold, style: .headline), .foregroundColor: text]
 
         let standard = UINavigationBarAppearance()
         standard.configureWithDefaultBackground()
@@ -64,7 +58,7 @@ struct GameboxdApp: App {
         WindowGroup {
             if hasCompletedOnboarding {
                 ContentView()
-                    .environmentObject(store)
+                    .environment(store)
                     .environment(timerManager)
                     .preferredColorScheme(.dark)
                     .onOpenURL { url in
@@ -73,7 +67,7 @@ struct GameboxdApp: App {
                     }
             } else {
                 OnboardingView(hasCompletedOnboarding: $hasCompletedOnboarding)
-                    .environmentObject(store)
+                    .environment(store)
                     .environment(timerManager)
                     .preferredColorScheme(.dark)
                     .onOpenURL { url in

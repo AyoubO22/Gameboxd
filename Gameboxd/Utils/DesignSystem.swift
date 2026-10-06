@@ -27,38 +27,48 @@ enum DS {
     }
 
     // MARK: - Typography
-    // Big Shoulders Display: titles and spines, the condensed face of game-case spines.
-    // Atkinson Hyperlegible: everything you read. Both scale with Dynamic Type.
+    // System sans, heavy and tight for titles (launch-video look). Big Shoulders stays
+    // only on box spines, the condensed face of game-case spines. Everything scales with
+    // Dynamic Type: sizes go through UIFontMetrics, and the presets are computed so a
+    // size change is picked up on the next render.
     enum Typography {
-        static func display(_ size: CGFloat, weight: Font.Weight = .black, relativeTo style: Font.TextStyle = .largeTitle) -> Font {
-            .custom("BigShouldersDisplay-Thin", size: size, relativeTo: style).weight(weight)
+        private static func scaled(_ size: CGFloat, _ style: Font.TextStyle) -> CGFloat {
+            UIFontMetrics(forTextStyle: style.uiKit).scaledValue(for: size)
+        }
+        static func display(_ size: CGFloat, weight: Font.Weight = .bold, relativeTo style: Font.TextStyle = .largeTitle) -> Font {
+            .system(size: scaled(size, style), weight: weight)
         }
         static func text(_ size: CGFloat, weight: Font.Weight = .regular, relativeTo style: Font.TextStyle = .body) -> Font {
-            .custom("AtkinsonHyperlegible-Regular", size: size, relativeTo: style).weight(weight)
+            .system(size: scaled(size, style), weight: weight)
+        }
+        static func spine(_ size: CGFloat, weight: Font.Weight = .black, relativeTo style: Font.TextStyle = .headline) -> Font {
+            .custom("BigShouldersDisplay-Thin", size: size, relativeTo: style).weight(weight)
         }
 
-        static let largeTitle: Font = display(42)
-        static let title: Font = display(28, weight: .heavy, relativeTo: .title2)
-        static let title3: Font = display(22, weight: .heavy, relativeTo: .title3)
-        static let headline: Font = text(17, weight: .bold, relativeTo: .headline)
-        static let bodyLarge: Font = text(17)
-        static let body: Font = text(15, relativeTo: .subheadline)
-        static let bodyMedium: Font = text(15, weight: .bold, relativeTo: .subheadline)
-        static let caption: Font = text(13, relativeTo: .caption)
-        static let captionMedium: Font = text(13, weight: .bold, relativeTo: .caption)
-        static let micro: Font = text(11, relativeTo: .caption2)
+        static var largeTitle: Font { display(34) }
+        static var title: Font { display(24, relativeTo: .title2) }
+        static var title3: Font { display(20, weight: .semibold, relativeTo: .title3) }
+        static var headline: Font { text(17, weight: .semibold, relativeTo: .headline) }
+        static var bodyLarge: Font { text(17) }
+        static var body: Font { text(15, relativeTo: .subheadline) }
+        static var bodyMedium: Font { text(15, weight: .semibold, relativeTo: .subheadline) }
+        static var caption: Font { text(13, relativeTo: .caption) }
+        static var captionMedium: Font { text(13, weight: .semibold, relativeTo: .caption) }
+        static var micro: Font { text(11, relativeTo: .caption2) }
 
         /// Big numbers (hours, counts).
-        static let stat: Font = display(34, relativeTo: .title)
+        static var stat: Font { display(32, relativeTo: .title) }
         /// Small data labels. Sentence case, no monospace.
-        static let label: Font = text(12, weight: .bold, relativeTo: .caption2)
+        static var label: Font { text(12, weight: .semibold, relativeTo: .caption2) }
+        /// Month / section dividers: small caps, wide tracking. Pair with `.tracking(1.2)`.
+        static var overline: Font { text(12, weight: .bold, relativeTo: .caption2) }
     }
 
     // MARK: - Semantic Colors
     enum Colors {
-        static let success = Color(hex: "93B874")   // sauge
-        static let warning = Color(hex: "E3A24C")   // ambre
-        static let error = Color(hex: "D9695A")     // brique
+        static let success = Color(hex: "3DDC84")   // vert « En cours »
+        static let warning = Color(hex: "F5B942")   // jaune étoiles / backlog
+        static let error = Color(hex: "FF5A4E")
 
         // Metacritic-style score color
         static func score(_ value: Int) -> Color {
@@ -84,21 +94,10 @@ struct CardStyle: ViewModifier {
     }
 }
 
-struct SectionHeaderStyle: ViewModifier {
-    func body(content: Content) -> some View {
-        content
-            .font(DS.Typography.title)
-            .foregroundStyle(Color.textPrimary)
-    }
-}
 
 extension View {
     func cardStyle() -> some View {
         modifier(CardStyle())
-    }
-
-    func sectionHeader() -> some View {
-        modifier(SectionHeaderStyle())
     }
 }
 
@@ -299,6 +298,24 @@ struct PillSegmentedControl<T: Hashable>: View {
                 }
             }
             .padding(.horizontal, 1)
+        }
+    }
+}
+
+private extension Font.TextStyle {
+    var uiKit: UIFont.TextStyle {
+        switch self {
+        case .largeTitle: return .largeTitle
+        case .title: return .title1
+        case .title2: return .title2
+        case .title3: return .title3
+        case .headline: return .headline
+        case .subheadline: return .subheadline
+        case .callout: return .callout
+        case .footnote: return .footnote
+        case .caption: return .caption1
+        case .caption2: return .caption2
+        default: return .body
         }
     }
 }

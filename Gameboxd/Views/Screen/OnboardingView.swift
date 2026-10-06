@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct OnboardingView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @State private var currentPage = 0
     @Binding var hasCompletedOnboarding: Bool
     
@@ -17,7 +17,7 @@ struct OnboardingView: View {
             title: "Bienvenue sur Gameboxd",
             subtitle: "Ton journal de jeux vidéo personnel",
             icon: "gamecontroller.fill",
-            color: .gbBrass,
+            color: .gbCoral,
             features: [
                 "Catalogue ta collection",
                 "Note et critique tes jeux",
@@ -61,7 +61,7 @@ struct OnboardingView: View {
             title: "Prêt à jouer ?",
             subtitle: "Commence ton aventure",
             icon: "rocket.fill",
-            color: .gbBrass,
+            color: .gbCoral,
             features: []
         )
     ]
@@ -99,7 +99,7 @@ struct OnboardingView: View {
                     HStack(spacing: 8) {
                         ForEach(Array(pages.indices), id: \.self) { index in
                             Circle()
-                                .fill(index == currentPage ? Color.gbBrass : Color.gray.opacity(0.3))
+                                .fill(index == currentPage ? Color.gbCoral : Color.gray.opacity(0.3))
                                 .frame(width: index == currentPage ? 10 : 8, height: index == currentPage ? 10 : 8)
                                 .animation(.spring(response: 0.3), value: currentPage)
                         }
@@ -123,7 +123,7 @@ struct OnboardingView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Color.gbBrass.gradient)
+                        .background(Color.gbCoral.gradient)
                         .foregroundColor(.gbDark)
                         .cornerRadius(16)
                     }
@@ -212,5 +212,5 @@ struct OnboardingPageView: View {
 // MARK: - Preview
 #Preview {
     OnboardingView(hasCompletedOnboarding: .constant(false))
-        .environmentObject(GameStore())
+        .environment(GameStore())
 }

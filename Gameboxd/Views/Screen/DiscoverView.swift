@@ -2,70 +2,82 @@
 //  DiscoverView.swift
 //  Gameboxd
 //
-//  Discover new games with trending, new releases, and recommendations
+//  Discover as a game shop's aisle: an endcap for the game of the moment,
+//  then bins of cases on planks, with the shop's stickers on the boxes.
 //
 
 import SwiftUI
 
 struct DiscoverView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @State private var randomPick: Game?
+    @Namespace private var aisle
+
+    private static let shortDate: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "fr_FR")
+        f.dateFormat = "d MMM"
+        return f
+    }()
+
+    private static let isoDate: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.calendar = Calendar(identifier: .gregorian)
+        f.dateFormat = "yyyy-MM-dd"
+        return f
+    }()
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 24) {
-                    // API Key Warning
+                VStack(alignment: .leading, spacing: DS.Spacing.xl) {
                     if !RAWGService.shared.hasValidAPIKey {
                         APIKeyWarningView()
                     }
 
-                    // Hero: top trending game
-                    if let hero = store.trendingGames.first {
-                        DiscoverHeroCard(game: hero)
-                            .padding(.horizontal)
+                    if let featured = store.trendingGames.first {
+                        EndcapFeature(game: featured, namespace: aisle)
                     }
 
-                    // Trending Section
-                    DiscoverSection(
-                        title: "Tendances",
-                        subtitle: "Les jeux du moment",
-                        games: store.trendingGames,
-                        isLoading: store.isLoadingTrending
-                    )
-                    
-                    // New Releases Section
-                    DiscoverSection(
-                        title: "Sorties récentes",
-                        subtitle: "Jeux fraîchement sortis",
-                        games: store.newReleases,
-                        isLoading: store.isLoadingNewReleases
-                    )
-                    
-                    // Top Rated Section
-                    DiscoverSection(
-                        title: "Les mieux notés",
-                        subtitle: "Plébiscités par la critique",
-                        games: store.topRated,
-                        isLoading: store.isLoadingTopRated
-                    )
-                    
-                    // Upcoming Section
-                    DiscoverSection(
-                        title: "À venir",
-                        subtitle: "Bientôt disponibles",
-                        games: store.upcomingGames,
-                        isLoading: store.isLoadingUpcoming
-                    )
-                    
-                    // Random Backlog Pick
+                    StoreShelf(title: "Tendances", subtitle: "Ce qui se joue en ce moment",
+                               games: Array(store.trendingGames.dropFirst()), isLoading: store.isLoadingTrending,
+                               namespace: aisle) { _, index in
+                        // Ranks continue after the endcap's n° 1.
+                        StoreSticker(text: "N° \(index + 2)")
+                    }
+
+                    StoreShelf(title: "Sorties récentes", subtitle: "Arrivés ces deux derniers mois",
+                               games: store.newReleases, isLoading: store.isLoadingNewReleases,
+                               namespace: aisle) { game, _ in
+                        releaseSticker(game, tint: DS.Colors.success)
+                    }
+
+                    StoreShelf(title: "Les mieux notés", subtitle: "Plébiscités par la critique",
+                               games: store.topRated, isLoading: store.isLoadingTopRated,
+                               namespace: aisle) { game, _ in
+                        if let score = game.metacriticScore {
+                            StoreSticker(text: "\(score)", tint: DS.Colors.score(score))
+                        }
+                    }
+
+                    StoreShelf(title: "Bientôt", subtitle: "Les sorties des prochains mois",
+                               games: store.upcomingGames, isLoading: store.isLoadingUpcoming,
+                               namespace: aisle) { game, _ in
+                        releaseSticker(game, tint: GameStatus.completed.color)
+                    }
+
                     if let randomGame = randomPick {
-                        RandomPickSection(game: randomGame)
+                        BacklogSuggestion(game: randomGame, namespace: aisle)
                     }
                 }
                 .padding(.vertical)
+                .padding(.bottom, 90)
             }
-            .background(Color.gbDark.ignoresSafeArea())
+            .background(
+                LinearGradient(colors: [Shelf.wallTop, Color.gbDark], startPoint: .top, endPoint: .center)
+                    .ignoresSafeArea()
+            )
             .navigationTitle("Découvrir")
             .onAppear {
                 // Pick once per visit (not in body, which re-rolls on every store update);
@@ -82,68 +94,235 @@ struct DiscoverView: View {
             }
         }
     }
+
+    @ViewBuilder
+    private func releaseSticker(_ game: Game, tint: Color) -> some View {
+        if let string = game.releaseDate, let date = Self.isoDate.date(from: string) {
+            StoreSticker(text: Self.shortDate.string(from: date), tint: tint)
+        }
+    }
 }
 
-// MARK: - Discover Hero Card
-struct DiscoverHeroCard: View {
-    let game: Game
+// MARK: - Sticker
+
+/// The price-tag sticker a shop slaps on a case, slightly crooked.
+struct StoreSticker: View {
+    let text: String
+    var tint: Color = .accent
 
     var body: some View {
-        NavigationLink(destination: GameDetailView(game: game)) {
-            ZStack(alignment: .bottomLeading) {
-                Group {
-                    if let url = game.coverImageURL.flatMap(URL.init(string:)) { // landscape banner: keep RAWG art
-                        CachedAsyncImage(url: url) { image in
-                            image.resizable().aspectRatio(contentMode: .fill)
-                        } placeholder: {
-                            Rectangle().fill(game.coverColor.gradient)
+        Text(text)
+            .font(DS.Typography.text(11, weight: .bold, relativeTo: .caption2))
+            .foregroundStyle(Color.gbDark)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .background(tint, in: RoundedRectangle(cornerRadius: 3, style: .continuous))
+            .rotationEffect(.degrees(-6))
+            .shadow(color: .black.opacity(0.35), radius: 1.5, y: 1)
+    }
+}
+
+// MARK: - A bin of cases
+
+struct StoreShelf<Sticker: View>: View {
+    @Environment(GameStore.self) private var store
+    let title: String
+    let subtitle: String
+    let games: [Game]
+    let isLoading: Bool
+    let namespace: Namespace.ID
+    @ViewBuilder let sticker: (Game, Int) -> Sticker
+
+    private let coverWidth: CGFloat = 98
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(DS.Typography.title3)
+                    .foregroundStyle(Color.textPrimary)
+                Text(subtitle)
+                    .font(DS.Typography.caption)
+                    .foregroundStyle(Color.textSecondary)
+            }
+            .padding(.horizontal)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(alignment: .bottom, spacing: DS.Spacing.md) {
+                    if isLoading && games.isEmpty {
+                        ForEach(0..<5, id: \.self) { _ in
+                            RoundedRectangle(cornerRadius: 5, style: .continuous)
+                                .fill(Color.gbSurface2)
+                                .frame(width: coverWidth * 1.06, height: (coverWidth * 1.39).rounded())
                         }
                     } else {
-                        Rectangle().fill(game.coverColor.gradient)
+                        ForEach(Array(games.enumerated()), id: \.element.id) { index, game in
+                            NavigationLink {
+                                GameDetailView(game: store.libraryGame(for: game) ?? game)
+                                    .navigationTransition(.zoom(sourceID: game.id, in: namespace))
+                            } label: {
+                                FaceOutCase(game: game, coverWidth: coverWidth, showsProgress: false)
+                                    .overlay(alignment: .topTrailing) {
+                                        Group {
+                                            if store.isInLibrary(game) {
+                                                StoreSticker(text: "À toi", tint: Color.accent)
+                                            } else {
+                                                sticker(game, index)
+                                            }
+                                        }
+                                        .offset(x: 6, y: -6)
+                                    }
+                            }
+                            .buttonStyle(.plain)
+                            .matchedTransitionSource(id: game.id, in: namespace)
+                            .accessibilityLabel(game.title)
+                        }
                     }
                 }
-                .aspectRatio(16/9, contentMode: .fill)
-                .frame(maxWidth: .infinity)
-                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                        .fill(LinearGradient(colors: [.gbDark.opacity(0.05), .gbDark.opacity(0.9)], startPoint: .top, endPoint: .bottom))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                        .stroke(Color.gbBorder, lineWidth: 1)
-                )
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Tendance")
-                        .font(DS.Typography.label)
-                        .foregroundStyle(Color.accent)
-                    Text(game.title)
-                        .font(DS.Typography.largeTitle)
-                        .foregroundStyle(Color.textPrimary)
-                        .lineLimit(2)
-                }
-                .padding(DS.Spacing.md)
+                .padding(.horizontal)
+                .padding(.top, DS.Spacing.sm)
             }
+            ShelfPlank()
+                .padding(.horizontal, DS.Spacing.md)
         }
-        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Endcap
+
+/// The endcap at the head of the aisle: the n° 1 trending game, its case standing
+/// in front of its own artwork.
+struct EndcapFeature: View {
+    @Environment(GameStore.self) private var store
+    let game: Game
+    let namespace: Namespace.ID
+
+    var body: some View {
+        let owned = store.isInLibrary(game)
+        ZStack(alignment: .bottomLeading) {
+            // Backdrop: the landscape artwork, dimmed to walnut at the bottom.
+            Group {
+                if let url = game.coverImageURL.flatMap(URL.init(string:)) {
+                    CachedAsyncImage(url: url) { $0.resizable().scaledToFill() } placeholder: { Shelf.wallTop }
+                } else {
+                    Shelf.wallTop
+                }
+            }
+            .frame(height: 300)
+            .frame(maxWidth: .infinity)
+            .clipped()
+            .overlay(LinearGradient(colors: [.clear, Color.gbDark.opacity(0.55), Color.gbDark],
+                                    startPoint: .top, endPoint: .bottom))
+
+            HStack(alignment: .bottom, spacing: DS.Spacing.md) {
+                NavigationLink {
+                    GameDetailView(game: store.libraryGame(for: game) ?? game)
+                        .navigationTransition(.zoom(sourceID: "endcap", in: namespace))
+                } label: {
+                    FaceOutCase(game: game, coverWidth: 118, showsProgress: false)
+                        .overlay(alignment: .topTrailing) {
+                            StoreSticker(text: "N° 1").offset(x: 8, y: -8)
+                        }
+                }
+                .buttonStyle(.plain)
+                .matchedTransitionSource(id: "endcap", in: namespace)
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Le plus ajouté par les joueurs ce mois-ci")
+                        .font(DS.Typography.caption)
+                        .foregroundStyle(Color.textSecondary)
+                    Text(game.title)
+                        .font(DS.Typography.display(32))
+                        .foregroundStyle(Color.textPrimary)
+                        .lineLimit(3)
+                        .minimumScaleFactor(0.7)
+                    if let score = game.metacriticScore {
+                        Text("Metacritic \(score)")
+                            .font(DS.Typography.captionMedium)
+                            .foregroundStyle(DS.Colors.score(score))
+                    }
+                    Button {
+                        guard !owned else { return }
+                        store.updateGame(game)
+                        HapticManager.notification(.success)
+                    } label: {
+                        Label(owned ? "Dans ta collection" : "Ajouter", systemImage: owned ? "checkmark" : "plus")
+                            .font(DS.Typography.bodyMedium)
+                            .foregroundStyle(owned ? Color.textSecondary : Color.gbDark)
+                            .padding(.horizontal, 14)
+                            .frame(height: 40)
+                            .background(owned ? Color.gbSurface2 : Color.accent, in: Capsule())
+                    }
+                    .disabled(owned)
+                    .padding(.top, 4)
+                }
+                .padding(.bottom, 4)
+            }
+            .padding(.horizontal)
+            .padding(.bottom, DS.Spacing.md)
+        }
+        .frame(height: 300)
+    }
+}
+
+// MARK: - From your backlog
+
+struct BacklogSuggestion: View {
+    let game: Game
+    let namespace: Namespace.ID
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+            Text("Pas d'inspiration ?")
+                .font(DS.Typography.title3)
+                .foregroundStyle(Color.textPrimary)
+                .padding(.horizontal)
+
+            NavigationLink {
+                GameDetailView(game: game)
+                    .navigationTransition(.zoom(sourceID: "backlog-\(game.id)", in: namespace))
+            } label: {
+                HStack(spacing: DS.Spacing.md) {
+                    FaceOutCase(game: game, coverWidth: 64, showsProgress: false)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Et si tu lançais")
+                            .font(DS.Typography.caption)
+                            .foregroundStyle(Color.textSecondary)
+                        Text("\(game.title) ?")
+                            .font(DS.Typography.display(24, weight: .heavy, relativeTo: .title3))
+                            .foregroundStyle(Color.textPrimary)
+                            .multilineTextAlignment(.leading)
+                        Text("Il attend dans ton backlog.")
+                            .font(DS.Typography.caption)
+                            .foregroundStyle(Color.textSecondary)
+                    }
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right")
+                        .foregroundStyle(Color.textTertiary)
+                }
+                .padding(.horizontal)
+            }
+            .buttonStyle(.plain)
+            .matchedTransitionSource(id: "backlog-\(game.id)", in: namespace)
+        }
     }
 }
 
 // MARK: - API Key Warning
+
 struct APIKeyWarningView: View {
     var body: some View {
         HStack(spacing: DS.Spacing.md) {
             Image(systemName: "key.fill")
                 .font(DS.Typography.title)
-                .foregroundStyle(Color(hex: "E3A24C"))
+                .foregroundStyle(DS.Colors.warning)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("Clé API manquante")
                     .font(DS.Typography.headline)
                     .foregroundStyle(Color.textPrimary)
 
-                Text("Ajoute ta clé RAWG.io dans RAWGService.swift pour voir les vrais jeux")
+                Text("Ajoute ta clé RAWG dans Secrets.xcconfig (RAWG_API_KEY) pour voir les vrais jeux.")
                     .font(DS.Typography.caption)
                     .foregroundStyle(Color.textSecondary)
 
@@ -157,229 +336,12 @@ struct APIKeyWarningView: View {
             Spacer()
         }
         .cardStyle()
-        .overlay(
-            RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                .stroke(Color(hex: "E3A24C").opacity(0.4), lineWidth: 1)
-        )
         .padding(.horizontal)
-    }
-}
-
-// MARK: - Discover Section
-struct DiscoverSection: View {
-    let title: String
-    let subtitle: String
-    let games: [Game]
-    let isLoading: Bool
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            SectionHeader(title: title, subtitle: subtitle)
-                .padding(.horizontal)
-
-            // Content
-            if isLoading {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    LazyHStack(spacing: 12) {
-                        ForEach(Array(0..<5), id: \.self) { _ in
-                            ShimmerCard()
-                        }
-                    }
-                    .padding(.horizontal)
-                }
-            } else if games.isEmpty {
-                EmptyDiscoverSection()
-            } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    LazyHStack(spacing: 12) {
-                        ForEach(games) { game in
-                            NavigationLink(destination: GameDetailView(game: game)) {
-                                DiscoverGameCard(game: game)
-                            }
-                        }
-                    }
-                    .padding(.horizontal)
-                }
-            }
-        }
-    }
-}
-
-// MARK: - Discover Game Card
-struct DiscoverGameCard: View {
-    let game: Game
-    @EnvironmentObject var store: GameStore
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            // Cover Image
-            ZStack(alignment: .topTrailing) {
-                Group {
-                    if let url = game.artURL {
-                        CachedAsyncImage(url: url) { image in
-                            image
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                        } placeholder: {
-                            Rectangle()
-                                .fill(game.coverColor.gradient)
-                                .overlay(ProgressView().tint(.textSecondary))
-                        }
-                    } else {
-                        Rectangle()
-                            .fill(game.coverColor.gradient)
-                    }
-                }
-                .frame(width: 132, height: 176)
-                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                        .stroke(Color.gbBorder, lineWidth: 1)
-                )
-
-                // Metacritic badge
-                if let score = game.metacriticScore {
-                    Text("\(score)")
-                        .font(DS.Typography.label)
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 2)
-                        .background(DS.Colors.score(score).opacity(0.2))
-                        .background(Color.gbDark.opacity(0.85))
-                        .foregroundStyle(DS.Colors.score(score))
-                        .clipShape(Capsule())
-                        .padding(6)
-                }
-
-                // In Library badge
-                if store.isInLibrary(game) {
-                    VStack {
-                        Spacer()
-                        HStack {
-                            Image(systemName: "checkmark")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundStyle(Color.gbDark)
-                                .padding(5)
-                                .background(Color.accent)
-                                .clipShape(Circle())
-                                .padding(6)
-                            Spacer()
-                        }
-                    }
-                }
-            }
-
-            // Title
-            Text(game.title)
-                .font(DS.Typography.bodyMedium)
-                .foregroundStyle(Color.textPrimary)
-                .lineLimit(2)
-                .multilineTextAlignment(.leading)
-
-            // Info
-            HStack(spacing: 4) {
-                Text("\(game.releaseYear), \(game.platform)")
-                    .font(DS.Typography.caption)
-                    .foregroundStyle(Color.textSecondary)
-                    .lineLimit(1)
-            }
-        }
-        .frame(width: 132)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(game.title), \(game.platform)")
-        .accessibilityHint("Ouvre la fiche du jeu")
-    }
-}
-
-// MARK: - Shimmer Loading Card
-struct ShimmerCard: View {
-    @State private var isAnimating = false
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                .fill(Color.gbSurface2)
-                .frame(width: 132, height: 176)
-
-            RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
-                .fill(Color.gbSurface2)
-                .frame(width: 112, height: 14)
-
-            RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
-                .fill(Color.gbSurface2)
-                .frame(width: 76, height: 10)
-        }
-        .opacity(isAnimating ? 0.5 : 1.0)
-        .animation(.easeInOut(duration: 0.8).repeatForever(), value: isAnimating)
-        .onAppear { isAnimating = true }
-    }
-}
-
-// MARK: - Empty Discover Section
-struct EmptyDiscoverSection: View {
-    var body: some View {
-        EmptyState(icon: "gamecontroller", title: "Aucun jeu disponible")
-            .frame(height: 160)
-            .cardStyle()
-            .padding(.horizontal)
-    }
-}
-
-// MARK: - Random Pick Section
-struct RandomPickSection: View {
-    let game: Game
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            SectionHeader(title: "Pas d'inspiration ?")
-                .padding(.horizontal)
-
-            NavigationLink(destination: GameDetailView(game: game)) {
-                HStack(spacing: DS.Spacing.md) {
-                    // Cover
-                    Group {
-                        if let url = game.artURL {
-                            CachedAsyncImage(url: url) { image in
-                                image.resizable().aspectRatio(contentMode: .fill)
-                            } placeholder: {
-                                Rectangle().fill(game.coverColor.gradient)
-                            }
-                        } else {
-                            Rectangle().fill(game.coverColor.gradient)
-                        }
-                    }
-                    .frame(width: 72, height: 96)
-                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                            .stroke(Color.gbBorder, lineWidth: 1)
-                    )
-
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("JOUE À…")
-                            .font(DS.Typography.label)
-                            .foregroundStyle(Color.textTertiary)
-
-                        Text(game.title)
-                            .font(DS.Typography.headline)
-                            .foregroundStyle(Color.textPrimary)
-
-                        TagPill(label: game.priority.rawValue, icon: game.priority.color == .red ? "flame.fill" : "clock", isSelected: true, tint: game.priority.color)
-                    }
-
-                    Spacer()
-
-                    Image(systemName: "chevron.right")
-                        .foregroundStyle(Color.textTertiary)
-                }
-                .cardStyle()
-            }
-            .padding(.horizontal)
-        }
     }
 }
 
 // MARK: - Preview
 #Preview {
     DiscoverView()
-        .environmentObject(GameStore())
+        .environment(GameStore())
 }

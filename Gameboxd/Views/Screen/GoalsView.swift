@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct GoalsView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @State private var showingAddGoal = false
     
     /// Goals from past months stop updating, so only this month's are "active".
@@ -33,7 +33,7 @@ struct GoalsView: View {
                         
                         Button(action: { showingAddGoal = true }) {
                             Image(systemName: "plus.circle.fill")
-                                .foregroundColor(.gbBrass)
+                                .foregroundColor(.gbCoral)
                         }
                         .accessibilityLabel("Ajouter un objectif")
                     }
@@ -133,7 +133,7 @@ struct MonthHeaderView: View {
 // MARK: - Goal Card
 struct GoalCard: View {
     let goal: MonthlyGoal
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     
     var progress: Double {
         guard goal.target > 0 else { return 0 }
@@ -150,12 +150,12 @@ struct GoalCard: View {
                 // Icon
                 ZStack {
                     Circle()
-                        .fill(isCompleted ? Color.gbBrass : Color.gbBrass.opacity(0.2))
+                        .fill(isCompleted ? Color.gbCoral : Color.gbCoral.opacity(0.2))
                         .frame(width: 44, height: 44)
                     
                     Image(systemName: isCompleted ? "checkmark" : goal.icon)
                         .font(DS.Typography.title3)
-                        .foregroundColor(isCompleted ? .gbDark : .gbBrass)
+                        .foregroundColor(isCompleted ? .gbDark : .gbCoral)
                 }
                 
                 VStack(alignment: .leading, spacing: 4) {
@@ -173,7 +173,7 @@ struct GoalCard: View {
                 // Progress Text
                 Text("\(goal.current)/\(goal.target)")
                     .font(DS.Typography.headline)
-                    .foregroundColor(isCompleted ? .gbBrass : .white)
+                    .foregroundColor(isCompleted ? .gbCoral : .white)
             }
             
             // Progress Bar
@@ -184,7 +184,7 @@ struct GoalCard: View {
                         .frame(height: 8)
                     
                     RoundedRectangle(cornerRadius: 6)
-                        .fill(Color.gbBrass)
+                        .fill(Color.gbCoral)
                         .frame(width: geometry.size.width * progress, height: 8)
                         .animation(.spring(response: 0.5), value: progress)
                 }
@@ -207,7 +207,7 @@ struct GoalCard: View {
         .cornerRadius(12)
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(isCompleted ? Color.gbBrass : Color.clear, lineWidth: 2)
+                .stroke(isCompleted ? Color.gbCoral : Color.clear, lineWidth: 2)
         )
     }
     
@@ -240,7 +240,7 @@ struct EmptyGoalsView: View {
                     .fontWeight(.medium)
                     .padding(.horizontal, 20)
                     .padding(.vertical, 10)
-                    .background(Color.gbBrass)
+                    .background(Color.gbCoral)
                     .foregroundColor(.gbDark)
                     .cornerRadius(20)
             }
@@ -262,7 +262,7 @@ struct SuggestedGoalCard: View {
         HStack(spacing: 12) {
             Image(systemName: suggestion.icon)
                 .font(DS.Typography.title)
-                .foregroundColor(.gbBrass)
+                .foregroundColor(.gbCoral)
                 .frame(width: 40)
             
             VStack(alignment: .leading, spacing: 2) {
@@ -281,7 +281,7 @@ struct SuggestedGoalCard: View {
             Button(action: onAdd) {
                 Image(systemName: "plus.circle.fill")
                     .font(DS.Typography.title)
-                    .foregroundColor(.gbBrass)
+                    .foregroundColor(.gbCoral)
             }
             .accessibilityLabel("Ajouter cet objectif")
         }
@@ -299,7 +299,7 @@ struct CompletedGoalBadge: View {
         VStack(spacing: 8) {
             ZStack {
                 Circle()
-                    .fill(Color.gbBrass.gradient)
+                    .fill(Color.gbCoral.gradient)
                     .frame(width: 50, height: 50)
                 
                 Image(systemName: goal.icon)
@@ -324,7 +324,7 @@ struct CompletedGoalBadge: View {
 // MARK: - Add Goal Sheet
 struct AddGoalSheet: View {
     @Environment(\.dismiss) var dismiss
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     
     @State private var title = ""
     @State private var selectedType: GoalType = .gamesCompleted
@@ -365,7 +365,7 @@ struct AddGoalSheet: View {
                         addGoal()
                         dismiss()
                     }
-                    .foregroundColor(.gbBrass)
+                    .foregroundColor(.gbCoral)
                     .fontWeight(.semibold)
                 }
             }
@@ -389,5 +389,5 @@ struct AddGoalSheet: View {
 // MARK: - Preview
 #Preview {
     NavigationStack { GoalsView() }
-        .environmentObject(GameStore())
+        .environment(GameStore())
 }

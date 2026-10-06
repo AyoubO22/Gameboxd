@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct BacklogView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @State private var selectedPriority: GamePriority? = nil
     @State private var showingRandomPicker = false
     @State private var randomGame: Game? = nil
@@ -138,7 +138,7 @@ struct RandomPickerCard: View {
             HStack {
                 Image(systemName: "dice.fill")
                     .font(DS.Typography.title)
-                    .foregroundColor(.gbBrass)
+                    .foregroundColor(.gbCoral)
                 
                 Text("À quoi jouer ?")
                     .font(DS.Typography.headline)
@@ -158,7 +158,7 @@ struct RandomPickerCard: View {
                         }
                         .frame(width: 60, height: 80)
                         .cornerRadius(8)
-                        .shadow(color: .gbBrass.opacity(0.5), radius: 10)
+                        .shadow(color: .gbCoral.opacity(0.5), radius: 10)
                     } else {
                         Rectangle()
                             .fill(game.coverColor.gradient)
@@ -193,7 +193,7 @@ struct RandomPickerCard: View {
                     NavigationLink(destination: GameDetailView(game: game)) {
                         Image(systemName: "play.circle.fill")
                             .font(.system(size: 40))
-                            .foregroundColor(.gbBrass)
+                            .foregroundColor(.gbCoral)
                     }
                 }
                 .transition(.scale.combined(with: .opacity))
@@ -229,7 +229,7 @@ struct RandomPickerCard: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(Color.gbBrass.gradient)
+                .background(Color.gbCoral.gradient)
                 .foregroundColor(.gbDark)
                 .cornerRadius(12)
             }
@@ -276,7 +276,7 @@ struct PriorityFilterChip: View {
 // MARK: - Backlog Game Row
 struct BacklogGameRow: View {
     let game: Game
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     
     var body: some View {
         HStack(spacing: 12) {
@@ -336,7 +336,7 @@ struct BacklogGameRow: View {
                     Image(systemName: "play.fill")
                         .font(DS.Typography.caption)
                         .padding(8)
-                        .background(Color.gbBrass)
+                        .background(Color.gbCoral)
                         .foregroundColor(.gbDark)
                         .cornerRadius(8)
                 }
@@ -380,5 +380,5 @@ struct BacklogGameRow: View {
 // MARK: - Preview
 #Preview {
     NavigationStack { BacklogView() }
-        .environmentObject(GameStore())
+        .environment(GameStore())
 }

@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct RecommendationsView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @State private var recommendations: [RecommendationSection] = []
     @State private var isLoading = true
     
@@ -144,7 +144,7 @@ struct RecommendationSectionView: View {
             // Header
             HStack {
                 Image(systemName: section.icon)
-                    .foregroundColor(.gbBrass)
+                    .foregroundColor(.gbCoral)
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(section.title)
@@ -178,7 +178,7 @@ struct RecommendationSectionView: View {
 // MARK: - Recommendation Game Card
 struct RecommendationGameCard: View {
     let game: Game
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     
     var isInLibrary: Bool {
         store.isInLibrary(game)
@@ -207,7 +207,7 @@ struct RecommendationGameCard: View {
                 // In Library Badge
                 if isInLibrary {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.gbBrass)
+                        .foregroundColor(.gbCoral)
                         .background(Circle().fill(Color.gbDark))
                         .padding(6)
                 }
@@ -251,7 +251,7 @@ struct LoadingRecommendationsView: View {
             Spacer()
             
             ProgressView()
-                .progressViewStyle(CircularProgressViewStyle(tint: .gbBrass))
+                .progressViewStyle(CircularProgressViewStyle(tint: .gbCoral))
                 .scaleEffect(1.5)
             
             Text("Analyse de tes goûts...")
@@ -266,5 +266,5 @@ struct LoadingRecommendationsView: View {
 // MARK: - Preview
 #Preview {
     NavigationStack { RecommendationsView() }
-        .environmentObject(GameStore())
+        .environment(GameStore())
 }

@@ -9,7 +9,7 @@
 import SwiftUI
 
 struct LinkedAccountsView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @State private var showingLinkSheet: GamingPlatform?
     @State private var showingUnlinkConfirm: LinkedAccount?
     @State private var showingSyncResult = false
@@ -70,7 +70,7 @@ struct LinkedAccountsView: View {
         VStack(spacing: 12) {
             ZStack {
                 Circle()
-                    .fill(Color.gbBrass.gradient)
+                    .fill(Color.gbCoral.gradient)
                     .frame(width: 80, height: 80)
                 
                 Image(systemName: "link.badge.plus")
@@ -160,10 +160,10 @@ struct LinkedAccountsView: View {
                     HStack {
                         Text("Voir les \(store.importedGames.count) jeux importés")
                             .font(DS.Typography.body)
-                            .foregroundColor(.gbBrass)
+                            .foregroundColor(.gbCoral)
                         Image(systemName: "chevron.right")
                             .font(DS.Typography.caption)
-                            .foregroundColor(.gbBrass)
+                            .foregroundColor(.gbCoral)
                     }
                     .padding()
                     .frame(maxWidth: .infinity)
@@ -227,7 +227,7 @@ struct ConnectedAccountCard: View {
                         
                         Image(systemName: "checkmark.seal.fill")
                             .font(DS.Typography.caption)
-                            .foregroundColor(.gbBrass)
+                            .foregroundColor(.gbCoral)
                     }
                     
                     Text(account.platformUsername.isEmpty ? account.platformUserId : account.platformUsername)
@@ -248,7 +248,7 @@ struct ConnectedAccountCard: View {
                     Text("\(account.importedGameCount)")
                         .font(DS.Typography.title3)
                         .fontWeight(.bold)
-                        .foregroundColor(.gbBrass)
+                        .foregroundColor(.gbCoral)
                     
                     Text("jeux")
                         .font(DS.Typography.micro)
@@ -265,7 +265,7 @@ struct ConnectedAccountCard: View {
                         if isSyncing {
                             ProgressView()
                                 .scaleEffect(0.8)
-                                .tint(.gbBrass)
+                                .tint(.gbCoral)
                         } else {
                             Image(systemName: "arrow.triangle.2.circlepath")
                         }
@@ -275,7 +275,7 @@ struct ConnectedAccountCard: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
                     .background(Color.gbDark)
-                    .foregroundColor(.gbBrass)
+                    .foregroundColor(.gbCoral)
                     .cornerRadius(10)
                 }
                 .disabled(isSyncing)
@@ -350,7 +350,7 @@ struct PlatformLinkCard: View {
 // MARK: - Link Platform Sheet
 struct LinkPlatformSheet: View {
     let platform: GamingPlatform
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @Environment(\.dismiss) var dismiss
     
     @State private var platformId = ""
@@ -425,11 +425,11 @@ struct LinkPlatformSheet: View {
                         VStack(spacing: 12) {
                             Image(systemName: "checkmark.circle.fill")
                                 .font(.system(size: 50))
-                                .foregroundColor(.gbBrass)
+                                .foregroundColor(.gbCoral)
                             
                             Text("Compte lié avec succès !")
                                 .font(DS.Typography.headline)
-                                .foregroundColor(.gbBrass)
+                                .foregroundColor(.gbCoral)
                         }
                         .padding()
                     }
@@ -451,7 +451,7 @@ struct LinkPlatformSheet: View {
                         .fontWeight(.semibold)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(linkSuccess ? Color.green : Color.gbBrass)
+                        .background(linkSuccess ? Color.green : Color.gbCoral)
                         .foregroundColor(.black)
                         .cornerRadius(14)
                     }
@@ -466,7 +466,7 @@ struct LinkPlatformSheet: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Fermer") { dismiss() }
-                        .foregroundColor(.gbBrass)
+                        .foregroundColor(.gbCoral)
                 }
             }
         }
@@ -556,7 +556,7 @@ struct ImportedGameRow: View {
             
             if game.isImportedToLibrary {
                 Image(systemName: "checkmark.circle.fill")
-                    .foregroundColor(.gbBrass)
+                    .foregroundColor(.gbCoral)
             } else {
                 Button(action: onImport) {
                     Text("Ajouter")
@@ -564,8 +564,8 @@ struct ImportedGameRow: View {
                         .fontWeight(.medium)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
-                        .background(Color.gbBrass.opacity(0.2))
-                        .foregroundColor(.gbBrass)
+                        .background(Color.gbCoral.opacity(0.2))
+                        .foregroundColor(.gbCoral)
                         .cornerRadius(8)
                 }
             }
@@ -578,7 +578,7 @@ struct ImportedGameRow: View {
 
 // MARK: - All Imported Games View
 struct AllImportedGamesView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @State private var searchText = ""
     @State private var selectedPlatform: GamingPlatform?
     
@@ -654,12 +654,12 @@ private struct LinkedAccountsFilterChip: View {
                 .fontWeight(.medium)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
-                .background(isSelected ? Color.gbBrass.opacity(0.2) : Color.gbCard)
-                .foregroundColor(isSelected ? .gbBrass : .gray)
+                .background(isSelected ? Color.gbCoral.opacity(0.2) : Color.gbCard)
+                .foregroundColor(isSelected ? .gbCoral : .gray)
                 .cornerRadius(20)
                 .overlay(
                     RoundedRectangle(cornerRadius: 20)
-                        .stroke(isSelected ? Color.gbBrass : Color.clear, lineWidth: 1)
+                        .stroke(isSelected ? Color.gbCoral : Color.clear, lineWidth: 1)
                 )
         }
     }
@@ -669,6 +669,6 @@ private struct LinkedAccountsFilterChip: View {
 #Preview {
     NavigationStack {
         LinkedAccountsView()
-            .environmentObject(GameStore())
+            .environment(GameStore())
     }
 }

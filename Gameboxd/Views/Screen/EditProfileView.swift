@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct EditProfileView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @Environment(\.dismiss) var dismiss
     
     @State private var username: String = ""
@@ -29,7 +29,7 @@ struct EditProfileView: View {
                 VStack(spacing: 16) {
                     ZStack {
                         Circle()
-                            .fill(Color.gbBrass.gradient)
+                            .fill(Color.gbCoral.gradient)
                             .frame(width: 100, height: 100)
                         
                         Text(selectedEmoji)
@@ -49,11 +49,11 @@ struct EditProfileView: View {
                                     .frame(width: 50, height: 50)
                                     .background(
                                         RoundedRectangle(cornerRadius: 10)
-                                            .fill(selectedEmoji == emoji ? Color.gbBrass.opacity(0.3) : Color.gbCard)
+                                            .fill(selectedEmoji == emoji ? Color.gbCoral.opacity(0.3) : Color.gbCard)
                                     )
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 10)
-                                            .stroke(selectedEmoji == emoji ? Color.gbBrass : Color.clear, lineWidth: 2)
+                                            .stroke(selectedEmoji == emoji ? Color.gbCoral : Color.clear, lineWidth: 2)
                                     )
                             }
                         }
@@ -104,14 +104,14 @@ struct EditProfileView: View {
                         HStack {
                             Text("\(yearlyGoal) jeux")
                                 .font(DS.Typography.headline)
-                                .foregroundColor(.gbBrass)
+                                .foregroundColor(.gbCoral)
                                 .frame(width: 80)
                             
                             Slider(value: Binding(
                                 get: { Double(yearlyGoal) },
                                 set: { yearlyGoal = Int($0) }
                             ), in: 1...100, step: 1)
-                            .tint(.gbBrass)
+                            .tint(.gbCoral)
                         }
                     }
                 }
@@ -153,7 +153,7 @@ struct EditProfileView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(showingSaved ? Color.green : Color.gbBrass)
+                    .background(showingSaved ? Color.green : Color.gbCoral)
                     .foregroundColor(showingSaved ? .white : .black)
                     .cornerRadius(12)
                 }
@@ -221,12 +221,12 @@ struct PlatformChip: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(isSelected ? Color.gbBrass.opacity(0.2) : Color.gbDark)
-            .foregroundColor(isSelected ? .gbBrass : .gray)
+            .background(isSelected ? Color.gbCoral.opacity(0.2) : Color.gbDark)
+            .foregroundColor(isSelected ? .gbCoral : .gray)
             .cornerRadius(20)
             .overlay(
                 RoundedRectangle(cornerRadius: 20)
-                    .stroke(isSelected ? Color.gbBrass : Color.gray.opacity(0.3), lineWidth: 1)
+                    .stroke(isSelected ? Color.gbCoral : Color.gray.opacity(0.3), lineWidth: 1)
             )
         }
     }

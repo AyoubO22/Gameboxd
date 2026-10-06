@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct SocialView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @State private var selectedTab = 0
     
     var body: some View {
@@ -38,7 +38,7 @@ struct SocialView: View {
             ToolbarItem(placement: .navigationBarTrailing) {
                 NavigationLink(destination: FindFriendsView()) {
                     Image(systemName: "person.badge.plus")
-                        .foregroundColor(.gbBrass)
+                        .foregroundColor(.gbCoral)
                 }
             }
         }
@@ -47,7 +47,7 @@ struct SocialView: View {
 
 // MARK: - Activity Feed
 struct ActivityFeedView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     
     var body: some View {
         if store.activityFeed.isEmpty {
@@ -88,7 +88,7 @@ struct EmptyActivityView: View {
                     .font(DS.Typography.headline)
                     .padding(.horizontal, 24)
                     .padding(.vertical, 12)
-                    .background(Color.gbBrass)
+                    .background(Color.gbCoral)
                     .foregroundColor(.gbDark)
                     .cornerRadius(25)
             }
@@ -110,7 +110,7 @@ struct ActivityCard: View {
                 // Avatar
                 ZStack {
                     Circle()
-                        .fill(Color.gbBrass.gradient)
+                        .fill(Color.gbCoral.gradient)
                         .frame(width: 40, height: 40)
                     
                     Text(activity.avatarEmoji)
@@ -173,7 +173,7 @@ struct ActivityCard: View {
                                     .font(DS.Typography.caption)
                             }
                         }
-                        .foregroundColor(.gbBrass)
+                        .foregroundColor(.gbCoral)
                     }
                     
                     // Review excerpt if present
@@ -196,7 +196,7 @@ struct ActivityCard: View {
                         Text("J'aime")
                     }
                     .font(DS.Typography.caption)
-                    .foregroundColor(isLiked ? .gbBrass : .gray)
+                    .foregroundColor(isLiked ? .gbCoral : .gray)
                 }
                 
                 Spacer()
@@ -210,7 +210,7 @@ struct ActivityCard: View {
 
 // MARK: - Friends List
 struct FriendsListView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     
     var body: some View {
         if store.friends.isEmpty {
@@ -250,7 +250,7 @@ struct EmptyFriendsView: View {
                     .font(DS.Typography.headline)
                     .padding(.horizontal, 24)
                     .padding(.vertical, 12)
-                    .background(Color.gbBrass)
+                    .background(Color.gbCoral)
                     .foregroundColor(.gbDark)
                     .cornerRadius(25)
             }
@@ -262,14 +262,14 @@ struct EmptyFriendsView: View {
 
 struct FriendRow: View {
     let friend: Friend
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     
     var body: some View {
         HStack(spacing: 12) {
             // Avatar
             ZStack {
                 Circle()
-                    .fill(Color.gbBrass.gradient)
+                    .fill(Color.gbCoral.gradient)
                     .frame(width: 50, height: 50)
                 
                 Text(friend.avatarEmoji)
@@ -296,7 +296,7 @@ struct FriendRow: View {
                     .fontWeight(.medium)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
-                    .background(friend.isFollowing ? Color.gbCard : Color.gbBrass)
+                    .background(friend.isFollowing ? Color.gbCard : Color.gbCoral)
                     .foregroundColor(friend.isFollowing ? .gray : .gbDark)
                     .cornerRadius(20)
             }
@@ -314,7 +314,7 @@ struct FriendRow: View {
 // MARK: - Find Friends
 struct FindFriendsView: View {
     @State private var searchText = ""
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     
     // Mock suggested users
     let suggestedUsers = [
@@ -372,7 +372,7 @@ struct FindFriendsView: View {
                     Text(friendCode)
                         .font(.system(.title3, design: .monospaced))
                         .fontWeight(.bold)
-                        .foregroundColor(.gbBrass)
+                        .foregroundColor(.gbCoral)
                         .padding()
                         .background(Color.gbCard)
                         .cornerRadius(12)
@@ -386,7 +386,7 @@ struct FindFriendsView: View {
                             Text("Copier")
                         }
                         .font(DS.Typography.body)
-                        .foregroundColor(.gbBrass)
+                        .foregroundColor(.gbCoral)
                     }
                 }
                 .padding()
@@ -401,7 +401,7 @@ struct FindFriendsView: View {
 }
 
 struct SuggestedUserRow: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     let user: Friend
 
     private var isFollowing: Bool {
@@ -412,7 +412,7 @@ struct SuggestedUserRow: View {
         HStack(spacing: 12) {
             ZStack {
                 Circle()
-                    .fill(Color.gbBrass.gradient)
+                    .fill(Color.gbCoral.gradient)
                     .frame(width: 45, height: 45)
                 
                 Text(user.avatarEmoji)
@@ -443,8 +443,8 @@ struct SuggestedUserRow: View {
                     .fontWeight(.medium)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
-                    .background(isFollowing ? Color.gbCard : Color.gbBrass)
-                    .foregroundColor(isFollowing ? .gbBrass : .gbDark)
+                    .background(isFollowing ? Color.gbCard : Color.gbCoral)
+                    .foregroundColor(isFollowing ? .gbCoral : .gbDark)
                     .cornerRadius(20)
             }
         }
@@ -457,5 +457,5 @@ struct SuggestedUserRow: View {
 // MARK: - Preview
 #Preview {
     NavigationStack { SocialView() }
-        .environmentObject(GameStore())
+        .environment(GameStore())
 }

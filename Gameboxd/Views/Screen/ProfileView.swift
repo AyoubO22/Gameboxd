@@ -8,88 +8,44 @@
 import SwiftUI
 
 struct ProfileView: View {
-    @EnvironmentObject var store: GameStore
-    @State private var showingLogoutConfirm = false
+    @Environment(GameStore.self) private var store
     @State private var showingEditProfile = false
-    @State private var showingStats = false
     @State private var showingLists = false
-    
+    @Namespace private var showcaseNamespace
+
     var body: some View {
         NavigationStack {
+            // Width read from outside the scroll view: it's fixed by the screen, so sizing
+            // the showcase from it can't loop (measuring the content itself did).
+            GeometryReader { page in
             ScrollView {
-                VStack(spacing: 24) {
-                    // Profile Header
-                    ProfileHeaderView(showingEditProfile: $showingEditProfile)
-                    
-                    // Yearly Goal Progress
-                    YearlyGoalCard()
-                    
-                    // Quick Stats
-                    QuickStatsGrid()
-                    
-                    // Feature Navigation Cards
+                VStack(alignment: .leading, spacing: DS.Spacing.xl) {
+                    ProfileNameplate(showingEditProfile: $showingEditProfile)
+
+                    ShowcaseSection(namespace: showcaseNamespace, rowWidth: page.size.width - DS.Spacing.md * 2)
+
+                    YearStorySection()
+
+                    StickerAlbumSection()
+
                     ProfileNavigationSection()
-                    
-                    // Favorite Games
-                    FavoriteGamesSection()
-                    
-                    // My Lists
+
                     MyListsSection(showingLists: $showingLists)
-                    
-                    // Year in Review Button
-                    NavigationLink(destination: YearInReviewView()) {
-                        HStack(spacing: DS.Spacing.md) {
-                            Image(systemName: "calendar.badge.clock")
-                                .font(DS.Typography.title)
-                                .foregroundStyle(Color.accent)
-
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Rétrospective \(String(Calendar.current.component(.year, from: Date())))")
-                                    .font(DS.Typography.headline)
-                                    .foregroundStyle(Color.textPrimary)
-                                Text("Tes statistiques de l'année")
-                                    .font(DS.Typography.caption)
-                                    .foregroundStyle(Color.textSecondary)
-                            }
-
-                            Spacer()
-
-                            Image(systemName: "chevron.right")
-                                .foregroundStyle(Color.textTertiary)
-                        }
-                        .cardStyle()
-                        .overlay(
-                            RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                                .stroke(Color.accent.opacity(0.3), lineWidth: 1)
-                        )
-                    }
-                    .padding(.horizontal)
-
-                    // Logout Button
-                    Button(action: { showingLogoutConfirm = true }) {
-                        HStack {
-                            Image(systemName: "rectangle.portrait.and.arrow.right")
-                                .font(DS.Typography.title3)
-                            Text("Déconnexion")
-                                .font(DS.Typography.headline)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .foregroundStyle(Color(hex: "D9695A"))
-                        .contentShape(Rectangle())
-                    }
-                    .padding(.horizontal)
                 }
                 .padding(.vertical)
+                .padding(.bottom, 90)
+            }
             }
             .background(Color.gbDark.ignoresSafeArea())
             .navigationTitle("Profil")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     NavigationLink(destination: SettingsView()) {
                         Image(systemName: "gearshape.fill")
                             .foregroundStyle(Color.accent)
                     }
+                    .accessibilityLabel("Réglages")
                 }
             }
             .sheet(isPresented: $showingEditProfile) {
@@ -98,46 +54,38 @@ struct ProfileView: View {
             .sheet(isPresented: $showingLists) {
                 ListsView()
             }
-            .alert("Déconnexion", isPresented: $showingLogoutConfirm) {
-                Button("Annuler", role: .cancel) {}
-                Button("Se déconnecter", role: .destructive) {
-                    store.logout()
-                }
-            } message: {
-                Text("És-tu sûr de vouloir te déconnecter ?")
-            }
         }
     }
 }
 
 // MARK: - Profile Navigation Section
 struct ProfileNavigationSection: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     
     var body: some View {
         VStack(spacing: 0) {
             NavigationLink(destination: StatisticsView()) {
-                ProfileNavRow(icon: "chart.bar.fill", title: "Statistiques", subtitle: "Graphiques détaillés", color: Color(hex: "8EA9C9"))
+                ProfileNavRow(icon: "chart.bar.fill", title: "Statistiques", subtitle: "Graphiques détaillés")
             }
             Divider().overlay(Color.gbBorder)
             NavigationLink(destination: AchievementsView()) {
-                ProfileNavRow(icon: "trophy.fill", title: "Succès", subtitle: "Tes badges", color: Color(hex: "E3A24C"))
+                ProfileNavRow(icon: "trophy.fill", title: "Succès", subtitle: "Tes badges")
             }
             Divider().overlay(Color.gbBorder)
             NavigationLink(destination: GoalsView()) {
-                ProfileNavRow(icon: "target", title: "Objectifs", subtitle: "Défis mensuels", color: .accent)
+                ProfileNavRow(icon: "target", title: "Objectifs", subtitle: "Défis mensuels")
             }
             Divider().overlay(Color.gbBorder)
             NavigationLink(destination: BacklogView()) {
-                ProfileNavRow(icon: "tray.full.fill", title: "Backlog", subtitle: "À quoi jouer?", color: Color(hex: "E3A24C"))
+                ProfileNavRow(icon: "tray.full.fill", title: "Backlog", subtitle: "À quoi jouer?")
             }
             Divider().overlay(Color.gbBorder)
             NavigationLink(destination: RecommendationsView()) {
-                ProfileNavRow(icon: "sparkles", title: "Pour toi", subtitle: "Recommandations", color: .accent)
+                ProfileNavRow(icon: "sparkles", title: "Pour toi", subtitle: "Recommandations")
             }
             Divider().overlay(Color.gbBorder)
             NavigationLink(destination: SocialView()) {
-                ProfileNavRow(icon: "person.2.fill", title: "Social", subtitle: "Amis & Activité", color: Color(hex: "BCA5DB"))
+                ProfileNavRow(icon: "person.2.fill", title: "Social", subtitle: "Amis & Activité")
             }
             Divider().overlay(Color.gbBorder)
             NavigationLink(destination: LinkedAccountsView()) {
@@ -145,7 +93,6 @@ struct ProfileNavigationSection: View {
                     icon: "link.badge.plus",
                     title: "Comptes liés",
                     subtitle: "PlayStation, Steam",
-                    color: Color(hex: "8EA9C9"),
                     count: store.linkedAccounts.isEmpty ? nil : store.linkedAccounts.count
                 )
             }
@@ -164,323 +111,45 @@ struct ProfileNavRow: View {
     let icon: String
     let title: String
     let subtitle: String
-    let color: Color
     var count: Int? = nil
-    
+
     var body: some View {
-        HStack(spacing: DS.Spacing.sm) {
-            ZStack {
-                RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
-                    .fill(color.opacity(0.16))
-                    .frame(width: 32, height: 32)
-                
-                Image(systemName: icon)
-                    .font(.system(size: 14))
-                    .foregroundStyle(color)
-            }
-            
+        HStack(spacing: DS.Spacing.md) {
+            Image(systemName: icon)
+                .font(DS.Typography.bodyLarge)
+                .foregroundStyle(Color.accent)
+                .frame(width: 24)
+
             VStack(alignment: .leading, spacing: 1) {
                 Text(title)
                     .font(DS.Typography.bodyMedium)
                     .foregroundStyle(Color.textPrimary)
-                
                 Text(subtitle)
                     .font(DS.Typography.caption)
                     .foregroundStyle(Color.textSecondary)
             }
-            
+
             Spacer(minLength: 0)
-            
-            if let count = count {
+
+            if let count {
                 Text("\(count)")
-                    .font(DS.Typography.label)
-                    .foregroundStyle(color)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(color.opacity(0.16))
-                    .clipShape(Capsule())
+                    .font(DS.Typography.captionMedium)
+                    .foregroundStyle(Color.textSecondary)
             }
-            
+
             Image(systemName: "chevron.right")
                 .font(DS.Typography.caption)
                 .foregroundStyle(Color.textTertiary)
         }
         .padding(.horizontal, DS.Spacing.md)
-        .padding(.vertical, DS.Spacing.sm)
+        .padding(.vertical, 12)
         .contentShape(Rectangle())
-    }
-}
-
-// MARK: - Profile Header
-struct ProfileHeaderView: View {
-    @EnvironmentObject var store: GameStore
-    @Binding var showingEditProfile: Bool
-    
-    var body: some View {
-        VStack(spacing: 16) {
-            // Avatar (supports Google/Apple profile pic or emoji)
-            ZStack {
-                if let avatarURLString = store.userProfile.avatarURL,
-                   let url = URL(string: avatarURLString) {
-                    CachedAsyncImage(url: url) { image in
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                    } placeholder: {
-                        Circle()
-                            .fill(Color.gbBrass.gradient)
-                            .overlay(
-                                Text(store.userProfile.avatarEmoji)
-                                    .font(.system(size: 50))
-                            )
-                    }
-                    .frame(width: 100, height: 100)
-                    .clipShape(Circle())
-                } else {
-                    Circle()
-                        .fill(Color.gbBrass.gradient)
-                        .frame(width: 100, height: 100)
-
-                    Text(store.userProfile.avatarEmoji)
-                        .font(.system(size: 50))
-                }
-            }
-            .overlay(Circle().stroke(Color.accent, lineWidth: 2))
-
-            // Username
-            HStack(spacing: 6) {
-                Text(store.userProfile.username)
-                    .font(DS.Typography.largeTitle)
-                    .foregroundStyle(Color.textPrimary)
-
-                // Auth provider badge
-                if store.userProfile.authProvider == "apple" {
-                    Image(systemName: "apple.logo")
-                        .font(DS.Typography.caption)
-                        .foregroundStyle(Color.textTertiary)
-                } else if store.userProfile.authProvider == "google" {
-                    Image(systemName: "g.circle.fill")
-                        .font(DS.Typography.caption)
-                        .foregroundStyle(Color.textTertiary)
-                }
-            }
-
-            // Linked platforms badges
-            if !store.linkedAccounts.isEmpty {
-                HStack(spacing: 8) {
-                    ForEach(store.linkedAccounts) { account in
-                        TagPill(
-                            label: account.platformUsername.isEmpty ? account.platformUserId : account.platformUsername,
-                            icon: account.platform.sfSymbol,
-                            isSelected: true,
-                            tint: account.platform.accentColor
-                        )
-                    }
-                }
-            }
-
-            // Bio
-            if !store.userProfile.bio.isEmpty {
-                Text(store.userProfile.bio)
-                    .font(DS.Typography.body)
-                    .foregroundStyle(Color.textSecondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 40)
-            }
-
-            // Edit Button
-            Button(action: { showingEditProfile = true }) {
-                HStack {
-                    Image(systemName: "pencil")
-                    Text("Modifier le profil")
-                }
-                .font(DS.Typography.body)
-                .foregroundStyle(Color.textPrimary)
-                .padding(.horizontal, 20)
-                .padding(.vertical, 10)
-                .background(Color.gbCard)
-                .clipShape(Capsule())
-                .overlay(Capsule().stroke(Color.gbBorder, lineWidth: 1))
-            }
-        }
-        .padding()
-    }
-}
-
-// MARK: - Yearly Goal Card
-struct YearlyGoalCard: View {
-    @EnvironmentObject var store: GameStore
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("Objectif \(String(Calendar.current.component(.year, from: Date())))")
-                    .font(DS.Typography.label)
-                    .foregroundStyle(Color.textTertiary)
-
-                Spacer()
-
-                Text("\(store.completedThisYear) / \(store.userProfile.yearlyGoal)")
-                    .font(DS.Typography.stat)
-                    .foregroundStyle(Color.textPrimary)
-            }
-
-            // Progress Bar
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(Color.gbSurface2)
-                        .frame(height: 8)
-
-                    Capsule()
-                        .fill(Color.accent)
-                        .frame(width: max(8, geometry.size.width * store.yearlyProgress), height: 8)
-                }
-            }
-            .frame(height: 8)
-
-            // Encouragement text
-            Text(progressMessage)
-                .font(DS.Typography.caption)
-                .foregroundStyle(Color.textSecondary)
-        }
-        .cardStyle()
-        .padding(.horizontal)
-    }
-    
-    var progressMessage: String {
-        let progress = store.yearlyProgress
-        if progress >= 1.0 {
-            return "🎉 Objectif atteint ! Bravo !"
-        } else if progress >= 0.75 {
-            return "Presque ! Plus que \(store.userProfile.yearlyGoal - store.completedThisYear) jeux"
-        } else if progress >= 0.5 {
-            return "Tu es à mi-chemin, continue !"
-        } else if progress >= 0.25 {
-            return "Bon début, reste motivé !"
-        } else {
-            return "C'est parti pour cette année !"
-        }
-    }
-}
-
-// MARK: - Quick Stats Grid
-struct QuickStatsGrid: View {
-    @EnvironmentObject var store: GameStore
-    
-    var body: some View {
-        LazyVGrid(columns: [
-            GridItem(.flexible()),
-            GridItem(.flexible()),
-            GridItem(.flexible())
-        ], spacing: DS.Spacing.xs) {
-            MetricCard(value: "\(store.totalGames)", label: "Jeux", icon: "gamecontroller.fill", tint: Color(hex: "8EA9C9"))
-            MetricCard(value: store.totalPlayTimeFormatted, label: "Temps joué", icon: "clock.fill", tint: Color(hex: "E3A24C"))
-            MetricCard(value: String(format: "%.1f", store.averageRating), label: "Note moy.", icon: "star.fill", tint: .accent)
-            MetricCard(value: "\(store.gamesCount(for: .completed) + store.gamesCount(for: .platinum))", label: "Terminés", icon: "checkmark.circle.fill", tint: Color(hex: "E3A24C"))
-            MetricCard(value: "\(store.gamesCount(for: .playing))", label: "En cours", icon: "play.fill", tint: .accent)
-            MetricCard(value: "\(store.backlog.count)", label: "Backlog", icon: "tray.full.fill", tint: Color(hex: "BCA5DB"))
-        }
-        .padding(.horizontal)
-    }
-}
-
-// MARK: - Favorite Games Section
-struct FavoriteGamesSection: View {
-    @EnvironmentObject var store: GameStore
-    
-    var body: some View {
-        let favorites = store.favoriteGames()
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                SectionHeader(title: "Jeux favoris")
-
-                Text("\(favorites.count)/4")
-                    .font(DS.Typography.label)
-                    .foregroundStyle(Color.textTertiary)
-            }
-            .padding(.horizontal)
-
-            if favorites.isEmpty {
-                EmptyState(icon: "heart", title: "Épingle tes 4 jeux préférés")
-                    .frame(height: 140)
-                    .cardStyle()
-                    .padding(.horizontal)
-            } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 12) {
-                        ForEach(favorites) { game in
-                            NavigationLink(destination: GameDetailView(game: game)) {
-                                FavoriteGameCard(game: game)
-                            }
-                        }
-
-                        // Add more slot
-                        if favorites.count < 4 {
-                            AddFavoriteSlot()
-                        }
-                    }
-                    .padding(.horizontal)
-                }
-            }
-        }
-    }
-}
-
-struct FavoriteGameCard: View {
-    let game: Game
-
-    var body: some View {
-        VStack(spacing: 8) {
-            Group {
-                if let url = game.artURL {
-                    CachedAsyncImage(url: url) { image in
-                        image.resizable().aspectRatio(contentMode: .fill)
-                    } placeholder: {
-                        Rectangle().fill(game.coverColor.gradient)
-                    }
-                } else {
-                    Rectangle().fill(game.coverColor.gradient)
-                }
-            }
-            .frame(width: 100, height: 133)
-            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                    .stroke(Color.gbBorder, lineWidth: 1)
-            )
-
-            Text(game.title)
-                .font(DS.Typography.captionMedium)
-                .foregroundStyle(Color.textPrimary)
-                .lineLimit(1)
-                .frame(width: 100)
-        }
-    }
-}
-
-struct AddFavoriteSlot: View {
-    var body: some View {
-        VStack(spacing: 8) {
-            RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                .strokeBorder(Color.gbBorder, style: StrokeStyle(lineWidth: 1.5, dash: [5]))
-                .frame(width: 100, height: 133)
-                .overlay(
-                    Image(systemName: "plus")
-                        .font(DS.Typography.title)
-                        .foregroundStyle(Color.textTertiary)
-                )
-
-            Text("Ajouter")
-                .font(DS.Typography.captionMedium)
-                .foregroundStyle(Color.textSecondary)
-        }
     }
 }
 
 // MARK: - My Lists Section
 struct MyListsSection: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @Binding var showingLists: Bool
     
     var body: some View {
@@ -522,7 +191,7 @@ struct MyListsSection: View {
 
 struct ListPreviewCard: View {
     let list: GameList
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -547,7 +216,7 @@ struct ListPreviewCard: View {
 
 // MARK: - Year In Review View
 struct YearInReviewView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @State private var selectedYear = Calendar.current.component(.year, from: Date())
     
     var stats: YearStats {
@@ -656,7 +325,7 @@ struct YearInReviewView: View {
 // MARK: - List Detail View (from Profile)
 struct ListDetailViewFromProfile: View {
     let list: GameList
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     
     var gamesInList: [Game] {
         store.myGames.filter { list.gameIds.contains($0.id) }
@@ -712,5 +381,269 @@ struct ListDetailViewFromProfile: View {
 // MARK: - Preview
 #Preview {
     ProfileView()
-        .environmentObject(GameStore())
+        .environment(GameStore())
+}
+
+// MARK: - Nameplate
+
+/// Your name set large, like an engraved plate: the page is about you, not a stats dashboard.
+struct ProfileNameplate: View {
+    @Environment(GameStore.self) private var store
+    @Binding var showingEditProfile: Bool
+
+    private var profile: UserProfile { store.userProfile }
+
+    var body: some View {
+        HStack(alignment: .center, spacing: DS.Spacing.md) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(profile.username)
+                    .font(DS.Typography.display(48))
+                    .foregroundStyle(Color.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                if !profile.bio.isEmpty {
+                    Text(profile.bio)
+                        .font(DS.Typography.body)
+                        .foregroundStyle(Color.textSecondary)
+                }
+                Button("Modifier le profil") { showingEditProfile = true }
+                    .font(DS.Typography.captionMedium)
+                    .foregroundStyle(Color.accent)
+                    .padding(.top, 4)
+            }
+            Spacer(minLength: 0)
+            avatar
+        }
+        .padding(.horizontal)
+    }
+
+    @ViewBuilder private var avatar: some View {
+        Group {
+            if let string = profile.avatarURL, let url = URL(string: string) {
+                CachedAsyncImage(url: url) { $0.resizable().scaledToFill() } placeholder: { emoji }
+            } else {
+                emoji
+            }
+        }
+        .frame(width: 64, height: 64)
+        .background(Color.gbCard)
+        .clipShape(Circle())
+        .overlay(Circle().stroke(Color.accent.opacity(0.5), lineWidth: 1.5))
+        .accessibilityHidden(true)
+    }
+
+    private var emoji: some View {
+        Text(profile.avatarEmoji).font(.system(size: 32))
+    }
+}
+
+// MARK: - Showcase (favourites)
+
+/// Your four favourite games, face out on a lit plank, like a shop's display case.
+struct ShowcaseSection: View {
+    @Environment(GameStore.self) private var store
+    let namespace: Namespace.ID
+    /// Width available to the row of cases.
+    let rowWidth: CGFloat
+    @State private var showingPicker = false
+
+    private let slots = 4
+    private let gap: CGFloat = 10
+
+    var body: some View {
+        let favorites = store.favoriteGames()
+        // Four cases fill the row: each slot is a quarter of it minus the gaps,
+        // and a case is its cover plus a spine of ~6 % of that width.
+        let slotWidth = (rowWidth - gap * CGFloat(slots - 1)) / CGFloat(slots)
+        let coverWidth = (slotWidth / 1.06).rounded(.down)
+
+        VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+            ShelfLabel(title: "Ma vitrine", count: favorites.count)
+
+            VStack(spacing: 0) {
+                HStack(alignment: .bottom, spacing: gap) {
+                    ForEach(favorites) { game in
+                        NavigationLink {
+                            GameDetailView(game: game)
+                                .navigationTransition(.zoom(sourceID: game.id, in: namespace))
+                        } label: {
+                            FaceOutCase(game: game, coverWidth: coverWidth, showsProgress: false)
+                        }
+                        .buttonStyle(.plain)
+                        .matchedTransitionSource(id: game.id, in: namespace)
+                        .contextMenu {
+                            Button(role: .destructive) { store.removeFavoriteGame(game) } label: {
+                                Label("Retirer de la vitrine", systemImage: "xmark.circle")
+                            }
+                        }
+                    }
+                    ForEach(favorites.count..<slots, id: \.self) { _ in
+                        Button { showingPicker = true } label: {
+                            RoundedRectangle(cornerRadius: 5, style: .continuous)
+                                .strokeBorder(Color.textTertiary.opacity(0.6), style: StrokeStyle(lineWidth: 1.2, dash: [4, 4]))
+                                .frame(width: slotWidth, height: (coverWidth * 1.39).rounded())
+                                .overlay(Image(systemName: "plus").foregroundStyle(Color.textTertiary))
+                        }
+                        .accessibilityLabel("Ajouter un jeu à la vitrine")
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(.top, DS.Spacing.lg)
+                .padding(.horizontal, DS.Spacing.md)
+                // The display case: a soft spot from above on a slightly lighter back wall.
+                .background(
+                    ZStack {
+                        Shelf.wallTop
+                        RadialGradient(colors: [Color.white.opacity(0.10), .clear],
+                                       center: .top, startRadius: 0, endRadius: 220)
+                    }
+                )
+                ShelfPlank().padding(.horizontal, DS.Spacing.md)
+            }
+            .clipShape(UnevenRoundedRectangle(topLeadingRadius: DS.Radius.md, topTrailingRadius: DS.Radius.md))
+            .padding(.horizontal, -DS.Spacing.md)
+        }
+        .padding(.horizontal)
+        .sheet(isPresented: $showingPicker) {
+            ShowcasePicker()
+        }
+    }
+}
+
+/// Picks a library game to put in the showcase.
+struct ShowcasePicker: View {
+    @Environment(GameStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
+
+    private var candidates: [Game] {
+        let pinned = Set(store.favoriteGames().map(\.id))
+        return store.myGames.filter { !pinned.contains($0.id) }.sorted { $0.rating > $1.rating }
+    }
+
+    var body: some View {
+        NavigationStack {
+            List(candidates) { game in
+                Button {
+                    store.addFavoriteGame(game)
+                    HapticManager.notification(.success)
+                    dismiss()
+                } label: {
+                    HStack(spacing: DS.Spacing.sm) {
+                        FaceOutCase(game: game, coverWidth: 36, showsProgress: false)
+                        Text(game.title)
+                            .font(DS.Typography.bodyMedium)
+                            .foregroundStyle(Color.textPrimary)
+                        Spacer()
+                        if game.rating > 0 {
+                            Text("\(game.rating)/5")
+                                .font(DS.Typography.caption)
+                                .foregroundStyle(Color.textSecondary)
+                        }
+                    }
+                }
+                .listRowBackground(Color.gbCard)
+            }
+            .scrollContentBackground(.hidden)
+            .background(Color.gbDark)
+            .navigationTitle("Ajouter à la vitrine")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Annuler") { dismiss() } }
+            }
+            .overlay {
+                if candidates.isEmpty {
+                    EmptyState(icon: "books.vertical", title: "Ta collection est vide",
+                               message: "Ajoute des jeux depuis Recherche pour les exposer ici.")
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
+}
+
+// MARK: - Your year, told in sentences
+
+struct YearStorySection: View {
+    @Environment(GameStore.self) private var store
+    private let year = Calendar.current.component(.year, from: Date())
+
+    private var headline: String {
+        let done = store.completedThisYear
+        let goal = store.userProfile.yearlyGoal
+        let jeux = done > 1 ? "jeux" : "jeu"
+        if goal > 0 && done >= goal { return "Objectif \(year) atteint : \(done) \(jeux) terminés." }
+        if done == 0 { return goal > 0 ? "Aucun jeu terminé en \(year) pour l'instant. Ton objectif : \(goal)." : "Aucun jeu terminé en \(year) pour l'instant." }
+        return goal > 0 ? "En \(year), tu as terminé \(done) \(jeux) sur \(goal)." : "En \(year), tu as terminé \(done) \(jeux)."
+    }
+
+    private var detail: String {
+        var parts: [String] = []
+        let hours = store.totalPlayTimeMinutes / 60
+        if hours > 0 { parts.append("\(hours) h de jeu au compteur.") }
+        if let genre = store.topGenres.first?.0 { parts.append("Genre favori : \(genre).") }
+        if store.averageRating > 0 {
+            parts.append("Note moyenne : \(store.averageRating.formatted(.number.precision(.fractionLength(1)))) sur 5.")
+        }
+        return parts.joined(separator: " ")
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+            Text("Ton année")
+                .font(DS.Typography.title3)
+                .foregroundStyle(Color.textPrimary)
+
+            Text(headline)
+                .font(DS.Typography.text(22, relativeTo: .title3))
+                .foregroundStyle(Color.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            GoalNotches(done: store.completedThisYear, goal: store.userProfile.yearlyGoal)
+                .padding(.vertical, 4)
+
+            if !detail.isEmpty {
+                Text(detail)
+                    .font(DS.Typography.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            NavigationLink(destination: YearInReviewView()) {
+                HStack(spacing: 4) {
+                    Text("Voir ta rétrospective \(String(year))")
+                    Image(systemName: "chevron.right").font(DS.Typography.caption)
+                }
+                .font(DS.Typography.bodyMedium)
+                .foregroundStyle(Color.accent)
+            }
+            .padding(.top, 4)
+        }
+        .padding(.horizontal)
+    }
+}
+
+/// One notch per game of the yearly goal, filled for each game finished.
+/// Past 24 the notches would be too thin to read, so it becomes a plain bar.
+struct GoalNotches: View {
+    let done: Int
+    let goal: Int
+
+    var body: some View {
+        Group {
+            if goal > 0 && goal <= 24 {
+                HStack(spacing: 4) {
+                    ForEach(0..<goal, id: \.self) { index in
+                        Capsule()
+                            .fill(index < done ? Color.accent : Color.gbSurface2)
+                            .frame(height: 10)
+                    }
+                }
+            } else if goal > 0 {
+                ProgressView(value: Double(min(done, goal)), total: Double(goal))
+                    .tint(Color.accent)
+            }
+        }
+        .accessibilityElement()
+        .accessibilityLabel("\(done) jeux terminés sur un objectif de \(goal)")
+    }
 }

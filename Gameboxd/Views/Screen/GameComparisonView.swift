@@ -10,7 +10,7 @@ import SwiftUI
 // MARK: - Game Comparison View
 
 struct GameComparisonView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @Environment(\.dismiss) private var dismiss
 
     var preselectedGame: Game? = nil
@@ -825,10 +825,10 @@ private struct PickerGameRow: View {
 #Preview("Comparison — Both selected") {
     let store = GameStore()
     return GameComparisonView()
-        .environmentObject(store)
+        .environment(store)
 }
 
 #Preview("Comparison — Empty") {
     GameComparisonView()
-        .environmentObject(GameStore())
+        .environment(GameStore())
 }

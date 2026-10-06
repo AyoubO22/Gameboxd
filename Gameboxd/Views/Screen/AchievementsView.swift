@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct AchievementsView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @State private var selectedCategory: AchievementCategory? = nil
     @State private var showingUnlockedOnly = false
     
@@ -80,7 +80,7 @@ struct AchievementsView: View {
                     
                     // Toggle
                     Toggle("Débloqués uniquement", isOn: $showingUnlockedOnly)
-                        .toggleStyle(SwitchToggleStyle(tint: .gbBrass))
+                        .toggleStyle(SwitchToggleStyle(tint: .gbCoral))
                         .padding(.horizontal)
                         .foregroundColor(.textPrimary)
                 }
@@ -116,7 +116,7 @@ struct AchievementProgressHeader: View {
             // Trophy Icon
             ZStack {
                 Circle()
-                    .fill(Color.gbBrass.gradient)
+                    .fill(Color.gbCoral.gradient)
                     .frame(width: 80, height: 80)
                 
                 Image(systemName: "trophy.fill")
@@ -141,7 +141,7 @@ struct AchievementProgressHeader: View {
                         .frame(height: 12)
                     
                     RoundedRectangle(cornerRadius: 10)
-                        .fill(Color.gbBrass.gradient)
+                        .fill(Color.gbCoral.gradient)
                         .frame(width: geometry.size.width * progress, height: 12)
                 }
             }
@@ -150,7 +150,7 @@ struct AchievementProgressHeader: View {
             
             Text("\(Int(progress * 100))%")
                 .font(DS.Typography.caption)
-                .foregroundColor(.gbBrass)
+                .foregroundColor(.gbCoral)
         }
         .padding()
         .background(Color.gbCard)
@@ -238,7 +238,7 @@ struct CategoryFilterButton: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
-            .background(isSelected ? Color.gbBrass : Color.gbCard)
+            .background(isSelected ? Color.gbCoral : Color.gbCard)
             .foregroundColor(isSelected ? .gbDark : .gray)
             .cornerRadius(20)
         }
@@ -404,7 +404,7 @@ struct AchievementDetailSheet: View {
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
                     .background(Color.gbCard)
-                    .foregroundColor(.gbBrass)
+                    .foregroundColor(.gbCoral)
                     .cornerRadius(20)
                 
                 // Description
@@ -451,7 +451,7 @@ struct AchievementDetailSheet: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Fermer") { dismiss() }
-                        .foregroundColor(.gbBrass)
+                        .foregroundColor(.gbCoral)
                 }
             }
         }
@@ -462,6 +462,6 @@ struct AchievementDetailSheet: View {
 #Preview {
     NavigationStack {
         AchievementsView()
-            .environmentObject(GameStore())
+            .environment(GameStore())
     }
 }

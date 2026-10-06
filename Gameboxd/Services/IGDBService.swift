@@ -33,9 +33,20 @@ final class IGDBService {
 
     struct SearchResult: Decodable {
         struct Cover: Decodable { let image_id: String }
+        var id: Int?
         let name: String
         let first_release_date: TimeInterval?
         let cover: Cover?
+        var artworks: [Cover]?
+        var summary: String?
+        var storyline: String?
+    }
+
+    nonisolated struct Character: Decodable {
+        struct Game: Decodable { let name: String; let first_release_date: TimeInterval? }
+        let name: String
+        let mug_shot: SearchResult.Cover?
+        let games: [Game]?
     }
 
     /// Portrait cover for a title. Nil when IGDB has no match; throws on network or auth
@@ -53,6 +64,60 @@ final class IGDBService {
             .flatMap { URL(string: "https://images.igdb.com/igdb/image/upload/t_cover_big_2x/\($0).jpg") }
         cache[key] = url
         return url
+    }
+
+    struct StickerArt {
+        /// Main character first (see `byProminence`): the cleanest cut-outs.
+        var portraits: [URL] = []
+        /// Official artworks. IGDB often lists one key art several times (cropped, with or
+        /// without the logo), so these are the ones checked for repeats.
+        var artworks: [URL] = []
+    }
+
+    /// Art to cut stickers from. Empty when IGDB isn't configured or has no match.
+    func stickerArt(title: String, year: String?) async throws -> StickerArt {
+        guard isConfigured else { return StickerArt() }
+        let escaped = title.replacingOccurrences(of: "\\", with: "").replacingOccurrences(of: "\"", with: "")
+        let games: [SearchResult] = try await post("games", body: "search \"\(escaped)\"; fields name, first_release_date, cover.image_id, artworks.image_id, summary, storyline; where cover != null; limit 10;")
+        guard let game = Self.bestMatch(in: games, title: title, year: year), let id = game.id else { return StickerArt() }
+        let characters: [Character] = try await post("characters", body: "fields name, mug_shot.image_id, games.name, games.first_release_date; where games = (\(id)) & mug_shot != null; limit 20;")
+        let story = [game.summary, game.storyline].compactMap { $0 }.joined(separator: " ")
+        let portraits = Self.byProminence(characters.filter { Self.belongs($0, to: title) }, in: story)
+            .compactMap { $0.mug_shot.flatMap { Self.imageURL($0.image_id, size: "t_720p") } }
+        let artworks = (game.artworks ?? []).compactMap { Self.imageURL($0.image_id, size: "t_1080p") }
+        return StickerArt(portraits: portraits, artworks: artworks)
+    }
+
+    /// IGDB links some characters to games they're not in (Oddworld's Abe shows up under
+    /// Red Dead Redemption 2). Keep a character only if their first game shares a real word
+    /// with the title: Geralt (first in "The Witcher") stays with The Witcher 3, Abe goes.
+    static func belongs(_ character: Character, to title: String) -> Bool {
+        guard let first = character.games?.min(by: { ($0.first_release_date ?? .infinity) < ($1.first_release_date ?? .infinity) }) else { return false }
+        let stopwords: Set = ["the", "of", "and", "edition", "game", "remastered"]
+        func words(_ s: String) -> Set<String> {
+            Set(normalize(s).lowercased().split(separator: " ").map(String.init)
+                .filter { $0.count >= 3 && Int($0) == nil && !stopwords.contains($0) })
+        }
+        return !words(first.name).isDisjoint(with: words(title))
+    }
+
+    /// Main character first: IGDB has no "protagonist" field, but a game's summary and
+    /// storyline name the hero before anyone else (Geralt, Arthur Morgan, Booker DeWitt).
+    /// Characters never mentioned follow, recurring ones (more games) first.
+    static func byProminence(_ characters: [Character], in story: String) -> [Character] {
+        let text = story.lowercased()
+        func firstMention(_ c: Character) -> Int {
+            let names = [c.name.lowercased()] + c.name.lowercased().split(separator: " ").map(String.init).filter { $0.count >= 3 }
+            return names.compactMap { text.range(of: $0).map { text.distance(from: text.startIndex, to: $0.lowerBound) } }.min() ?? .max
+        }
+        return characters
+            .map { ($0, firstMention($0)) }
+            .sorted { a, b in a.1 != b.1 ? a.1 < b.1 : (a.0.games?.count ?? 0) > (b.0.games?.count ?? 0) }
+            .map(\.0)
+    }
+
+    private static func imageURL(_ id: String, size: String) -> URL? {
+        URL(string: "https://images.igdb.com/igdb/image/upload/\(size)/\(id).png")
     }
 
     /// Exact title beats a partial one ("Portal" must not become "Portal 2"),

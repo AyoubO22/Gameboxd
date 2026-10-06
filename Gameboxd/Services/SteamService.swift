@@ -63,9 +63,6 @@ struct SteamGame: Codable {
     }
 }
 
-struct SteamPlayerAchievementsResponse: Codable {
-    let playerstats: SteamPlayerStats?
-}
 
 struct SteamPlayerStats: Codable {
     let steamID: String?
@@ -101,9 +98,6 @@ struct SteamPlayerSummary: Codable {
     let loccountrycode: String?
 }
 
-struct SteamRecentlyPlayedResponse: Codable {
-    let response: SteamRecentlyPlayed
-}
 
 struct SteamRecentlyPlayed: Codable {
     let total_count: Int?
@@ -285,37 +279,9 @@ class SteamService {
         return games
     }
     
-    /// Fetches recently played games (last 2 weeks)
-    func getRecentlyPlayed(steamId: String) async throws -> [SteamGame] {
-        guard SteamConfig.isConfigured else { throw SteamServiceError.notConfigured }
-        
-        guard let url = URL(string: "\(SteamConfig.baseURL)/IPlayerService/GetRecentlyPlayedGames/v1/?key=\(SteamConfig.apiKey)&steamid=\(steamId)&format=json") else {
-            throw SteamServiceError.invalidSteamId
-        }
-        
-        let (data, response) = try await session.data(from: url)
-        try validateResponse(response)
-        
-        let result = try JSONDecoder().decode(SteamRecentlyPlayedResponse.self, from: data)
-        return result.response.games ?? []
-    }
     
     // MARK: - Achievements
     
-    /// Fetches player achievements for a specific game
-    func getPlayerAchievements(steamId: String, appId: Int) async throws -> [SteamAchievement] {
-        guard SteamConfig.isConfigured else { throw SteamServiceError.notConfigured }
-        
-        guard let url = URL(string: "\(SteamConfig.baseURL)/ISteamUserStats/GetPlayerAchievements/v1/?key=\(SteamConfig.apiKey)&steamid=\(steamId)&appid=\(appId)&l=french") else {
-            throw SteamServiceError.invalidSteamId
-        }
-        
-        let (data, response) = try await session.data(from: url)
-        try validateResponse(response)
-        
-        let result = try JSONDecoder().decode(SteamPlayerAchievementsResponse.self, from: data)
-        return result.playerstats?.achievements ?? []
-    }
     
     // MARK: - Full Library Sync
     

@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct ContentView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @Environment(TimerManager.self) private var timerManager
     @State private var showingAchievementToast = false
     @State private var toastAchievement: Achievement?
@@ -65,7 +65,7 @@ struct ContentView: View {
         .onAppear(perform: checkUsernameSetup)
         .sheet(isPresented: $showingUsernameSetup) {
             UsernameSetupView()
-                .environmentObject(store)
+                .environment(store)
         }
         #if DEBUG
         // Launch argument `-debugOpenGame "<title>"`: open that game's page, for simulator screenshots.
@@ -179,5 +179,5 @@ struct AchievementToast: View {
 
 #Preview {
     ContentView()
-        .environmentObject(GameStore())
+        .environment(GameStore())
 }

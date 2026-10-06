@@ -52,7 +52,7 @@ final class ImageCache {
             return ImageCache.decode(data)
         }.value
         if let image = result {
-            cache.setObject(image, forKey: key)
+            cache.setObject(image, forKey: key, cost: Self.cost(of: image))
         }
         return result
     }
@@ -62,19 +62,32 @@ final class ImageCache {
         return memoryImage(for: url)
     }
 
-    /// Memory, then disk, then network (with two retries). Nil if every attempt fails or the task is cancelled.
+    /// Downloads in progress, so several views asking for the same cover share one request.
+    private var inFlight: [URL: Task<UIImage?, Never>] = [:]
+
+    /// Memory, then disk, then network (with two retries). Nil if every attempt fails.
     func load(_ url: URL, maxRetries: Int = 2) async -> UIImage? {
         if let cached = memoryImage(for: url) { return cached }
+        if let pending = inFlight[url] { return await pending.value }
+        // ponytail: the shared fetch isn't cancelled when one caller goes away; it finishes
+        // and lands in the cache. Add per-caller refcounting if aborted downloads ever matter.
+        let task = Task { await fetch(url, maxRetries: maxRetries) }
+        inFlight[url] = task
+        let image = await task.value
+        inFlight[url] = nil
+        return image
+    }
+
+    private func fetch(_ url: URL, maxRetries: Int) async -> UIImage? {
         if let cached = await diskImage(for: url) { return cached }
         for attempt in 0...maxRetries {
             if attempt > 0 {
                 try? await Task.sleep(nanoseconds: UInt64(500_000_000 * attempt))
             }
-            guard !Task.isCancelled else { return nil }
             if let (data, response) = try? await URLSession.shared.data(from: Self.downloadURL(for: url)),
                (response as? HTTPURLResponse)?.statusCode == 200,
                let image = await Task.detached(priority: .userInitiated, operation: { ImageCache.decode(data) }).value {
-                store(image, for: url)
+                store(image, data: data, for: url)
                 return image
             }
         }
@@ -132,19 +145,18 @@ final class ImageCache {
         return UIColor(red: CGFloat(pixel[0]) / 255, green: CGFloat(pixel[1]) / 255, blue: CGFloat(pixel[2]) / 255, alpha: 1)
     }
 
-    func store(_ image: UIImage, for url: URL) {
-        let key = cacheKey(for: url)
-        // Memory cache immediately (estimate cost)
-        let estimatedCost = Int(image.size.width * image.size.height * 4)
-        cache.setObject(image, forKey: key, cost: estimatedCost)
-
-        // Disk cache on background thread
+    /// Keeps the decoded image in memory and the downloaded bytes on disk, as they came
+    /// (no re-encoding).
+    private func store(_ image: UIImage, data: Data, for url: URL) {
+        cache.setObject(image, forKey: cacheKey(for: url), cost: Self.cost(of: image))
         let path = diskPath(for: url)
         Task.detached(priority: .utility) {
-            if let data = image.jpegData(compressionQuality: 0.9) {
-                try? data.write(to: path, options: .atomic)
-            }
+            try? data.write(to: path, options: .atomic)
         }
+    }
+
+    nonisolated private static func cost(of image: UIImage) -> Int {
+        Int(image.size.width * image.scale * image.size.height * image.scale * 4)
     }
 }
 

@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct DiaryView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @State private var showingAddSession = false
     @State private var selectedDate = Date()
     @State private var viewMode: DiaryViewMode = .list
@@ -51,153 +51,150 @@ struct DiaryView: View {
 }
 
 // MARK: - Diary List View
+/// Sessions grouped by month, newest first, filterable by the game's status.
 struct DiaryListView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @Binding var showingAddSession: Bool
+    @State private var filter: GameStatus?
 
-    var groupedSessions: [Date: [PlaySession]] {
-        Dictionary(grouping: store.playSessions) { session in
-            Calendar.current.startOfDay(for: session.date)
-        }
-    }
-
-    var sortedDates: [Date] {
-        groupedSessions.keys.sorted(by: >)
-    }
+    private static let filters: [GameStatus?] = [nil, .playing, .completed, .wantToPlay]
 
     var body: some View {
         if store.playSessions.isEmpty {
             EmptyDiaryView(action: { showingAddSession = true })
         } else {
-            let grouped = groupedSessions
-            let dates = grouped.keys.sorted(by: >)
+            let statusById = Dictionary(store.myGames.map { ($0.id, $0.status) }, uniquingKeysWith: { first, _ in first })
+            let sessions = store.playSessions
+                .filter { filter == nil || statusById[$0.gameId] == filter }
+                .sorted { $0.date > $1.date }
+            let calendar = Calendar.current
+            let byMonth = Dictionary(grouping: sessions) { calendar.dateInterval(of: .month, for: $0.date)?.start ?? $0.date }
+
             ScrollView {
-                LazyVStack(spacing: 16, pinnedViews: .sectionHeaders) {
-                    ForEach(dates, id: \.self) { date in
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: DS.Spacing.xs) {
+                        ForEach(Self.filters, id: \.self) { status in
+                            Button { filter = status } label: {
+                                Text(status?.rawValue ?? "Tout")
+                                    .font(DS.Typography.captionMedium)
+                                    .padding(.horizontal, DS.Spacing.sm)
+                                    .padding(.vertical, 6)
+                                    .background(filter == status ? Color.textPrimary : Color.surfacePrimary, in: Capsule())
+                                    .foregroundStyle(filter == status ? Color.gbDark : Color.textSecondary)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityAddTraits(filter == status ? .isSelected : [])
+                        }
+                    }
+                    .padding(.horizontal)
+                }
+
+                LazyVStack(alignment: .leading, spacing: 0, pinnedViews: .sectionHeaders) {
+                    ForEach(byMonth.keys.sorted(by: >), id: \.self) { month in
                         Section {
-                            ForEach(grouped[date, default: []]) { session in
-                                PlaySessionCard(session: session)
+                            ForEach(byMonth[month, default: []]) { session in
+                                PlaySessionCard(session: session, status: statusById[session.gameId])
                             }
                         } header: {
-                            DiaryDateHeader(date: date)
+                            DiaryMonthHeader(month: month)
                         }
                     }
                 }
-                .padding()
+                .padding(.horizontal)
             }
         }
     }
 }
 
-// MARK: - Date Header
-struct DiaryDateHeader: View {
-    let date: Date
-    
-    var body: some View {
-        HStack {
-            Text(date, style: .date)
-                .font(DS.Typography.headline)
-                .foregroundStyle(Color.textPrimary)
+// MARK: - Month Header
+struct DiaryMonthHeader: View {
+    let month: Date
 
-            Spacer()
-        }
-        .padding(.vertical, 8)
-        .padding(.horizontal, 12)
-        .background(.ultraThinMaterial)
+    var body: some View {
+        Text(month.formatted(.dateTime.month(.wide).year()).uppercased())
+            .font(DS.Typography.overline)
+            .tracking(1.2)
+            .foregroundStyle(Color.textTertiary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, DS.Spacing.lg)
+            .padding(.bottom, DS.Spacing.xs)
+            .background(Color.gbDark)
+            .accessibilityAddTraits(.isHeader)
     }
 }
 
-// MARK: - Play Session Card
+// MARK: - Play Session Row
 struct PlaySessionCard: View {
     let session: PlaySession
-    @EnvironmentObject var store: GameStore
-    @State private var showingSpoiler = false
+    var status: GameStatus?
     @State private var showingDetail = false
-    
+
+    private var dateLabel: String {
+        Calendar.current.isDateInToday(session.date)
+            ? "Aujourd'hui"
+            : session.date.formatted(.dateTime.day().month(.abbreviated))
+    }
+
     var body: some View {
         Button(action: { showingDetail = true }) {
-            VStack(alignment: .leading, spacing: 12) {
-                // Header
-                HStack(spacing: 12) {
-                    // Game Cover
-                    Group {
-                        if let coverURL = session.gameCoverURL, let url = URL(string: coverURL) {
-                            CachedAsyncImage(url: url) { image in
-                                image.resizable().aspectRatio(contentMode: .fill)
-                            } placeholder: {
-                                Rectangle().fill(session.gameCoverColor.gradient)
-                            }
-                        } else {
+            HStack(alignment: .top, spacing: DS.Spacing.sm) {
+                Group {
+                    if let coverURL = session.gameCoverURL, let url = URL(string: coverURL) {
+                        CachedAsyncImage(url: url) { image in
+                            image.resizable().aspectRatio(contentMode: .fill)
+                        } placeholder: {
                             Rectangle().fill(session.gameCoverColor.gradient)
                         }
+                    } else {
+                        Rectangle().fill(session.gameCoverColor.gradient)
                     }
-                    .frame(width: 44, height: 58)
-                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
-                            .stroke(Color.gbBorder, lineWidth: 1)
-                    )
+                }
+                .frame(width: 40, height: 54)
+                .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                .shadow(color: .black.opacity(0.4), radius: 3, y: 2)
 
-                    VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(alignment: .firstTextBaseline) {
                         Text(session.gameTitle)
                             .font(DS.Typography.headline)
                             .foregroundStyle(Color.textPrimary)
                             .lineLimit(1)
-
-                        HStack(spacing: 8) {
-                            // Duration
-                            Label(session.formattedDuration, systemImage: "clock")
-                                .font(DS.Typography.label)
-                                .foregroundStyle(Color.accent)
-
-                            // Time
-                            Text(session.date, style: .time)
-                                .font(DS.Typography.label)
-                                .foregroundStyle(Color.textTertiary)
-                        }
-
-                    // Mood tag
-                    if let mood = session.mood {
-                        TagPill(label: mood.rawValue, icon: mood.icon, isSelected: true, tint: mood.color)
+                        Spacer()
+                        Text(dateLabel)
+                            .font(DS.Typography.caption)
+                            .foregroundStyle(Color.textTertiary)
                     }
-                }
 
-                Spacer()
-
-                // Rating if any
-                if let rating = session.rating, rating > 0 {
-                    VStack {
-                        HStack(spacing: 2) {
-                            ForEach(1...rating, id: \.self) { _ in
-                                Image(systemName: "star.fill")
-                                    .font(DS.Typography.micro)
+                    HStack(spacing: DS.Spacing.xs) {
+                        if let status, status != .none {
+                            HStack(spacing: 5) {
+                                Circle().fill(status.color).frame(width: 6, height: 6)
+                                Text(status.rawValue)
                             }
                         }
-                        .foregroundStyle(Color.accent)
-                    }
-                }
-            }
-
-            // Notes
-            if !session.notes.isEmpty {
-                if session.isSpoiler && !showingSpoiler {
-                    Button(action: { showingSpoiler = true }) {
-                        HStack {
-                            Image(systemName: "eye.slash")
-                            Text("Voir le spoiler")
+                        if session.duration > 0 {
+                            Text(session.formattedDuration)
                         }
-                        .font(DS.Typography.caption)
-                        .foregroundStyle(Color(hex: "E3A24C"))
+                        if let rating = session.rating, rating > 0 {
+                            HStack(spacing: 2) {
+                                ForEach(1...5, id: \.self) { star in
+                                    Image(systemName: "star.fill")
+                                        .foregroundStyle(star <= rating ? DS.Colors.warning : Color.surfaceSecondary)
+                                }
+                            }
+                            .font(.system(size: 9))
+                            .accessibilityLabel("\(rating) étoiles sur 5")
+                        }
                     }
-                } else {
-                    Text(session.notes)
-                        .font(DS.Typography.body)
-                        .foregroundStyle(Color.textSecondary)
-                        .lineLimit(3)
+                    .font(DS.Typography.caption)
+                    .foregroundStyle(Color.textSecondary)
                 }
             }
-        }
-        .cardStyle()
+            .padding(.vertical, DS.Spacing.sm)
+            .overlay(alignment: .bottom) {
+                Rectangle().fill(Color.gbBorder).frame(height: 0.5).padding(.leading, 52)
+            }
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .sheet(isPresented: $showingDetail) {
@@ -209,7 +206,7 @@ struct PlaySessionCard: View {
 // MARK: - Play Session Detail View
 struct PlaySessionDetailView: View {
     let session: PlaySession
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @Environment(\.dismiss) var dismiss
     @State private var showingSpoiler = false
     @State private var showingDeleteConfirmation = false
@@ -346,7 +343,7 @@ struct PlaySessionDetailView: View {
                                         .font(DS.Typography.label)
                                         .padding(.horizontal, 8)
                                         .padding(.vertical, 4)
-                                        .background(Color(hex: "E3A24C"))
+                                        .background(DS.Colors.warning)
                                         .foregroundStyle(Color.gbDark)
                                         .clipShape(Capsule())
                                 }
@@ -362,8 +359,8 @@ struct PlaySessionDetailView: View {
                                     }
                                     .frame(maxWidth: .infinity)
                                     .padding()
-                                    .background(Color(hex: "E3A24C").opacity(0.16))
-                                    .foregroundStyle(Color(hex: "E3A24C"))
+                                    .background(DS.Colors.warning.opacity(0.16))
+                                    .foregroundStyle(DS.Colors.warning)
                                     .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
                                 }
                             } else {
@@ -384,7 +381,7 @@ struct PlaySessionDetailView: View {
                         .font(DS.Typography.headline)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .foregroundStyle(Color(hex: "D9695A"))
+                        .foregroundStyle(DS.Colors.error)
                         .contentShape(Rectangle())
                     }
                 }
@@ -435,7 +432,7 @@ struct SessionDetailRow: View {
 
 // MARK: - Calendar View
 struct DiaryCalendarView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @Binding var selectedDate: Date
     @State private var currentMonth = Date()
     
@@ -683,7 +680,7 @@ struct EmptyDiaryView: View {
 
 // MARK: - Add Play Session View
 struct AddPlaySessionView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @Environment(\.dismiss) var dismiss
     
     var preselectedGame: Game? = nil
@@ -696,148 +693,124 @@ struct AddPlaySessionView: View {
     @State private var isSpoiler = false
     @State private var rating: Int = 0
     @State private var mood: MoodTag?
+    @State private var status: GameStatus?
     @State private var showingGamePicker = false
     
     var canSave: Bool {
         selectedGame != nil && (hours > 0 || minutes > 0)
     }
     
+    private static let statuses: [GameStatus] = [.playing, .completed, .wantToPlay]
+
     var body: some View {
         NavigationStack {
-            Form {
-                // Game Selection
-                Section("Jeu") {
-                    if let game = selectedGame {
+            ScrollView {
+                VStack(alignment: .leading, spacing: DS.Spacing.lg) {
+                    gameHeader
+
+                    if selectedGame != nil {
+                        field("Statut") {
+                            HStack(spacing: DS.Spacing.xxs) {
+                                ForEach(Self.statuses, id: \.self) { option in
+                                    Button { status = option } label: {
+                                        Text(option.rawValue)
+                                            .font(DS.Typography.captionMedium)
+                                            .frame(maxWidth: .infinity)
+                                            .padding(.vertical, DS.Spacing.xs)
+                                            .background(status == option ? option.color : .clear, in: Capsule())
+                                            .foregroundStyle(status == option ? Color.gbDark : Color.textSecondary)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .accessibilityAddTraits(status == option ? .isSelected : [])
+                                }
+                            }
+                            .padding(DS.Spacing.xxs)
+                            .background(Color.surfacePrimary, in: Capsule())
+                        }
+                    }
+
+                    field("Note") {
+                        StarRating(rating: $rating, editable: true, size: 28)
+                    }
+
+                    field("Durée") {
                         HStack {
-                            Group {
-                                if let url = game.artURL {
-                                    CachedAsyncImage(url: url) { image in
-                                        image.resizable().aspectRatio(contentMode: .fill)
-                                    } placeholder: {
-                                        Rectangle().fill(game.coverColor.gradient)
-                                    }
-                                } else {
-                                    Rectangle().fill(game.coverColor.gradient)
-                                }
+                            Picker("Heures", selection: $hours) {
+                                ForEach(Array(0..<24), id: \.self) { Text("\($0) h").tag($0) }
                             }
-                            .frame(width: 40, height: 50)
-                            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
-
-                            Text(game.title)
-                                .foregroundStyle(Color.textPrimary)
-
-                            Spacer()
-
-                            Button("Changer") {
-                                showingGamePicker = true
+                            .pickerStyle(.wheel)
+                            Picker("Minutes", selection: $minutes) {
+                                ForEach(Array(stride(from: 0, to: 60, by: 5)), id: \.self) { Text("\($0) min").tag($0) }
                             }
-                            .foregroundStyle(Color.accent)
+                            .pickerStyle(.wheel)
                         }
-                    } else {
-                        Button(action: { showingGamePicker = true }) {
-                            HStack {
-                                Image(systemName: "plus.circle.fill")
-                                Text("Sélectionner un jeu")
-                            }
-                            .foregroundStyle(Color.accent)
-                        }
+                        .frame(height: 110)
+                        .background(Color.surfacePrimary, in: RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
                     }
-                }
 
-                // Date & Time
-                Section("Date") {
-                    DatePicker("Date et heure", selection: $date)
-                        .tint(.accent)
-                }
-                
-                // Duration
-                Section("Durée de la session") {
-                    HStack {
-                        Picker("Heures", selection: $hours) {
-                            ForEach(Array(0..<24), id: \.self) { h in
-                                Text("\(h)h").tag(h)
-                            }
-                        }
-                        .pickerStyle(.wheel)
-                        .frame(maxWidth: .infinity)
-                        
-                        Picker("Minutes", selection: $minutes) {
-                            ForEach(Array(stride(from: 0, to: 60, by: 5)), id: \.self) { m in
-                                Text("\(m)m").tag(m)
-                            }
-                        }
-                        .pickerStyle(.wheel)
-                        .frame(maxWidth: .infinity)
+                    field("Date") {
+                        DatePicker("Date et heure", selection: $date)
+                            .labelsHidden()
+                            .tint(.accent)
                     }
-                    .frame(height: 120)
-                }
-                
-                // Mood
-                Section("Ressenti") {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            ForEach(MoodTag.allCases, id: \.self) { tag in
-                                Button(action: {
-                                    mood = mood == tag ? nil : tag
-                                }) {
-                                    VStack(spacing: 4) {
-                                        Image(systemName: tag.icon)
-                                            .font(DS.Typography.title3)
-                                        Text(tag.rawValue)
-                                            .font(DS.Typography.micro)
+
+                    field("Ressenti") {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: DS.Spacing.xs) {
+                                ForEach(MoodTag.allCases, id: \.self) { tag in
+                                    Button { mood = mood == tag ? nil : tag } label: {
+                                        Label(tag.rawValue, systemImage: tag.icon)
+                                            .font(DS.Typography.captionMedium)
+                                            .padding(.horizontal, DS.Spacing.sm)
+                                            .padding(.vertical, DS.Spacing.xs)
+                                            .background(mood == tag ? tag.color.opacity(0.18) : Color.surfacePrimary, in: Capsule())
+                                            .foregroundStyle(mood == tag ? tag.color : Color.textSecondary)
                                     }
-                                    .frame(width: 70, height: 55)
-                                    .background(mood == tag ? tag.color.opacity(0.16) : Color.gbSurface2)
-                                    .foregroundStyle(mood == tag ? tag.color : Color.textSecondary)
-                                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
-                                            .stroke(mood == tag ? tag.color.opacity(0.4) : Color.clear, lineWidth: 1)
-                                    )
+                                    .buttonStyle(.plain)
+                                    .accessibilityAddTraits(mood == tag ? .isSelected : [])
                                 }
                             }
                         }
                     }
-                    .listRowBackground(Color.clear)
-                }
 
-                // Rating
-                Section("Note (optionnel)") {
-                    HStack {
-                        Spacer()
-                        StarRating(rating: $rating, editable: true, size: 30)
-                        Spacer()
+                    field("Notes") {
+                        VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+                            TextField("Qu'as-tu fait pendant cette session ?", text: $notes, axis: .vertical)
+                                .lineLimit(3...6)
+                                .padding(DS.Spacing.sm)
+                                .background(Color.surfacePrimary, in: RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
+                            Toggle(isOn: $isSpoiler) {
+                                Label("Contient des spoilers", systemImage: "eye.slash")
+                                    .font(DS.Typography.body)
+                                    .foregroundStyle(Color.textSecondary)
+                            }
+                            .tint(DS.Colors.warning)
+                        }
                     }
-                    .listRowBackground(Color.gbCard)
                 }
-
-                // Notes
-                Section("Notes") {
-                    TextField("Qu'as-tu fait pendant cette session ?", text: $notes, axis: .vertical)
-                        .lineLimit(3...6)
-
-                    Toggle(isOn: $isSpoiler) {
-                        Label("Contient des spoilers", systemImage: "eye.slash")
-                    }
-                    .tint(Color(hex: "E3A24C"))
-                }
+                .padding()
             }
-            .scrollContentBackground(.hidden)
-            .background(Color.gbDark)
-            .navigationTitle("Nouvelle session")
+            .background(Color.gbDark.ignoresSafeArea())
+            .safeAreaInset(edge: .bottom) {
+                Button(action: saveSession) {
+                    Text("Enregistrer dans le journal")
+                        .font(DS.Typography.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(canSave ? Color.accent : Color.surfaceSecondary, in: RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
+                        .foregroundStyle(canSave ? Color.white : Color.textTertiary)
+                }
+                .disabled(!canSave)
+                .padding(.horizontal)
+                .padding(.bottom, DS.Spacing.xs)
+                .background(Color.gbDark)
+            }
+            .navigationTitle("Nouvelle entrée")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Annuler") { dismiss() }
-                        .foregroundStyle(Color.textSecondary)
-                }
-
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Sauvegarder") {
-                        saveSession()
-                    }
-                    .disabled(!canSave)
-                    .foregroundStyle(canSave ? Color.accent : Color.textTertiary)
+                        .foregroundStyle(Color.accent)
                 }
             }
             .sheet(isPresented: $showingGamePicker) {
@@ -848,9 +821,65 @@ struct AddPlaySessionView: View {
                     selectedGame = preselected
                 }
             }
+            .onChange(of: selectedGame?.id, initial: true) {
+                status = selectedGame.map { Self.statuses.contains($0.status) ? $0.status : nil } ?? nil
+            }
         }
     }
-    
+
+    /// Big cover, title and platform, like the launch video's entry sheet. Tap to change game.
+    private var gameHeader: some View {
+        Button { showingGamePicker = true } label: {
+            HStack(spacing: DS.Spacing.md) {
+                Group {
+                    if let game = selectedGame {
+                        CachedAsyncImage(url: game.artURL) { image in
+                            image.resizable().aspectRatio(contentMode: .fill)
+                        } placeholder: {
+                            Rectangle().fill(game.coverColor.gradient)
+                        }
+                    } else {
+                        RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
+                            .fill(Color.surfacePrimary)
+                            .overlay(Image(systemName: "plus").font(.title2).foregroundStyle(Color.accent))
+                    }
+                }
+                .frame(width: 72, height: 96)
+                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
+                .shadow(color: .black.opacity(0.4), radius: 6, y: 3)
+
+                VStack(alignment: .leading, spacing: DS.Spacing.xxs) {
+                    Text(selectedGame?.title ?? "Choisir un jeu")
+                        .font(DS.Typography.title)
+                        .foregroundStyle(Color.textPrimary)
+                        .multilineTextAlignment(.leading)
+                    if let game = selectedGame {
+                        Text([game.platform, game.releaseYear].filter { !$0.isEmpty }.joined(separator: " · "))
+                            .font(DS.Typography.caption)
+                            .foregroundStyle(Color.textSecondary)
+                        Text("Changer de jeu")
+                            .font(DS.Typography.captionMedium)
+                            .foregroundStyle(Color.accent)
+                    }
+                }
+                Spacer(minLength: 0)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func field<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: DS.Spacing.xs) {
+            Text(title.uppercased())
+                .font(DS.Typography.overline)
+                .tracking(1.2)
+                .foregroundStyle(Color.textTertiary)
+                .accessibilityAddTraits(.isHeader)
+            content()
+        }
+    }
+
     private func saveSession() {
         guard let game = selectedGame else { return }
         
@@ -869,13 +898,18 @@ struct AddPlaySessionView: View {
         )
         
         store.addPlaySession(session)
+        if let status, status != game.status {
+            var updated = game
+            updated.status = status
+            store.updateGame(updated)
+        }
         dismiss()
     }
 }
 
 // MARK: - Game Picker View
 struct GamePickerView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @Environment(\.dismiss) var dismiss
     @Binding var selectedGame: Game?
     @State private var searchText = ""
@@ -946,5 +980,5 @@ struct GamePickerView: View {
 // MARK: - Preview
 #Preview {
     DiaryView()
-        .environmentObject(GameStore())
+        .environment(GameStore())
 }

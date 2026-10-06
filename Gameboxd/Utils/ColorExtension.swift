@@ -1,20 +1,20 @@
 import SwiftUI
 
 extension Color {
-    // Palette « L'Étagère » : bois de noyer, laiton, os.
-    static let gbBrass = Color(hex: "D1AE66")      // laiton : actions, sélection
-    static let gbDark = Color(hex: "1E1915")       // noyer foncé : fond
-    static let gbCard = Color(hex: "2B241F")       // noyer : surfaces
-    static let gbSurface2 = Color(hex: "362D27")   // noyer clair : surfaces imbriquées
-    static let gbBorder = Color(hex: "463B33")     // arête de planche
+    // Palette graphite + corail (vidéo de lancement).
+    static let gbCoral = Color(hex: "F2553C")      // corail : actions, sélection
+    static let gbDark = Color(hex: "0F1216")       // graphite : fond
+    static let gbCard = Color(hex: "1A1E24")       // surfaces
+    static let gbSurface2 = Color(hex: "252A32")   // surfaces imbriquées
+    static let gbBorder = Color(hex: "2A3038")     // séparateurs
 
-    static let gbTextSecondary = Color(hex: "ADA092")
+    static let gbTextSecondary = Color(hex: "9AA3AE")
 
     // MARK: - Semantic Design System Colors
-    static let accent = Color.gbBrass
-    static let textPrimary = Color(hex: "F1EADF")  // os
+    static let accent = Color.gbCoral
+    static let textPrimary = Color(hex: "F3F5F8")
     static let textSecondary = Color.gbTextSecondary
-    static let textTertiary = Color(hex: "85786B")
+    static let textTertiary = Color(hex: "646D78")
     static let surfacePrimary = Color.gbCard
     static let surfaceSecondary = Color.gbSurface2
     static let separator = Color.gbBorder

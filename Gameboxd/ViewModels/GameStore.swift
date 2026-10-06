@@ -6,52 +6,55 @@
 //
 
 import SwiftUI
-import Combine
+
 import UserNotifications
 
 @MainActor
-class GameStore: ObservableObject {
-    // MARK: - Published Properties
-    @Published var myGames: [Game] = []
-    @Published var playSessions: [PlaySession] = []
-    @Published var gameLists: [GameList] = []
-    @Published var userProfile: UserProfile = UserProfile()
-    @Published var isLoggedIn: Bool = false
+@Observable
+final class GameStore {
+    // MARK: - State
+    var myGames: [Game] = []
+    var playSessions: [PlaySession] = []
+    var gameLists: [GameList] = []
+    var userProfile: UserProfile = UserProfile()
+    var isLoggedIn: Bool = false
     
     // API Data
-    @Published var trendingGames: [Game] = []
-    @Published var newReleases: [Game] = []
-    @Published var topRated: [Game] = []
-    @Published var upcomingGames: [Game] = []
-    @Published var searchResults: [Game] = []
+    var trendingGames: [Game] = []
+    var newReleases: [Game] = []
+    var topRated: [Game] = []
+    var upcomingGames: [Game] = []
+    var searchResults: [Game] = []
     
     // Loading States
-    @Published var isLoadingTrending = false
-    @Published var isLoadingNewReleases = false
-    @Published var isLoadingTopRated = false
-    @Published var isLoadingUpcoming = false
-    @Published var isSearching = false
+    var isLoadingTrending = false
+    var isLoadingNewReleases = false
+    var isLoadingTopRated = false
+    var isLoadingUpcoming = false
+    var isSearching = false
     
     // NEW: Achievements, Social
-    @Published var achievements: [Achievement] = []
-    @Published var customTags: [CustomTag] = []
-    @Published var friends: [Friend] = []
-    @Published var activityFeed: [ActivityItem] = []
-    @Published var notifications: [GameNotification] = []
-    @Published var recentlyUnlockedAchievements: [Achievement] = []
+    var achievements: [Achievement] = []
+    var customTags: [CustomTag] = []
+    var friends: [Friend] = []
+    var activityFeed: [ActivityItem] = []
+    var notifications: [GameNotification] = []
+    var recentlyUnlockedAchievements: [Achievement] = []
     
     // Monthly Goals
-    @Published var monthlyGoals: [MonthlyGoal] = []
-    @Published var completedGoals: [MonthlyGoal] = []
+    var monthlyGoals: [MonthlyGoal] = []
+    var completedGoals: [MonthlyGoal] = []
     
     // Notification Settings
-    @Published var achievementAlerts: Bool = UserDefaults.standard.object(forKey: StorageKeys.achievementAlerts) as? Bool ?? true {
+    var achievementAlerts: Bool = UserDefaults.standard.object(forKey: StorageKeys.achievementAlerts) as? Bool ?? true {
         didSet { UserDefaults.standard.set(achievementAlerts, forKey: StorageKeys.achievementAlerts) }
     }
     
     // Linked Gaming Accounts
-    @Published var linkedAccounts: [LinkedAccount] = []
-    @Published var importedGames: [ImportedGame] = []
+    var linkedAccounts: [LinkedAccount] = []
+    /// Unlocked stickers, all games (see StickerRules for what unlocks them).
+    var stickers: [Sticker] = []
+    var importedGames: [ImportedGame] = []
     
     // Services
     private let rawgService = RAWGService.shared
@@ -75,6 +78,7 @@ class GameStore: ObservableObject {
         static let linkedAccounts = "gameboxd_linked_accounts"
         static let importedGames = "gameboxd_imported_games"
         static let discoverCache = "gameboxd_discover_cache"
+        static let stickers = "gameboxd_stickers"
     }
     
     // Collections are stored as JSON files (see FileStore); small flags stay in UserDefaults.
@@ -87,9 +91,13 @@ class GameStore: ObservableObject {
         loadAllData()
         initializeAchievements()
         updateGoalProgress()
+        syncStickers() // backfill: play logged before stickers existed still counts
         syncWidgetData()
         setICloudObservation(UserDefaults.standard.bool(forKey: "icloud_enabled"))
-        Task { await fetchMissingBoxArt() }
+        Task {
+            await fetchMissingBoxArt()
+            await fillMissingAgeRatings()
+        }
         // Discover data is loaded lazily in DiscoverView.onAppear
     }
     
@@ -131,6 +139,15 @@ class GameStore: ObservableObject {
         loadLinkedAccounts()
         loadImportedGames()
         loadDiscoverCache()
+        stickers = load([Sticker].self, key: StorageKeys.stickers) ?? []
+        // Recut art made by an older StickerMaker, once (v2: main character first;
+        // v3: same art in another crop no longer repeats). Unlocks are kept.
+        if UserDefaults.standard.integer(forKey: "gameboxd_sticker_art_version") < 3 {
+            StickerService.shared.remove(stickers)
+            for i in stickers.indices { stickers[i].imageFile = nil }
+            fileStore.save(stickers, key: StorageKeys.stickers)
+            UserDefaults.standard.set(3, forKey: "gameboxd_sticker_art_version")
+        }
     }
     
     private func load<T: Decodable>(_ type: T.Type, key: String) -> T? {
@@ -151,6 +168,7 @@ class GameStore: ObservableObject {
     
     private func saveGames(syncWidget: Bool = true) {
         fileStore.save(myGames, key: StorageKeys.myGames)
+        syncStickers()
         checkAchievements()
         updateGoalProgress()
         if syncWidget {
@@ -158,6 +176,47 @@ class GameStore: ObservableObject {
         }
     }
     
+    // MARK: - Stickers
+
+    func stickers(for game: Game) -> [Sticker] {
+        stickers.filter { $0.gameId == game.id }.sorted { $0.reason < $1.reason }
+    }
+
+    /// What to show for a game: the stickers whose art is cut. Until the first one is (or
+    /// when the game has no art at all, e.g. on the simulator) a single sticker stands in
+    /// with the cover, so an unlocked game never looks empty and never shows a row of
+    /// identical covers. The rest appear as their art gets cut.
+    func displayedStickers(for game: Game) -> [Sticker] {
+        let all = stickers(for: game)
+        let withArt = all.filter(\.hasArt)
+        return withArt.isEmpty ? Array(all.prefix(1)) : withArt
+    }
+
+    /// Adds a sticker for every reason a game has newly earned. Earned stickers are kept
+    /// even if the reason goes away (a rating cleared): they're collectibles.
+    private func syncStickers() {
+        var owned = Dictionary(grouping: stickers, by: \.gameId).mapValues { Set($0.map(\.reason)) }
+        var added = false
+        for game in myGames {
+            for reason in StickerRules.earned(by: game).subtracting(owned[game.id, default: []]).sorted() {
+                stickers.append(Sticker(gameId: game.id, reason: reason))
+                owned[game.id, default: []].insert(reason)
+                added = true
+            }
+        }
+        if added { fileStore.save(stickers, key: StorageKeys.stickers) }
+    }
+
+    /// Cuts the art of this game's stickers that don't have any yet (called by its page).
+    func cutStickers(for game: Game) async {
+        let files = await StickerService.shared.cutMissing(stickers(for: game), for: game)
+        guard !files.isEmpty else { return }
+        for i in stickers.indices {
+            if let file = files[stickers[i].id] { stickers[i].imageFile = file }
+        }
+        fileStore.save(stickers, key: StorageKeys.stickers)
+    }
+
     private func loadPlaySessions() {
         if let decoded = load([PlaySession].self, key: StorageKeys.playSessions) {
             playSessions = decoded
@@ -356,8 +415,57 @@ class GameStore: ObservableObject {
         }
         guard !trendingGames.isEmpty || !newReleases.isEmpty else { return }
         discoverCacheDate = Date()
-        fileStore.save(DiscoverCache(date: Date(), trending: trendingGames, newReleases: newReleases,
+        saveDiscoverCache()
+        await fillDiscoverBoxArt()
+    }
+
+    private func saveDiscoverCache() {
+        fileStore.save(DiscoverCache(date: discoverCacheDate ?? Date(), trending: trendingGames, newReleases: newReleases,
                                      topRated: topRated, upcoming: upcomingGames), key: StorageKeys.discoverCache)
+    }
+
+    private var isFillingDiscoverArt = false
+
+    /// Portrait box art for the Discover shelves, looked up in the background and applied
+    /// in batches (not per game, which would redraw Discover 40 times).
+    func fillDiscoverBoxArt() async {
+        guard IGDBService.shared.isConfigured, !isFillingDiscoverArt else { return }
+        isFillingDiscoverArt = true
+        defer { isFillingDiscoverArt = false }
+
+        let lists: [ReferenceWritableKeyPath<GameStore, [Game]>] = [\.trendingGames, \.newReleases, \.topRated, \.upcomingGames]
+        var pending: [Int: String] = [:]
+        var anyFound = false
+        func apply() {
+            guard !pending.isEmpty else { return }
+            for list in lists {
+                self[keyPath: list] = self[keyPath: list].map { game in
+                    guard let id = game.rawgId, let art = pending[id] else { return game }
+                    var updated = game
+                    updated.boxArtURL = art
+                    return updated
+                }
+            }
+            pending = [:]
+            anyFound = true
+        }
+
+        var seen = Set<Int>()
+        let missing = lists.flatMap { self[keyPath: $0] }.filter { $0.boxArtURL == nil }
+        for game in missing {
+            guard let id = game.rawgId, seen.insert(id).inserted else { continue }
+            let url: URL?
+            do {
+                url = try await IGDBService.shared.boxArtURL(title: game.title, year: game.releaseYear)
+            } catch {
+                break // offline: try again on the next refresh
+            }
+            pending[id] = url?.absoluteString ?? ""
+            if pending.count >= 5 { apply() }
+            try? await Task.sleep(for: .milliseconds(260))
+        }
+        apply()
+        if anyFound { saveDiscoverCache() }
     }
 
     // MARK: - Discover cache
@@ -380,7 +488,10 @@ class GameStore: ObservableObject {
     }
 
     func refreshDiscoverIfStale() async {
-        if let date = discoverCacheDate, Date().timeIntervalSince(date) < 6 * 3600 { return }
+        if let date = discoverCacheDate, Date().timeIntervalSince(date) < 6 * 3600 {
+            await fillDiscoverBoxArt() // a fresh cache may still miss some covers
+            return
+        }
         await loadDiscoverData()
     }
     
@@ -430,7 +541,7 @@ class GameStore: ObservableObject {
     
     private var latestSearchQuery = ""
     /// The query `searchResults` answers. Until it equals what's typed, a search is pending.
-    @Published private(set) var searchedQuery = ""
+    private(set) var searchedQuery = ""
 
     func searchGamesOnline(query: String) async {
         latestSearchQuery = query
@@ -474,6 +585,11 @@ class GameStore: ObservableObject {
             var updatedGame = game
             updatedGame.description = details.descriptionRaw
             updatedGame.screenshotURLs = screenshots.map { $0.image }
+            updatedGame.ageRating = details.esrbRating?.slug ?? ""
+            if game.developer.isEmpty || game.developer == "Unknown" || game.developer == "—",
+               let developer = details.developers?.first?.name {
+                updatedGame.developer = developer
+            }
             return updatedGame
         } catch {
             print("Error fetching details: \(error)")
@@ -496,6 +612,8 @@ class GameStore: ObservableObject {
             if updated.status == .none { updated.status = .wantToPlay }
             if updated.startedDate == nil { updated.startedDate = Date() }
         }
+        // A platinum is a finished game, all the way.
+        if updated.status == .platinum { updated.completionPercentage = 100 }
         if (updated.status == .completed || updated.status == .platinum) && updated.completedDate == nil {
             updated.completedDate = Date()
         }
@@ -532,6 +650,9 @@ class GameStore: ObservableObject {
             gameLists[i].gameIds.removeAll { ids.contains($0) }
         }
         userProfile.favoriteGameIds.removeAll { ids.contains($0) }
+        StickerService.shared.remove(stickers.filter { ids.contains($0.gameId) })
+        stickers.removeAll { ids.contains($0.gameId) }
+        fileStore.save(stickers, key: StorageKeys.stickers)
         savePlaySessions()
         saveGameLists()
         saveUserProfile(syncWidget: false)
@@ -629,9 +750,6 @@ class GameStore: ObservableObject {
         playSessions.filter { Calendar.current.isDate($0.date, inSameDayAs: date) }
     }
     
-    func recentSessions(limit: Int = 10) -> [PlaySession] {
-        Array(playSessions.prefix(limit))
-    }
     
     // MARK: - Game Lists Methods
     
@@ -681,10 +799,6 @@ class GameStore: ObservableObject {
     
     // MARK: - Profile Methods
     
-    func updateProfile(_ profile: UserProfile) {
-        userProfile = profile
-        saveUserProfile()
-    }
     
     func addFavoriteGame(_ game: Game) {
         guard userProfile.favoriteGameIds.count < 4 else { return }
@@ -720,7 +834,7 @@ class GameStore: ObservableObject {
     
     var totalPlayTimeFormatted: String {
         let hours = totalPlayTimeMinutes / 60
-        return "\(hours)h"
+        return "\(hours) h"
     }
     
     var averageRating: Double {
@@ -868,65 +982,70 @@ class GameStore: ObservableObject {
             return year < 2000
         }.count
 
-        for i in achievements.indices {
-            let oldUnlocked = achievements[i].isUnlocked
+        // Work on a copy: one store update (and one write) instead of one per achievement.
+        var updated = achievements
+        for i in updated.indices {
+            let oldUnlocked = updated[i].isUnlocked
 
-            switch achievements[i].id {
+            switch updated[i].id {
             case "first_game":
-                achievements[i].currentProgress = min(gameCount, 1)
+                updated[i].currentProgress = min(gameCount, 1)
             case "collector_10":
-                achievements[i].currentProgress = min(gameCount, 10)
+                updated[i].currentProgress = min(gameCount, 10)
             case "collector_50":
-                achievements[i].currentProgress = min(gameCount, 50)
+                updated[i].currentProgress = min(gameCount, 50)
             case "collector_100":
-                achievements[i].currentProgress = min(gameCount, 100)
+                updated[i].currentProgress = min(gameCount, 100)
             case "complete_10":
-                achievements[i].currentProgress = min(completedCount, 10)
+                updated[i].currentProgress = min(completedCount, 10)
             case "complete_25":
-                achievements[i].currentProgress = min(completedCount, 25)
+                updated[i].currentProgress = min(completedCount, 25)
             case "platinum_5":
-                achievements[i].currentProgress = min(platinumCount, 5)
+                updated[i].currentProgress = min(platinumCount, 5)
             case "time_100":
-                achievements[i].currentProgress = min(totalHours, 100)
+                updated[i].currentProgress = min(totalHours, 100)
             case "time_500":
-                achievements[i].currentProgress = min(totalHours, 500)
+                updated[i].currentProgress = min(totalHours, 500)
             case "time_1000":
-                achievements[i].currentProgress = min(totalHours, 1000)
+                updated[i].currentProgress = min(totalHours, 1000)
             case "genres_5":
-                achievements[i].currentProgress = min(uniqueGenres.count, 5)
+                updated[i].currentProgress = min(uniqueGenres.count, 5)
             case "platforms_3":
-                achievements[i].currentProgress = min(uniquePlatforms.count, 3)
+                updated[i].currentProgress = min(uniquePlatforms.count, 3)
             case "reviews_10":
-                achievements[i].currentProgress = min(reviewCount, 10)
+                updated[i].currentProgress = min(reviewCount, 10)
             case "streak_7":
-                achievements[i].currentProgress = min(streak, 7)
+                updated[i].currentProgress = min(streak, 7)
             case "streak_30":
-                achievements[i].currentProgress = min(streak, 30)
+                updated[i].currentProgress = min(streak, 30)
             case "favorite_genre":
                 if let topGenre = topGenres.first, topGenre.1 >= 10 {
-                    achievements[i].currentProgress = 10
+                    updated[i].currentProgress = 10
                 }
             case "lists_5":
-                achievements[i].currentProgress = min(gameLists.count, 5)
+                updated[i].currentProgress = min(gameLists.count, 5)
             case "indie_lover":
-                achievements[i].currentProgress = min(indieCount, 20)
+                updated[i].currentProgress = min(indieCount, 20)
             case "retro_gamer":
-                achievements[i].currentProgress = min(retroCount, 10)
+                updated[i].currentProgress = min(retroCount, 10)
             default:
                 break
             }
 
             // Check if newly unlocked
-            if achievements[i].currentProgress >= achievements[i].requirement && !oldUnlocked {
-                achievements[i].isUnlocked = true
-                achievements[i].unlockedDate = Date()
-                newlyUnlocked.append(achievements[i])
+            if updated[i].currentProgress >= updated[i].requirement && !oldUnlocked {
+                updated[i].isUnlocked = true
+                updated[i].unlockedDate = Date()
+                newlyUnlocked.append(updated[i])
             }
         }
 
-        // Always persist progress so progress bars survive a relaunch,
-        // not only when an achievement is newly unlocked.
-        saveAchievements()
+        // Persist progress (not only unlocks) so progress bars survive a relaunch;
+        // skip the write when nothing moved.
+        if updated != achievements {
+            achievements = updated
+            saveAchievements()
+        }
 
         if !newlyUnlocked.isEmpty {
             recentlyUnlockedAchievements = newlyUnlocked
@@ -974,10 +1093,6 @@ class GameStore: ObservableObject {
         achievements.filter { !$0.isUnlocked }
     }
     
-    func achievementProgress() -> Double {
-        guard !achievements.isEmpty else { return 0 }
-        return Double(unlockedAchievements.count) / Double(achievements.count)
-    }
     
     // MARK: - Custom Tags
     
@@ -996,10 +1111,6 @@ class GameStore: ObservableObject {
         saveCustomTags()
     }
     
-    func removeCustomTag(_ tag: CustomTag) {
-        customTags.removeAll { $0.id == tag.id }
-        saveCustomTags()
-    }
     
     // MARK: - Friends & Social
     
@@ -1040,11 +1151,13 @@ class GameStore: ObservableObject {
         let calendar = Calendar.current
         let currentMonth = calendar.component(.month, from: Date())
         let currentYear = calendar.component(.year, from: Date())
-        
-        for i in monthlyGoals.indices {
+        var goals = monthlyGoals
+        var doneGoals = completedGoals
+
+        for i in goals.indices {
             // Check if goal is for current month
-            guard calendar.component(.month, from: monthlyGoals[i].month) == currentMonth,
-                  calendar.component(.year, from: monthlyGoals[i].month) == currentYear else {
+            guard calendar.component(.month, from: goals[i].month) == currentMonth,
+                  calendar.component(.year, from: goals[i].month) == currentYear else {
                 continue
             }
             
@@ -1054,19 +1167,19 @@ class GameStore: ObservableObject {
                                 continue
                         }
             
-            switch monthlyGoals[i].type {
+            switch goals[i].type {
             case .gamesCompleted:
                 let completed = myGames.filter { game in
                     guard let completedDate = game.completedDate else { return false }
                     return completedDate >= monthStart && completedDate <= monthEnd &&
                            (game.status == .completed || game.status == .platinum)
                 }.count
-                monthlyGoals[i].current = completed
+                goals[i].current = completed
                 
             case .hoursPlayed:
                 let sessions = playSessions.filter { $0.date >= monthStart && $0.date <= monthEnd }
                 let totalMinutes = sessions.reduce(0) { $0 + $1.duration }
-                monthlyGoals[i].current = totalMinutes / 60
+                goals[i].current = totalMinutes / 60
                 
             case .reviewsWritten:
                 // Note: uses startedDate as a proxy since there's no dedicated reviewedDate field
@@ -1074,14 +1187,14 @@ class GameStore: ObservableObject {
                     guard let started = game.startedDate, !game.review.isEmpty else { return false }
                     return started >= monthStart && started <= monthEnd
                 }.count
-                monthlyGoals[i].current = reviews
+                goals[i].current = reviews
                 
             case .newGames:
                 let newGames = myGames.filter { game in
                     guard let started = game.startedDate else { return false }
                     return started >= monthStart && started <= monthEnd
                 }.count
-                monthlyGoals[i].current = newGames
+                goals[i].current = newGames
                 
             case .platinums:
                 let platinums = myGames.filter { game in
@@ -1089,7 +1202,7 @@ class GameStore: ObservableObject {
                     return completedDate >= monthStart && completedDate <= monthEnd &&
                            game.status == .platinum
                 }.count
-                monthlyGoals[i].current = platinums
+                goals[i].current = platinums
                 
             case .backlogCleared:
                 // For backlog cleared, we count games completed this month
@@ -1099,23 +1212,22 @@ class GameStore: ObservableObject {
                     return completedDate >= monthStart && completedDate <= monthEnd &&
                            (game.status == .completed || game.status == .platinum)
                 }.count
-                monthlyGoals[i].current = cleared
+                goals[i].current = cleared
             }
             
             // Check if goal is completed
-            if monthlyGoals[i].current >= monthlyGoals[i].target && monthlyGoals[i].completedDate == nil {
-                monthlyGoals[i].completedDate = Date()
-                completedGoals.append(monthlyGoals[i])
+            if goals[i].current >= goals[i].target && goals[i].completedDate == nil {
+                goals[i].completedDate = Date()
+                doneGoals.append(goals[i])
             }
         }
         
+        guard goals != monthlyGoals || doneGoals != completedGoals else { return }
+        monthlyGoals = goals
+        completedGoals = doneGoals
         saveMonthlyGoals()
     }
     
-    func removeMonthlyGoal(_ goal: MonthlyGoal) {
-        monthlyGoals.removeAll { $0.id == goal.id }
-        saveMonthlyGoals()
-    }
     
     func addFriend(_ friend: Friend) {
         var newFriend = friend
@@ -1280,6 +1392,8 @@ class GameStore: ObservableObject {
         completedGoals = []
         linkedAccounts = []
         importedGames = []
+        StickerService.shared.remove(stickers)
+        stickers = []
         
         // Reset profile but keep username
         let username = userProfile.username
@@ -1297,7 +1411,8 @@ class GameStore: ObservableObject {
             StorageKeys.monthlyGoals,
             StorageKeys.completedGoals,
             StorageKeys.linkedAccounts,
-            StorageKeys.importedGames
+            StorageKeys.importedGames,
+            StorageKeys.stickers
         ]
         
         for key in keys {
@@ -1396,6 +1511,29 @@ class GameStore: ObservableObject {
             try? await Task.sleep(for: .milliseconds(260))
         }
         if changed { saveGames() }
+    }
+
+    private var isFillingAgeRatings = false
+
+    /// Age ratings (for the PEGI badge on spines) for library games added before we kept them.
+    func fillMissingAgeRatings() async {
+        guard rawgService.hasValidAPIKey, !isFillingAgeRatings else { return }
+        isFillingAgeRatings = true
+        defer { isFillingAgeRatings = false }
+        var changed = false
+        while let game = myGames.first(where: { $0.ageRating == nil && $0.rawgId != nil }), let rawgId = game.rawgId {
+            let slug: String
+            do {
+                slug = try await rawgService.getGameDetails(id: rawgId).esrbRating?.slug ?? ""
+            } catch {
+                break // offline: next launch
+            }
+            if let index = myGames.firstIndex(where: { $0.id == game.id }) {
+                myGames[index].ageRating = slug
+                changed = true
+            }
+        }
+        if changed { saveGames(syncWidget: false) }
     }
 
     // MARK: - Widget Sync

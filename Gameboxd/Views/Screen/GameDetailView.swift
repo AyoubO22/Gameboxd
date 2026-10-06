@@ -8,19 +8,22 @@
 import SwiftUI
 
 struct GameDetailView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @State var game: Game
     @Environment(\.dismiss) var dismiss
     
     @State private var showingAddToList = false
-    @State private var showingSpoiler = false
     @State private var showingShareCard = false
     @State private var showingDeleteConfirm = false
     @State private var showingAddSession = false
     @State private var showingComparison = false
     @State private var similarGames: [Game] = []
     @State private var isLoadingSimilar = false
-    @State private var selectedTab = 0
+    @State private var openShot: ShotIndex?
+    @Namespace private var pageNamespace
+
+    /// Which screenshot the full-screen viewer opens on.
+    struct ShotIndex: Identifiable { let id: Int }
     
     /// The last saved state; edits are compared against it to autosave.
     @State private var originalGame: Game? = nil
@@ -30,53 +33,71 @@ struct GameDetailView: View {
     }
     
     var body: some View {
+        ScrollViewReader { proxy in
         ScrollView {
-            VStack(spacing: 0) {
-                // Header with cover
-                GameDetailHeader(game: game)
-                
-                // Quick Actions Bar
-                QuickActionsBar(game: $game, showingAddToList: $showingAddToList, showingAddSession: $showingAddSession)
-                
-                // Tab Selector
-                PillSegmentedControl(options: [0, 1, 2], selection: $selectedTab) {
-                    ["Infos", "Suivi", "Notes"][$0]
+            // One page in the order you need it: no tabs hiding the controls you use most.
+            VStack(alignment: .leading, spacing: 32) {
+                GameDetailHeader(game: $game)
+
+                YourGameSection(game: $game, isInLibrary: isInLibrary, onAdd: addToLibrary) {
+                    showingAddSession = true
                 }
-                .padding()
-                
-                // Tab Content
-                switch selectedTab {
-                case 0:
-                    GameInfoSection(game: $game, similarGames: similarGames, isLoadingSimilar: isLoadingSimilar)
-                case 1:
-                    GameTrackingSection(game: $game)
-                case 2:
-                    GameNotesSection(game: $game, showingSpoiler: $showingSpoiler)
-                default:
-                    EmptyView()
+
+                if isInLibrary {
+                    ReviewSection(game: $game)
+                    StickersSection(game: game)
                 }
-                
-                // Library games save themselves; others need adding first.
-                if !isInLibrary {
-                    SaveButton(game: game, isInLibrary: false) {
-                        save()
-                        HapticManager.notification(.success)
-                    }
-                    .padding()
+
+                AboutSection(game: game)
+                    .id("about")
+
+                let shots = game.screenshotURLs.compactMap(URL.init(string:))
+                if !shots.isEmpty {
+                    ScreenshotStrip(urls: shots, namespace: pageNamespace) { openShot = ShotIndex(id: $0) }
                 }
+
+                if isInLibrary {
+                    GameJournalSection(sessions: store.sessionsForGame(game)) { showingAddSession = true }
+                        .id("journal")
+                    PlayDetailsSection(game: $game)
+                }
+
+                SimilarGamesShelf(games: similarGames, isLoading: isLoadingSimilar, namespace: pageNamespace)
             }
+            .padding(.bottom, 48)
+        }
+        #if DEBUG
+        // Launch arguments for simulator checks: `-debugScrollTo about|journal`, `-debugOpenShot 0`.
+        .task {
+            try? await Task.sleep(for: .seconds(2))
+            if let section = UserDefaults.standard.string(forKey: "debugScrollTo") { proxy.scrollTo(section, anchor: .top) }
+            if let shot = UserDefaults.standard.string(forKey: "debugOpenShot").flatMap(Int.init) { openShot = ShotIndex(id: shot) }
+        }
+        #endif
         }
         .background(Color.gbDark.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
+        .fullScreenCover(item: $openShot) { shot in
+            ScreenshotViewer(urls: game.screenshotURLs.compactMap(URL.init(string:)), index: shot.id)
+                .navigationTransition(.zoom(sourceID: "shot-\(shot.id)", in: pageNamespace))
+        }
         .toolbar {
+            if isInLibrary {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        store.toggleFavorite(game)
+                    } label: {
+                        Image(systemName: game.isFavorite ? "heart.fill" : "heart")
+                            .foregroundStyle(game.isFavorite ? DS.Colors.error : Color.accent)
+                            .contentTransition(.symbolEffect(.replace))
+                    }
+                    .sensoryFeedback(.impact(weight: .light), trigger: game.isFavorite)
+                    .accessibilityLabel(game.isFavorite ? "Retirer des favoris" : "Ajouter aux favoris")
+                }
+            }
             ToolbarItem(placement: .navigationBarTrailing) {
                 Menu {
                     if isInLibrary {
-                        Button(action: { store.toggleFavorite(game) }) {
-                            Label(game.isFavorite ? "Retirer des favoris" : "Ajouter aux favoris",
-                                  systemImage: game.isFavorite ? "heart.slash" : "heart")
-                        }
-                        
                         Button(action: { showingAddToList = true }) {
                             Label("Ajouter à une liste", systemImage: "list.bullet")
                         }
@@ -132,6 +153,16 @@ struct GameDetailView: View {
         .task {
             await loadSimilarGames()
         }
+        // Description, screenshots and developer for the page and the back of the box.
+        .task(id: game.rawgId) {
+            guard game.rawgId != nil, game.description == nil || game.screenshotURLs.isEmpty || game.ageRating == nil else { return }
+            guard let details = await store.fetchGameDetails(for: game) else { return }
+            // Copy only these fields: the user may have edited others meanwhile.
+            game.description = details.description
+            game.screenshotURLs = details.screenshotURLs
+            game.developer = details.developer
+            game.ageRating = details.ageRating
+        }
         .onAppear {
             if originalGame == nil {
                 // Opened from Discover/Search/similar: show the owned copy, not the RAWG one.
@@ -141,7 +172,7 @@ struct GameDetailView: View {
                 originalGame = game
             }
         }
-        .onReceive(store.$myGames) { games in
+        .onChange(of: store.myGames) { _, games in
             // Sessions and the toolbar favorite button change the stored game directly.
             // Pull those fields in so Save doesn't write the stale values back.
             guard let stored = games.first(where: { $0.id == game.id }), var original = originalGame else { return }
@@ -170,6 +201,13 @@ struct GameDetailView: View {
     private var hasUnsavedChanges: Bool {
         guard let original = originalGame else { return false }
         return game != original
+    }
+
+    /// "Où le ranges-tu ?": adds the game with the status tapped.
+    private func addToLibrary(_ status: GameStatus) {
+        game.status = status
+        save()
+        HapticManager.notification(.success)
     }
 
     private func save() {
@@ -206,7 +244,7 @@ struct GameDetailView: View {
 
 // MARK: - Header
 struct GameDetailHeader: View {
-    let game: Game
+    @Binding var game: Game
     /// The cover's own colour, glowing behind the box.
     @State private var glow: Color?
 
@@ -217,10 +255,12 @@ struct GameDetailHeader: View {
     var body: some View {
         VStack(spacing: 18) {
             GameBox3DView(game: game, height: 340)
+                // Rebuild the box when what's printed on it changes (not on every edit).
+                .id("\(game.platform)|\(game.description?.count ?? 0)|\(game.screenshotURLs.count)|\(game.boxArtURL ?? "")|\(game.ageRating ?? "")")
 
             VStack(spacing: 6) {
                 Text(game.title)
-                    .font(.system(size: 40, weight: .black).width(.condensed))
+                    .font(DS.Typography.display(40))
                     .foregroundStyle(Color.textPrimary)
                     .multilineTextAlignment(.center)
 
@@ -230,17 +270,7 @@ struct GameDetailHeader: View {
                         .foregroundStyle(Color.textSecondary)
                 }
 
-                HStack(spacing: 8) {
-                    if game.status != .none {
-                        TagPill(label: game.status.rawValue, icon: game.status.icon, isSelected: true, tint: game.status.color)
-                    }
-                    if let score = game.metacriticScore {
-                        Text("Metacritic \(score)")
-                            .font(DS.Typography.captionMedium)
-                            .foregroundStyle(DS.Colors.score(score))
-                    }
-                }
-                .padding(.top, 4)
+                PlatformPicker(platform: $game.platform)
             }
             .padding(.horizontal)
         }
@@ -260,379 +290,6 @@ struct GameDetailHeader: View {
             guard let url = game.artURL,
                   let color = await ImageCache.shared.dominantColor(for: url) else { return }
             glow = Color(color)
-        }
-    }
-}
-
-// MARK: - Quick Actions Bar
-struct QuickActionsBar: View {
-    @Binding var game: Game
-    @Binding var showingAddToList: Bool
-    @Binding var showingAddSession: Bool
-    @EnvironmentObject var store: GameStore
-    @Environment(TimerManager.self) private var timerManager
-
-    private var isTimingThisGame: Bool {
-        timerManager.isRunning && timerManager.activeGame?.id == game.id
-    }
-    
-    var body: some View {
-        HStack(spacing: 12) {
-            // Favorite
-            QuickActionButton(
-                icon: game.isFavorite ? "heart.fill" : "heart",
-                label: "Favoris",
-                color: game.isFavorite ? Color(hex: "D9695A") : Color.textPrimary
-            ) {
-                game.isFavorite.toggle()
-            }
-
-            // Add to List
-            QuickActionButton(icon: "list.bullet", label: "Listes", color: .textPrimary) {
-                showingAddToList = true
-            }
-
-            // Log Session
-            QuickActionButton(icon: "book.fill", label: "Journal", color: .textPrimary) {
-                showingAddSession = true
-            }
-
-            // Live play timer (sharing stays in the toolbar menu)
-            QuickActionButton(
-                icon: isTimingThisGame ? "timer.circle.fill" : "timer",
-                label: isTimingThisGame ? "En cours" : "Chrono",
-                color: .accent
-            ) {
-                timerManager.start(game: game)
-            }
-            // One session at a time, and only for games in the library.
-            .disabled(timerManager.isRunning || !store.myGames.contains { $0.id == game.id })
-        }
-        .padding()
-        .background(Color.gbDark)
-    }
-}
-
-struct QuickActionButton: View {
-    let icon: String
-    let label: String
-    let color: Color
-    let action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            VStack(spacing: 6) {
-                ZStack {
-                    Circle()
-                        .fill(Color.gbCard)
-                        .overlay(Circle().stroke(Color.gbBorder, lineWidth: 1))
-                        .frame(width: 44, height: 44)
-                    Image(systemName: icon)
-                        .font(.system(size: 18))
-                        .foregroundStyle(color)
-                }
-                Text(label)
-                    .font(DS.Typography.micro)
-                    .foregroundStyle(Color.textSecondary)
-            }
-            .frame(maxWidth: .infinity)
-        }
-    }
-}
-
-// MARK: - Info Section
-struct GameInfoSection: View {
-    @Binding var game: Game
-    let similarGames: [Game]
-    let isLoadingSimilar: Bool
-
-    var body: some View {
-        VStack(spacing: 20) {
-            // Description
-            if let description = game.description, !description.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    SectionHeader(title: "Description")
-
-                    Text(description)
-                        .font(DS.Typography.body)
-                        .foregroundStyle(Color.textSecondary)
-                        .lineLimit(6)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .cardStyle()
-            }
-
-            // Screenshots
-            if !game.screenshotURLs.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    SectionHeader(title: "Captures d'écran")
-
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 12) {
-                            ForEach(game.screenshotURLs, id: \.self) { urlString in
-                                if let url = URL(string: urlString) {
-                                    CachedAsyncImage(url: url) { image in
-                                        image
-                                            .resizable()
-                                            .aspectRatio(contentMode: .fill)
-                                            .frame(width: 250, height: 140)
-                                            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
-                                            .clipped()
-                                    } placeholder: {
-                                        RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                                            .fill(Color.gbSurface2)
-                                            .frame(width: 250, height: 140)
-                                            .overlay(ProgressView())
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                .cardStyle()
-            }
-
-            // Game Details
-            VStack(alignment: .leading, spacing: 12) {
-                SectionHeader(title: "Détails")
-
-                DetailRow(label: "Développeur", value: game.developer)
-                DetailRow(label: "Plateforme", value: game.platform)
-                DetailRow(label: "Année de sortie", value: game.releaseYear)
-
-                if let estimated = game.estimatedPlaytime, estimated > 0 {
-                    DetailRow(label: "Durée estimée", value: "\(estimated)h")
-                }
-
-                if !game.genres.isEmpty {
-                    DetailRow(label: "Genres", value: game.genres.joined(separator: ", "))
-                }
-            }
-            .cardStyle()
-
-            // Similar Games
-            if !similarGames.isEmpty || isLoadingSimilar {
-                VStack(alignment: .leading, spacing: 12) {
-                    SectionHeader(title: "Jeux similaires")
-
-                    if isLoadingSimilar {
-                        HStack {
-                            Spacer()
-                            ProgressView()
-                            Spacer()
-                        }
-                        .padding()
-                    } else {
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 12) {
-                                ForEach(similarGames) { similar in
-                                    NavigationLink(destination: GameDetailView(game: similar)) {
-                                        SimilarGameCard(game: similar)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                .cardStyle()
-            }
-        }
-        .padding()
-    }
-}
-
-struct DetailRow: View {
-    let label: String
-    let value: String
-
-    var body: some View {
-        HStack {
-            Text(label)
-                .foregroundStyle(Color.textSecondary)
-            Spacer()
-            Text(value)
-                .foregroundStyle(Color.textPrimary)
-        }
-        .font(DS.Typography.body)
-    }
-}
-
-struct SimilarGameCard: View {
-    let game: Game
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Group {
-                if let url = game.artURL {
-                    CachedAsyncImage(url: url) { image in
-                        image.resizable().aspectRatio(contentMode: .fill)
-                    } placeholder: {
-                        Rectangle().fill(game.coverColor.gradient)
-                    }
-                } else {
-                    Rectangle().fill(game.coverColor.gradient)
-                }
-            }
-            .frame(width: 100, height: 133)
-            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                    .stroke(Color.gbBorder, lineWidth: 1)
-            )
-
-            Text(game.title)
-                .font(DS.Typography.caption)
-                .foregroundStyle(Color.textPrimary)
-                .lineLimit(2)
-                .frame(width: 100, alignment: .leading)
-        }
-    }
-}
-
-// MARK: - Tracking Section
-struct GameTrackingSection: View {
-    @Binding var game: Game
-    
-    var body: some View {
-        VStack(spacing: 20) {
-            // Status Selection
-            VStack(alignment: .leading, spacing: 12) {
-                SectionHeader(title: "Statut")
-
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 10) {
-                        ForEach(GameStatus.allCases.filter { $0 != .none }, id: \.self) { status in
-                            StatusButton(status: status, currentStatus: $game.status)
-                        }
-                    }
-                }
-            }
-            .cardStyle()
-
-            // Rating
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    SectionHeader(title: "Note globale")
-                    if game.rating > 0 {
-                        Text(ratingLabel(game.rating))
-                            .font(DS.Typography.caption)
-                            .foregroundStyle(Color.accent)
-                    }
-                }
-
-                HStack {
-                    Spacer()
-                    StarRating(rating: $game.rating, editable: true, size: 36)
-                    Spacer()
-                }
-            }
-            .cardStyle()
-
-            // Sub Ratings
-            VStack(alignment: .leading, spacing: 16) {
-                SectionHeader(title: "Notes détaillées")
-
-                SubRatingRow(label: "Histoire", icon: "book.fill", rating: $game.subRatings.story)
-                SubRatingRow(label: "Gameplay", icon: "gamecontroller.fill", rating: $game.subRatings.gameplay)
-                SubRatingRow(label: "Graphismes", icon: "paintbrush.fill", rating: $game.subRatings.graphics)
-                SubRatingRow(label: "Musique/Son", icon: "speaker.wave.3.fill", rating: $game.subRatings.sound)
-            }
-            .cardStyle()
-
-            // Progress
-            VStack(alignment: .leading, spacing: 12) {
-                SectionHeader(title: "Progression")
-
-                // Completion Percentage
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text("Complétion")
-                            .foregroundStyle(Color.textSecondary)
-                        Spacer()
-                        Text("\(game.completionPercentage)%")
-                            .foregroundStyle(Color.accent)
-                    }
-                    .font(DS.Typography.body)
-
-                    Slider(value: Binding(
-                        get: { Double(game.completionPercentage) },
-                        set: { game.completionPercentage = Int($0) }
-                    ), in: 0...100, step: 5)
-                    .tint(.accent)
-                }
-
-                Divider().overlay(Color.gbBorder)
-
-                // Play Time
-                HStack {
-                    Text("Temps de jeu")
-                        .foregroundStyle(Color.textSecondary)
-                    Spacer()
-                    Text(game.formattedPlayTime)
-                        .foregroundStyle(Color.textPrimary)
-                }
-                .font(DS.Typography.body)
-
-                // Playthrough Count
-                Stepper("Partie n°\(game.playthroughCount)", value: $game.playthroughCount, in: 1...10)
-                    .foregroundStyle(Color.textPrimary)
-                    .tint(.accent)
-            }
-            .cardStyle()
-
-            // Backlog Priority (only for want to play)
-            if game.status == .wantToPlay {
-                VStack(alignment: .leading, spacing: 12) {
-                    SectionHeader(title: "Priorité dans le backlog")
-
-                    HStack(spacing: 10) {
-                        ForEach(BacklogPriority.allCases, id: \.self) { priority in
-                            Button(action: { game.priority = priority }) {
-                                Text(priority.rawValue)
-                                    .font(DS.Typography.body)
-                                    .padding(.vertical, 8)
-                                    .frame(maxWidth: .infinity)
-                                    .background(game.priority == priority ? priority.color.opacity(0.16) : Color.gbSurface2)
-                                    .foregroundStyle(game.priority == priority ? priority.color : Color.textSecondary)
-                                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
-                                            .stroke(game.priority == priority ? priority.color.opacity(0.4) : Color.clear, lineWidth: 1)
-                                    )
-                            }
-                        }
-                    }
-                }
-                .cardStyle()
-            }
-
-            // Difficulty
-            VStack(alignment: .leading, spacing: 12) {
-                SectionHeader(title: "Difficulté jouée")
-
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 10) {
-                        ForEach(GameDifficulty.allCases, id: \.self) { difficulty in
-                            Button(action: { game.difficulty = difficulty }) {
-                                TagPill(label: difficulty.rawValue, isSelected: game.difficulty == difficulty)
-                            }
-                        }
-                    }
-                }
-            }
-            .cardStyle()
-        }
-        .padding()
-    }
-    
-    func ratingLabel(_ rating: Int) -> String {
-        switch rating {
-        case 1: return "Mauvais"
-        case 2: return "Moyen"
-        case 3: return "Bon"
-        case 4: return "Excellent"
-        case 5: return "Chef d'œuvre"
-        default: return ""
         }
     }
 }
@@ -658,123 +315,10 @@ struct SubRatingRow: View {
     }
 }
 
-// MARK: - Notes Section
-struct GameNotesSection: View {
-    @Binding var game: Game
-    @Binding var showingSpoiler: Bool
-    
-    var body: some View {
-        VStack(spacing: 20) {
-            // Mood Tags
-            VStack(alignment: .leading, spacing: 12) {
-                SectionHeader(title: "Ressenti")
-
-                FlowLayout(spacing: 8) {
-                    ForEach(MoodTag.allCases, id: \.self) { tag in
-                        Button(action: {
-                            if game.moodTags.contains(tag) {
-                                game.moodTags.removeAll { $0 == tag }
-                            } else {
-                                game.moodTags.append(tag)
-                            }
-                        }) {
-                            TagPill(label: tag.rawValue, icon: tag.icon, isSelected: game.moodTags.contains(tag), tint: tag.color)
-                        }
-                    }
-                }
-            }
-            .cardStyle()
-
-            // Review
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    SectionHeader(title: "Critique")
-
-                    Toggle(isOn: $game.isSpoiler) {
-                        Label("Spoiler", systemImage: "eye.slash")
-                            .font(DS.Typography.caption)
-                    }
-                    .toggleStyle(.button)
-                    .tint(game.isSpoiler ? Color(hex: "E3A24C") : Color.textSecondary)
-                }
-
-                TextField("Écris ta critique du jeu...", text: $game.review, axis: .vertical)
-                    .padding()
-                    .background(Color.gbSurface2)
-                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
-                    .foregroundStyle(Color.textPrimary)
-                    .lineLimit(4...10)
-            }
-            .cardStyle()
-
-            // Personal Notes
-            VStack(alignment: .leading, spacing: 12) {
-                SectionHeader(title: "Notes personnelles")
-
-                TextField("Notes privées (astuces, rappels...)", text: $game.notes, axis: .vertical)
-                    .padding()
-                    .background(Color.gbSurface2)
-                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
-                    .foregroundStyle(Color.textPrimary)
-                    .lineLimit(3...6)
-            }
-            .cardStyle()
-
-            // Dates
-            VStack(alignment: .leading, spacing: 12) {
-                SectionHeader(title: "Dates")
-
-                // Started Date
-                DatePicker(
-                    "Commencé le",
-                    selection: Binding(
-                        get: { game.startedDate ?? Date() },
-                        set: { game.startedDate = $0 }
-                    ),
-                    displayedComponents: .date
-                )
-                .tint(.accent)
-                .foregroundStyle(Color.textSecondary)
-
-                // Completed Date (only if completed)
-                if game.status == .completed || game.status == .platinum {
-                    DatePicker(
-                        "Terminé le",
-                        selection: Binding(
-                            get: { game.completedDate ?? Date() },
-                            set: { game.completedDate = $0 }
-                        ),
-                        displayedComponents: .date
-                    )
-                    .tint(.accent)
-                    .foregroundStyle(Color.textSecondary)
-                }
-            }
-            .cardStyle()
-        }
-        .padding()
-    }
-}
-
-// MARK: - Save Button
-struct SaveButton: View {
-    let game: Game
-    let isInLibrary: Bool
-    let action: () -> Void
-    
-    var body: some View {
-        PrimaryButton(
-            title: isInLibrary ? "Mettre à jour" : "Ajouter à ma collection",
-            icon: isInLibrary ? "checkmark.circle.fill" : "plus.circle.fill",
-            action: action
-        )
-    }
-}
-
 // MARK: - Add to List Sheet
 struct AddToListSheet: View {
     let game: Game
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @Environment(\.dismiss) var dismiss
     
     var body: some View {
@@ -822,36 +366,6 @@ struct AddToListSheet: View {
     }
 }
 
-// MARK: - Status Button
-struct StatusButton: View {
-    let status: GameStatus
-    @Binding var currentStatus: GameStatus
-    
-    var body: some View {
-        Button(action: {
-            withAnimation(.spring(response: 0.3)) {
-                currentStatus = status
-            }
-        }) {
-            VStack(spacing: 6) {
-                Image(systemName: status.icon)
-                    .font(DS.Typography.title3)
-                Text(status.rawValue)
-                    .font(DS.Typography.micro)
-                    .lineLimit(1)
-            }
-            .frame(width: 75, height: 60)
-            .background(currentStatus == status ? status.color.opacity(0.16) : Color.gbSurface2)
-            .foregroundStyle(currentStatus == status ? status.color : Color.textSecondary)
-            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
-                    .stroke(currentStatus == status ? status.color.opacity(0.4) : Color.clear, lineWidth: 1)
-            )
-        }
-    }
-}
-
 // MARK: - Preview
 #Preview {
     NavigationStack {
@@ -867,6 +381,54 @@ struct StatusButton: View {
             playTime: "45h",
             genres: ["Action", "Adventure"]
         ))
-        .environmentObject(GameStore())
+        .environment(GameStore())
+    }
+}
+
+// MARK: - Platform picker
+
+/// "Tu y joues sur : PS5 ▾". The case's band (front, spine, shelf) follows the choice.
+struct PlatformPicker: View {
+    @Binding var platform: String
+
+    private var band: PlatformBand { PlatformBand(platform: platform) }
+
+    private var choices: [String] {
+        // Keep RAWG's own name (e.g. "Xbox Series S/X") if it isn't one of ours.
+        PlatformBand.choices.contains(platform) ? PlatformBand.choices : [platform] + PlatformBand.choices
+    }
+
+    var body: some View {
+        Menu {
+            ForEach(choices, id: \.self) { choice in
+                Button {
+                    platform = choice
+                    HapticManager.selection()
+                } label: {
+                    if choice == platform {
+                        Label(choice, systemImage: "checkmark")
+                    } else {
+                        Text(choice)
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 6) {
+                Text("Tu y joues sur")
+                    .font(DS.Typography.caption)
+                    .foregroundStyle(Color.textSecondary)
+                Text(band.label)
+                    .font(DS.Typography.text(12, weight: .bold, relativeTo: .caption))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(band.color, in: RoundedRectangle(cornerRadius: 3, style: .continuous))
+                Image(systemName: "chevron.down")
+                    .font(DS.Typography.micro)
+                    .foregroundStyle(Color.textSecondary)
+            }
+            .padding(.vertical, 4)
+        }
+        .accessibilityLabel("Plateforme : \(platform). Toucher pour changer.")
     }
 }

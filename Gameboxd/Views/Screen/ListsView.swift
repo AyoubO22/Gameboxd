@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct ListsView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @Environment(\.dismiss) var dismiss
     @State private var showingCreateList = false
     @State private var editingList: GameList?
@@ -48,7 +48,7 @@ struct ListsView: View {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: { showingCreateList = true }) {
                         Image(systemName: "plus.circle.fill")
-                            .foregroundColor(.gbBrass)
+                            .foregroundColor(.gbCoral)
                     }
                     .accessibilityLabel("Créer une liste")
                 }
@@ -66,7 +66,7 @@ struct ListsView: View {
 // MARK: - List Row View
 struct ListRowView: View {
     let list: GameList
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     
     var games: [Game] {
         store.gamesInList(list)
@@ -153,7 +153,7 @@ struct ListRowView: View {
 // MARK: - List Detail View
 struct ListDetailView: View {
     let list: GameList
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @State private var showingAddGame = false
     
     var games: [Game] {
@@ -212,7 +212,7 @@ struct ListDetailView: View {
                             .accessibilityLabel("Ajouter un jeu à la liste")
                             .padding(.horizontal, 20)
                             .padding(.vertical, 10)
-                            .background(Color.gbBrass)
+                            .background(Color.gbCoral)
                             .foregroundColor(.gbDark)
                             .cornerRadius(20)
                         }
@@ -243,7 +243,7 @@ struct ListDetailView: View {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button(action: { showingAddGame = true }) {
                     Image(systemName: "plus")
-                        .foregroundColor(.gbBrass)
+                        .foregroundColor(.gbCoral)
                 }
             }
         }
@@ -255,7 +255,7 @@ struct ListDetailView: View {
 
 // MARK: - Create List View
 struct CreateListView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @Environment(\.dismiss) var dismiss
     
     var editingList: GameList?
@@ -336,7 +336,7 @@ struct CreateListView: View {
                         saveList()
                     }
                     .disabled(name.isEmpty)
-                    .foregroundColor(name.isEmpty ? .gray : .gbBrass)
+                    .foregroundColor(name.isEmpty ? .gray : .gbCoral)
                 }
             }
             .onAppear {
@@ -375,7 +375,7 @@ struct CreateListView: View {
 // MARK: - Add Game to List View
 struct AddGameToListView: View {
     let list: GameList
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @Environment(\.dismiss) var dismiss
     @State private var searchText = ""
     
@@ -426,7 +426,7 @@ struct AddGameToListView: View {
                         Spacer()
                         
                         Image(systemName: "plus.circle")
-                            .foregroundColor(.gbBrass)
+                            .foregroundColor(.gbCoral)
                     }
                 }
             }
@@ -439,7 +439,7 @@ struct AddGameToListView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Terminé") { dismiss() }
-                        .foregroundColor(.gbBrass)
+                        .foregroundColor(.gbCoral)
                 }
             }
         }
@@ -449,5 +449,5 @@ struct AddGameToListView: View {
 // MARK: - Preview
 #Preview {
     ListsView()
-        .environmentObject(GameStore())
+        .environment(GameStore())
 }

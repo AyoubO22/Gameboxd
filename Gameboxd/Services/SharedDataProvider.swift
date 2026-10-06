@@ -135,8 +135,4 @@ enum SharedDataProvider {
         return games
     }
 
-    /// Returns the grand total accumulated play time in minutes, or 0 if unavailable.
-    static func getTotalPlayTimeMinutes() -> Int {
-        UserDefaults(suiteName: suiteName)?.integer(forKey: Keys.totalPlayTimeMinutes) ?? 0
-    }
 }

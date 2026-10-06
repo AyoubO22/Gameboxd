@@ -9,7 +9,7 @@ import SwiftUI
 import Charts
 
 struct StatisticsView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     @State private var selectedPeriod: StatPeriod = .year
     @State private var selectedChart: ChartType = .gamesPerMonth
     
@@ -91,7 +91,7 @@ struct StatisticsView: View {
 // MARK: - Summary Cards
 struct SummaryCardsView: View {
     let games: [Game]
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     
     var body: some View {
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
@@ -176,7 +176,7 @@ struct ChartTypeButton: View {
                 .fontWeight(selected == type ? .semibold : .regular)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
-                .background(selected == type ? Color.gbBrass : Color.gbCard)
+                .background(selected == type ? Color.gbCoral : Color.gbCard)
                 .foregroundColor(selected == type ? .gbDark : .gray)
                 .cornerRadius(20)
         }
@@ -188,7 +188,7 @@ struct ChartContainer: View {
     let chartType: StatisticsView.ChartType
     let period: StatisticsView.StatPeriod
     let games: [Game]
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -266,7 +266,7 @@ struct GamesPerMonthChart: View {
                 x: .value("Mois", item.month),
                 y: .value("Jeux", item.count)
             )
-            .foregroundStyle(Color.gbBrass.gradient)
+            .foregroundStyle(Color.gbCoral.gradient)
             .cornerRadius(4)
         }
         .frame(height: 200)
@@ -431,7 +431,7 @@ struct RatingChart: View {
         case 2: return .orange
         case 3: return .yellow
         case 4: return .green
-        case 5: return .gbBrass
+        case 5: return .gbCoral
         default: return .gray
         }
     }
@@ -478,7 +478,7 @@ struct StatusChart: View {
 // MARK: - Additional Stats
 struct AdditionalStatsView: View {
     let games: [Game]
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     
     var completionRate: Double {
         guard !games.isEmpty else { return 0 }
@@ -488,17 +488,8 @@ struct AdditionalStatsView: View {
     
     var averagePlaytime: String {
         let totalMinutes = games.reduce(0) { $0 + $1.playTimeMinutes }
-        guard !games.isEmpty else { return "0h" }
-        let avgMinutes = totalMinutes / games.count
-        let hours = avgMinutes / 60
-        let mins = avgMinutes % 60
-        if hours > 0 && mins > 0 {
-            return "\(hours)h\(mins)m"
-        } else if hours > 0 {
-            return "\(hours)h"
-        } else {
-            return "\(mins)m"
-        }
+        guard !games.isEmpty else { return "0 h" }
+        return formatDuration(minutes: totalMinutes / games.count)
     }
     
     var body: some View {
@@ -538,7 +529,7 @@ struct StatRow: View {
 
 // MARK: - Gaming Habits
 struct GamingHabitsView: View {
-    @EnvironmentObject var store: GameStore
+    @Environment(GameStore.self) private var store
     
     var mostPlayedGenre: String {
         var genreCount: [String: Int] = [:]
@@ -609,6 +600,6 @@ struct HabitCard: View {
 #Preview {
     NavigationStack {
         StatisticsView()
-            .environmentObject(GameStore())
+            .environment(GameStore())
     }
 }

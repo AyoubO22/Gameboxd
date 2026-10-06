@@ -68,7 +68,7 @@ struct GameCard: View {
                         .font(DS.Typography.micro)
                         .padding(6)
                         .background(Color.gbDark.opacity(0.7))
-                        .foregroundStyle(Color(hex: "D9695A"))
+                        .foregroundStyle(DS.Colors.error)
                         .clipShape(Circle())
                         .padding(6)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)

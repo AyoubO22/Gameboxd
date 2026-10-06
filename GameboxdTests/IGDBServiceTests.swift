@@ -80,4 +80,15 @@ final class IGDBServiceTests: XCTestCase {
     func testCharacterWithoutGamesIsDropped() throws {
         XCTAssertFalse(IGDBService.belongs(try character(#"{"name":"Nobody"}"#), to: "Portal"))
     }
+
+    func testMainCharacterComesFirst() throws {
+        let cast = try ["Ciri", "Dandelion", "Geralt of Rivia"].map { try character(#"{"name":"\#($0)"}"#) }
+        let story = "You are Geralt of Rivia, a monster slayer. Ciri, his adopted daughter, is on the run."
+        XCTAssertEqual(IGDBService.byProminence(cast, in: story).map(\.name), ["Geralt of Rivia", "Ciri", "Dandelion"])
+    }
+
+    func testMentionByFirstNameCounts() throws {
+        let cast = try ["Dutch van der Linde", "Arthur Morgan"].map { try character(#"{"name":"\#($0)"}"#) }
+        XCTAssertEqual(IGDBService.byProminence(cast, in: "Arthur rides with the gang led by Dutch.").first?.name, "Arthur Morgan")
+    }
 }

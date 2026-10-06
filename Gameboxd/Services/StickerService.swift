@@ -20,12 +20,15 @@ final class StickerService {
 
     /// Cut-outs found so far per game, best first, plus how many art sources were already read.
     private var pools: [UUID: (cutouts: [StickerMaker.Cutout], sourcesRead: Int, sources: [URL]?)] = [:]
+    /// Feature prints of the sources already cut, per game: IGDB often lists one key art
+    /// several times (cropped, with or without the logo).
+    private var usedSources: [UUID: [StickerMaker.Print]] = [:]
     private var inProgress: Set<UUID> = []
 
     func url(for file: String) -> URL { directory.appendingPathComponent(file) }
 
     /// Cuts art for the game's stickers that have none yet. Returns the file written per
-    /// sticker id; stickers left out had no art to cut (no sources, or the simulator).
+    /// sticker id, or "" once every source has been read and nothing is left for it.
     ///
     /// ponytail: sticker N gets cut-out N of the pool, so a pool that changes between
     /// launches (IGDB adding art) can repeat an image. Store the cut-out hash on the
@@ -36,10 +39,14 @@ final class StickerService {
         inProgress.insert(game.id)
         defer { inProgress.remove(game.id) }
 
-        let alreadyCut = stickers.count - missing.count
-        let pool = await pool(for: game, needed: stickers.count)
+        let alreadyCut = stickers.filter(\.hasArt).count
+        let (pool, exhausted) = await pool(for: game, needed: stickers.count)
         var files: [UUID: String] = [:]
-        for (offset, sticker) in missing.enumerated() where alreadyCut + offset < pool.count {
+        for (offset, sticker) in missing.enumerated() {
+            guard alreadyCut + offset < pool.count else {
+                if exhausted { files[sticker.id] = "" }
+                continue
+            }
             let file = "\(sticker.id.uuidString).png"
             guard (try? pool[alreadyCut + offset].png.write(to: url(for: file), options: .atomic)) != nil else { continue }
             files[sticker.id] = file
@@ -48,29 +55,44 @@ final class StickerService {
     }
 
     func remove(_ stickers: [Sticker]) {
-        for file in stickers.compactMap(\.imageFile) { try? FileManager.default.removeItem(at: url(for: file)) }
+        // Only real files: an empty name would resolve to the stickers folder itself.
+        for file in stickers.compactMap(\.imageFile) where !file.isEmpty {
+            try? FileManager.default.removeItem(at: url(for: file))
+        }
     }
 
     /// Reads art sources until there are `needed` distinct cut-outs or no sources left.
     /// Character portraits and artworks (IGDB) first, then the game's screenshots.
-    private func pool(for game: Game, needed: Int) async -> [StickerMaker.Cutout] {
+    private func pool(for game: Game, needed: Int) async -> (cutouts: [StickerMaker.Cutout], exhausted: Bool) {
         var entry = pools[game.id] ?? ([], 0, nil)
         if entry.sources == nil {
-            let art = (try? await IGDBService.shared.stickerArtURLs(title: game.title, year: game.releaseYear)) ?? []
+            // A network or auth failure leaves `sources` nil, so the next visit retries
+            // instead of declaring the game out of art.
+            guard let art = try? await IGDBService.shared.stickerArtURLs(title: game.title, year: game.releaseYear) else {
+                return (entry.cutouts, false)
+            }
             entry.sources = art + game.screenshotURLs.compactMap(URL.init(string:))
         }
         let sources = entry.sources ?? []
         while entry.cutouts.count < needed, entry.sourcesRead < sources.count {
-            let source = sources[entry.sourcesRead]
+            // Offline: stop here and retry this source next time, rather than skip it.
+            guard let (data, response) = try? await URLSession.shared.data(from: sources[entry.sourcesRead]) else { break }
             entry.sourcesRead += 1
-            guard let (data, response) = try? await URLSession.shared.data(from: source),
-                  (response as? HTTPURLResponse)?.statusCode == 200 else { continue }
+            guard (response as? HTTPURLResponse)?.statusCode == 200 else { continue }
+            let print = await Task.detached(priority: .utility) { StickerMaker.print(of: data) }.value
+            if let print {
+                // Skipped sources are remembered too: variants chain (A ≈ B ≈ C) even when
+                // C is a little further from A than the threshold.
+                let isRepeat = usedSources[game.id, default: []].contains { $0.distance(to: print) < StickerMaker.sameSourceDistance }
+                usedSources[game.id, default: []].append(print)
+                if isRepeat { continue }
+            }
             let cutouts = await Task.detached(priority: .utility) { StickerMaker.cutouts(from: data) }.value
             for cutout in cutouts where !entry.cutouts.contains(where: cutout.isDuplicate) {
                 entry.cutouts.append(cutout)
             }
         }
         pools[game.id] = entry
-        return entry.cutouts
+        return (entry.cutouts, entry.sourcesRead >= sources.count)
     }
 }

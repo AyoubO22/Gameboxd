@@ -21,8 +21,45 @@ nonisolated enum StickerMaker {
         /// 8×8 average hash, to drop near-duplicates across images (the same emblem in
         /// several artworks). Two cut-outs within 10 bits are the same sticker.
         let hash: UInt64
+        let print: Print?
 
-        func isDuplicate(of other: Cutout) -> Bool { (hash ^ other.hash).nonzeroBitCount <= 10 }
+        /// Same picture: nearly the same pixels, or the same content (Vision feature print).
+        /// 0.35 is under the closest pair of distinct characters drawn in one style (0.43).
+        func isDuplicate(of other: Cutout) -> Bool {
+            if (hash ^ other.hash).nonzeroBitCount <= 10 { return true }
+            guard let print, let otherPrint = other.print else { return false }
+            return print.distance(to: otherPrint) < 0.35
+        }
+    }
+
+    /// Vision feature print, wrapped so it can come back from a background task.
+    struct Print: @unchecked Sendable {
+        let observation: VNFeaturePrintObservation
+
+        func distance(to other: Print) -> Float {
+            var distance = Float.greatestFiniteMagnitude
+            try? observation.computeDistance(&distance, to: other.observation)
+            return distance
+        }
+    }
+
+    /// Two source images closer than this are the same art in another crop or format
+    /// (with or without the logo). Measured on 1200 px prints: variants of one key art
+    /// 0.31–0.50 (Marvel's Wolverine), distinct artworks 0.53 and up (RDR2, Witcher 3, BioShock).
+    /// ponytail: tight margin on both sides; retune on more games if repeats or losses show up.
+    static let sameSourceDistance: Float = 0.515
+
+    /// Feature print of a whole image, to skip sources that repeat art already used.
+    static func print(of data: Data) -> Print? {
+        guard let image = downsized(data, maxPixelSize: 1200) else { return nil }
+        return print(of: image)
+    }
+
+    private static func print(of image: CGImage) -> Print? {
+        let request = VNGenerateImageFeaturePrintRequest()
+        guard (try? VNImageRequestHandler(cgImage: image).perform([request])) != nil,
+              let observation = request.results?.first else { return nil }
+        return Print(observation: observation)
     }
 
     private static let context = CIContext()
@@ -45,7 +82,7 @@ nonisolated enum StickerMaker {
                   coverage(of: cut) >= 0.35 else { return nil }
             let sticker = outlined(cut, border: max(6, min(extent.width, extent.height) * 0.03))
             guard let cg = context.createCGImage(sticker, from: sticker.extent), let png = pngData(cg) else { return nil }
-            return Cutout(png: png, hasPerson: containsPerson(cg), hash: averageHash(cut))
+            return Cutout(png: png, hasPerson: containsPerson(cg), hash: averageHash(cut), print: print(of: cg))
         }
         return cutouts.sorted { $0.hasPerson && !$1.hasPerson }
     }

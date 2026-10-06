@@ -52,7 +52,10 @@ struct YourGameSection: View {
 
             StatusStrip(selection: isInLibrary ? game.status : nil) { status in
                 if isInLibrary {
-                    withAnimation(.snappy) { game.status = status }
+                    withAnimation(.snappy) {
+                        game.status = status
+                        if status == .platinum { game.completionPercentage = 100 }
+                    }
                 } else {
                     onAdd(status)
                 }
@@ -724,8 +727,14 @@ struct StickersSection: View {
     @Environment(GameStore.self) private var store
 
     var body: some View {
-        let unlocked = store.stickers(for: game)
-        let goals = StickerRules.nextGoals(for: game)
+        let all = store.stickers(for: game)
+        // Stickers the game ran out of art for stay hidden; with no art at all (or on the
+        // simulator) the first one stands in with the cover, so the section is never empty.
+        let withArt = all.filter { !$0.isOutOfArt }
+        let unlocked = withArt.isEmpty ? Array(all.prefix(1)) : withArt
+        // Once out of art, more play can't bring new stickers: only show the one-off goals.
+        let outOfArt = all.contains(where: \.isOutOfArt)
+        let goals = StickerRules.nextGoals(for: game).filter { !outOfArt || !$0.isPlaytime }
         VStack(alignment: .leading, spacing: DS.Spacing.sm) {
             DetailSectionTitle(title: "Autocollants", trailing: "\(unlocked.count) débloqué\(unlocked.count > 1 ? "s" : "")")
             ScrollView(.horizontal, showsIndicators: false) {
@@ -743,7 +752,7 @@ struct StickersSection: View {
             .padding(.horizontal, -DS.Spacing.md)
         }
         .padding(.horizontal)
-        .task(id: unlocked.filter { $0.imageFile == nil }.count) {
+        .task(id: all.filter { $0.imageFile == nil }.count) {
             await store.cutStickers(for: game)
         }
     }
@@ -781,7 +790,7 @@ struct StickerView: View {
     /// Puts the sticker on the pasteboard as a transparent PNG, ready to paste in Messages.
     private func copy() {
         let png: Data?
-        if let file = sticker.imageFile {
+        if sticker.hasArt, let file = sticker.imageFile {
             png = try? Data(contentsOf: StickerService.shared.url(for: file))
         } else {
             // Cover stand-in: render it as drawn (white border included), without tilt or shadow.
@@ -800,7 +809,7 @@ struct StickerView: View {
     }
 
     @ViewBuilder private var art: some View {
-        if let file = sticker.imageFile,
+        if sticker.hasArt, let file = sticker.imageFile,
            let image = UIImage(contentsOfFile: StickerService.shared.url(for: file).path) {
             let picture = Image(uiImage: image).resizable().scaledToFit()
             picture

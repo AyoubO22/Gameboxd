@@ -12,9 +12,13 @@ struct Sticker: Identifiable, Codable, Equatable {
     let gameId: UUID
     let reason: Reason
     var unlockedAt = Date()
-    /// File name in the stickers folder once the art has been cut; nil until then (or when
-    /// no art could be cut, e.g. on the simulator), in which case the cover stands in.
+    /// File name in the stickers folder once the art has been cut; nil until then.
+    /// "" means the game ran out of art for it: the sticker stays unlocked but isn't shown,
+    /// so a game with 6 cut-outs never shows the same character twice.
     var imageFile: String?
+
+    var hasArt: Bool { imageFile.map { !$0.isEmpty } ?? false }
+    var isOutOfArt: Bool { imageFile == "" }
     /// Fixed tilt so a sticker always sits the same way.
     var tilt = Double.random(in: -7...7)
 
@@ -27,6 +31,11 @@ struct Sticker: Identifiable, Codable, Equatable {
         case reviewed
         case completed
         case platinum
+
+        var isPlaytime: Bool {
+            if case .playtime = self { return true }
+            return false
+        }
 
         var label: String {
             switch self {
@@ -47,8 +56,20 @@ enum StickerRules {
     /// Playtime stickers stop here (100 h); games rarely have more art than that anyway.
     static let maxPlaytimeStickers = 20
 
+    /// A game finished at 100 % or platinumed unlocks everything at once: people joining
+    /// with a back catalogue have played it already, they won't log the sessions.
+    static func unlocksAll(_ game: Game) -> Bool {
+        game.completionPercentage >= 100 || game.status == .platinum
+    }
+
     /// Every reason this game has earned so far.
     static func earned(by game: Game) -> Set<Sticker.Reason> {
+        if unlocksAll(game) {
+            var all: Set<Sticker.Reason> = [.rated, .reviewed, .completed]
+            for step in 0..<maxPlaytimeStickers { all.insert(.playtime(hours: step * hoursStep)) }
+            if game.status == .platinum { all.insert(.platinum) }
+            return all
+        }
         var reasons: Set<Sticker.Reason> = []
         let hours = game.playTimeMinutes / 60
         if game.playTimeMinutes > 0 {

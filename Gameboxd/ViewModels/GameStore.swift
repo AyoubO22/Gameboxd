@@ -140,6 +140,14 @@ final class GameStore {
         loadImportedGames()
         loadDiscoverCache()
         stickers = load([Sticker].self, key: StorageKeys.stickers) ?? []
+        // Recut art made by an older StickerMaker, once (v2: main character first;
+        // v3: same art in another crop no longer repeats). Unlocks are kept.
+        if UserDefaults.standard.integer(forKey: "gameboxd_sticker_art_version") < 3 {
+            StickerService.shared.remove(stickers)
+            for i in stickers.indices { stickers[i].imageFile = nil }
+            fileStore.save(stickers, key: StorageKeys.stickers)
+            UserDefaults.standard.set(3, forKey: "gameboxd_sticker_art_version")
+        }
     }
     
     private func load<T: Decodable>(_ type: T.Type, key: String) -> T? {
@@ -594,6 +602,8 @@ final class GameStore {
             if updated.status == .none { updated.status = .wantToPlay }
             if updated.startedDate == nil { updated.startedDate = Date() }
         }
+        // A platinum is a finished game, all the way.
+        if updated.status == .platinum { updated.completionPercentage = 100 }
         if (updated.status == .completed || updated.status == .platinum) && updated.completedDate == nil {
             updated.completedDate = Date()
         }

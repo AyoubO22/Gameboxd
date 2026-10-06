@@ -55,4 +55,27 @@ final class StickerRulesTests: XCTestCase {
         store.deleteGame(g)
         XCTAssertTrue(store.stickers.isEmpty)
     }
+
+    // MARK: - Back catalogue
+
+    func testHundredPercentOrPlatinumUnlocksEverything() {
+        var finished = game(status: .completed)
+        finished.completionPercentage = 100
+        let earned = StickerRules.earned(by: finished)
+        XCTAssertEqual(earned.filter(\.isPlaytime).count, StickerRules.maxPlaytimeStickers)
+        XCTAssertTrue(earned.isSuperset(of: [.rated, .reviewed, .completed]))
+        XCTAssertFalse(earned.contains(.platinum))
+        XCTAssertEqual(StickerRules.nextGoals(for: finished), [.platinum])
+
+        XCTAssertTrue(StickerRules.earned(by: game(status: .platinum)).contains(.platinum))
+        XCTAssertTrue(StickerRules.nextGoals(for: game(status: .platinum)).isEmpty)
+    }
+
+    func testPlatinumSetsCompletionToFull() {
+        let store = makeIsolatedStore()
+        store.myGames = []
+        store.updateGame(game(status: .platinum))
+        XCTAssertEqual(store.myGames[0].completionPercentage, 100)
+        XCTAssertEqual(store.stickers(for: store.myGames[0]).count, StickerRules.maxPlaytimeStickers + 4)
+    }
 }

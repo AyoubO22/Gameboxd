@@ -52,6 +52,8 @@ final class GameStore {
     
     // Linked Gaming Accounts
     var linkedAccounts: [LinkedAccount] = []
+    /// Unlocked stickers, all games (see StickerRules for what unlocks them).
+    var stickers: [Sticker] = []
     var importedGames: [ImportedGame] = []
     
     // Services
@@ -76,6 +78,7 @@ final class GameStore {
         static let linkedAccounts = "gameboxd_linked_accounts"
         static let importedGames = "gameboxd_imported_games"
         static let discoverCache = "gameboxd_discover_cache"
+        static let stickers = "gameboxd_stickers"
     }
     
     // Collections are stored as JSON files (see FileStore); small flags stay in UserDefaults.
@@ -88,6 +91,7 @@ final class GameStore {
         loadAllData()
         initializeAchievements()
         updateGoalProgress()
+        syncStickers() // backfill: play logged before stickers existed still counts
         syncWidgetData()
         setICloudObservation(UserDefaults.standard.bool(forKey: "icloud_enabled"))
         Task {
@@ -135,6 +139,7 @@ final class GameStore {
         loadLinkedAccounts()
         loadImportedGames()
         loadDiscoverCache()
+        stickers = load([Sticker].self, key: StorageKeys.stickers) ?? []
     }
     
     private func load<T: Decodable>(_ type: T.Type, key: String) -> T? {
@@ -155,6 +160,7 @@ final class GameStore {
     
     private func saveGames(syncWidget: Bool = true) {
         fileStore.save(myGames, key: StorageKeys.myGames)
+        syncStickers()
         checkAchievements()
         updateGoalProgress()
         if syncWidget {
@@ -162,6 +168,37 @@ final class GameStore {
         }
     }
     
+    // MARK: - Stickers
+
+    func stickers(for game: Game) -> [Sticker] {
+        stickers.filter { $0.gameId == game.id }.sorted { $0.reason < $1.reason }
+    }
+
+    /// Adds a sticker for every reason a game has newly earned. Earned stickers are kept
+    /// even if the reason goes away (a rating cleared): they're collectibles.
+    private func syncStickers() {
+        var owned = Dictionary(grouping: stickers, by: \.gameId).mapValues { Set($0.map(\.reason)) }
+        var added = false
+        for game in myGames {
+            for reason in StickerRules.earned(by: game).subtracting(owned[game.id, default: []]).sorted() {
+                stickers.append(Sticker(gameId: game.id, reason: reason))
+                owned[game.id, default: []].insert(reason)
+                added = true
+            }
+        }
+        if added { fileStore.save(stickers, key: StorageKeys.stickers) }
+    }
+
+    /// Cuts the art of this game's stickers that don't have any yet (called by its page).
+    func cutStickers(for game: Game) async {
+        let files = await StickerService.shared.cutMissing(stickers(for: game), for: game)
+        guard !files.isEmpty else { return }
+        for i in stickers.indices {
+            if let file = files[stickers[i].id] { stickers[i].imageFile = file }
+        }
+        fileStore.save(stickers, key: StorageKeys.stickers)
+    }
+
     private func loadPlaySessions() {
         if let decoded = load([PlaySession].self, key: StorageKeys.playSessions) {
             playSessions = decoded
@@ -593,6 +630,9 @@ final class GameStore {
             gameLists[i].gameIds.removeAll { ids.contains($0) }
         }
         userProfile.favoriteGameIds.removeAll { ids.contains($0) }
+        StickerService.shared.remove(stickers.filter { ids.contains($0.gameId) })
+        stickers.removeAll { ids.contains($0.gameId) }
+        fileStore.save(stickers, key: StorageKeys.stickers)
         savePlaySessions()
         saveGameLists()
         saveUserProfile(syncWidget: false)
@@ -1332,6 +1372,8 @@ final class GameStore {
         completedGoals = []
         linkedAccounts = []
         importedGames = []
+        StickerService.shared.remove(stickers)
+        stickers = []
         
         // Reset profile but keep username
         let username = userProfile.username
@@ -1349,7 +1391,8 @@ final class GameStore {
             StorageKeys.monthlyGoals,
             StorageKeys.completedGoals,
             StorageKeys.linkedAccounts,
-            StorageKeys.importedGames
+            StorageKeys.importedGames,
+            StorageKeys.stickers
         ]
         
         for key in keys {

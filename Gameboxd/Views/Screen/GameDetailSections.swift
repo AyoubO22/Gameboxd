@@ -8,6 +8,7 @@
 //
 
 import SwiftUI
+import UniformTypeIdentifiers
 
 // MARK: - Section title
 
@@ -711,5 +712,145 @@ struct SimilarGamesShelf: View {
                 ShelfPlank().padding(.horizontal, DS.Spacing.md)
             }
         }
+    }
+}
+
+// MARK: - Stickers
+
+/// Stickers unlocked by playing, then the locked slots with what unlocks them.
+/// Opening the page cuts the art of any sticker that doesn't have it yet.
+struct StickersSection: View {
+    let game: Game
+    @Environment(GameStore.self) private var store
+
+    var body: some View {
+        let unlocked = store.stickers(for: game)
+        let goals = StickerRules.nextGoals(for: game)
+        VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+            DetailSectionTitle(title: "Autocollants", trailing: "\(unlocked.count) débloqué\(unlocked.count > 1 ? "s" : "")")
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(alignment: .center, spacing: DS.Spacing.md) {
+                    ForEach(unlocked) { sticker in
+                        StickerView(sticker: sticker, game: game)
+                            .transition(.scale(scale: 0.4).combined(with: .opacity))
+                    }
+                    ForEach(goals, id: \.self) { LockedStickerSlot(reason: $0) }
+                }
+                .padding(.vertical, DS.Spacing.md)
+                .padding(.horizontal)
+                .animation(.spring(response: 0.45, dampingFraction: 0.6), value: unlocked.map(\.id))
+            }
+            .padding(.horizontal, -DS.Spacing.md)
+        }
+        .padding(.horizontal)
+        .task(id: unlocked.filter { $0.imageFile == nil }.count) {
+            await store.cutStickers(for: game)
+        }
+    }
+}
+
+struct StickerView: View {
+    let sticker: Sticker
+    let game: Game
+    var height: CGFloat = 130
+    @State private var copied = false
+
+    var body: some View {
+        Button(action: copy) {
+            art
+                .shadow(color: .black.opacity(0.45), radius: 6, y: 4)
+                .rotationEffect(.degrees(sticker.tilt))
+                .overlay {
+                    if copied {
+                        Text("Copié")
+                            .font(DS.Typography.captionMedium)
+                            .padding(.horizontal, DS.Spacing.sm)
+                            .padding(.vertical, 6)
+                            .background(.black.opacity(0.75), in: Capsule())
+                            .foregroundStyle(.white)
+                            .transition(.scale.combined(with: .opacity))
+                    }
+                }
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement()
+        .accessibilityLabel("Autocollant \(game.title), \(sticker.reason.label)\(sticker.isHolo ? ", holographique" : "")")
+        .accessibilityHint("Copie l'autocollant dans le presse-papiers")
+    }
+
+    /// Puts the sticker on the pasteboard as a transparent PNG, ready to paste in Messages.
+    private func copy() {
+        let png: Data?
+        if let file = sticker.imageFile {
+            png = try? Data(contentsOf: StickerService.shared.url(for: file))
+        } else {
+            // Cover stand-in: render it as drawn (white border included), without tilt or shadow.
+            let renderer = ImageRenderer(content: art)
+            renderer.scale = 3
+            png = renderer.uiImage?.pngData()
+        }
+        guard let png else { return }
+        UIPasteboard.general.setData(png, forPasteboardType: UTType.png.identifier)
+        HapticManager.notification(.success)
+        withAnimation(.spring(response: 0.3)) { copied = true }
+        Task {
+            try? await Task.sleep(for: .seconds(1.2))
+            withAnimation(.easeOut(duration: 0.25)) { copied = false }
+        }
+    }
+
+    @ViewBuilder private var art: some View {
+        if let file = sticker.imageFile,
+           let image = UIImage(contentsOfFile: StickerService.shared.url(for: file).path) {
+            let picture = Image(uiImage: image).resizable().scaledToFit()
+            picture
+                .frame(height: height)
+                .overlay { if sticker.isHolo { HoloSheen().mask(picture) } }
+        } else {
+            // No cut-out (no art, or the simulator): the cover as a plain die-cut sticker.
+            CachedAsyncImage(url: game.artURL) { image in
+                image.resizable().scaledToFill()
+            } placeholder: {
+                game.coverColor
+            }
+            .frame(width: height * 0.7, height: height * 0.92)
+            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            .overlay { if sticker.isHolo { HoloSheen().clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous)) } }
+            .padding(5)
+            .background(.white, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+        }
+    }
+}
+
+/// Rainbow foil for platinum stickers.
+/// ponytail: static sheen; make it follow the phone's tilt (CoreMotion) if it feels flat.
+private struct HoloSheen: View {
+    var body: some View {
+        LinearGradient(colors: ([.pink, .yellow, .mint, .cyan, .purple, .pink] as [Color]).map { $0.opacity(0.55) },
+                       startPoint: .topLeading, endPoint: .bottomTrailing)
+            .blendMode(.overlay)
+            .allowsHitTesting(false)
+    }
+}
+
+private struct LockedStickerSlot: View {
+    let reason: Sticker.Reason
+
+    var body: some View {
+        VStack(spacing: DS.Spacing.xs) {
+            Image(systemName: "lock.fill")
+                .font(.title3)
+            Text(reason.label)
+                .font(DS.Typography.caption)
+                .multilineTextAlignment(.center)
+        }
+        .foregroundStyle(Color.textTertiary)
+        .frame(width: 96, height: 120)
+        .background(
+            RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                .strokeBorder(Color.gbBorder, style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
+        )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Autocollant verrouillé : \(reason.label)")
     }
 }

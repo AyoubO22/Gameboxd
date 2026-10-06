@@ -45,6 +45,7 @@ struct GameDetailView: View {
 
                 if isInLibrary {
                     ReviewSection(game: $game)
+                    StickersSection(game: game)
                 }
 
                 AboutSection(game: game)

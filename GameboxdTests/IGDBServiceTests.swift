@@ -46,4 +46,38 @@ final class IGDBServiceTests: XCTestCase {
         game.boxArtURL = "https://images.igdb.com/cover.jpg"
         XCTAssertEqual(game.artURL?.absoluteString, "https://images.igdb.com/cover.jpg")
     }
+
+    // MARK: - Characters for stickers
+
+    private func character(_ json: String) throws -> IGDBService.Character {
+        try JSONDecoder().decode(IGDBService.Character.self, from: Data(json.utf8))
+    }
+
+    // Unix timestamps: 1997-09-19 (Abe's Oddysee), 2007-10-26 (The Witcher), 2010-05-18 (RDR), 2018-10-26 (RDR2)
+    func testCharacterFromAnotherFranchiseIsDropped() throws {
+        let abe = try character("""
+        {"name":"Abe","games":[{"name":"Oddworld: Abe's Oddysee","first_release_date":874627200},
+                               {"name":"Red Dead Redemption 2","first_release_date":1540512000}]}
+        """)
+        XCTAssertFalse(IGDBService.belongs(abe, to: "Red Dead Redemption 2"))
+    }
+
+    func testRecurringCharacterKeepsTheirSeries() throws {
+        let geralt = try character("""
+        {"name":"Geralt","games":[{"name":"The Witcher 3: Wild Hunt","first_release_date":1431993600},
+                                  {"name":"The Witcher","first_release_date":1193356800},
+                                  {"name":"Soulcalibur VI","first_release_date":1539907200}]}
+        """)
+        XCTAssertTrue(IGDBService.belongs(geralt, to: "The Witcher 3: Wild Hunt"))
+
+        let dutch = try character("""
+        {"name":"Dutch","games":[{"name":"Red Dead Redemption","first_release_date":1274140800},
+                                 {"name":"Red Dead Redemption 2","first_release_date":1540512000}]}
+        """)
+        XCTAssertTrue(IGDBService.belongs(dutch, to: "Red Dead Redemption 2"))
+    }
+
+    func testCharacterWithoutGamesIsDropped() throws {
+        XCTAssertFalse(IGDBService.belongs(try character(#"{"name":"Nobody"}"#), to: "Portal"))
+    }
 }

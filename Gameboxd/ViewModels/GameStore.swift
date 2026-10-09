@@ -82,11 +82,24 @@ final class GameStore {
     }
     
     // Collections are stored as JSON files (see FileStore); small flags stay in UserDefaults.
-    private let fileStore: FileStore
+    private var fileStore: FileStore
+    /// The no-account space; accounts' spaces live inside it.
+    private let guestStore: FileStore
+    /// The app remembers the account between launches; tests (own space) don't.
+    private let remembersAccount: Bool
+    /// The account whose data is loaded (nil: no account). Remembered so the app reopens
+    /// on it right away, offline too.
+    private(set) var currentAccountId: UUID?
+    private static let currentAccountKey = "gameboxd_current_account"
 
     // MARK: - Initialization
-    init(fileStore: FileStore = .shared) {
-        self.fileStore = fileStore
+    init(fileStore: FileStore? = nil) {
+        // Tests pass their own space and start without an account.
+        let saved = fileStore == nil ? UserDefaults.standard.string(forKey: Self.currentAccountKey).flatMap(UUID.init(uuidString:)) : nil
+        guestStore = fileStore ?? .shared
+        remembersAccount = fileStore == nil
+        currentAccountId = saved
+        self.fileStore = .forAccount(saved, in: guestStore)
         isLoggedIn = UserDefaults.standard.bool(forKey: StorageKeys.isLoggedIn)
         loadAllData()
         initializeAchievements()
@@ -111,8 +124,8 @@ final class GameStore {
     }
     
     func logout() {
-        LibrarySync.shared.reset()
         Task { await AccountService.shared.signOut() }
+        switchAccount(to: nil)
         
         // Reset auth state
         userProfile.authProvider = "email"
@@ -125,6 +138,70 @@ final class GameStore {
     
     // MARK: - Persistence
     
+    // MARK: - Accounts on this phone
+
+    /// Loads the data of `account` (nil: no account). A brand new account takes the
+    /// collection made without an account (`claimGuestData`), moved so no other account
+    /// can get it too.
+    func switchAccount(to account: UUID?, claimGuestData: Bool = false) {
+        let legacy = remembersAccount && account != nil && UserDefaults.standard.string(forKey: Self.currentAccountKey) == nil
+            && UserDefaults.standard.bool(forKey: StorageKeys.isLoggedIn)
+        guard account != currentAccountId || legacy else { return }
+        let target = FileStore.forAccount(account, in: guestStore)
+        // Before accounts had their own space, the signed-in player used the shared one:
+        // their collection moves to their account on the first launch of this version.
+        if account != nil, !target.hasData, claimGuestData || legacy {
+            guestStore.moveContents(to: target)
+        }
+        fileStore.flush()
+        fileStore = target
+        currentAccountId = account
+        if remembersAccount {
+            if let account {
+                UserDefaults.standard.set(account.uuidString, forKey: Self.currentAccountKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: Self.currentAccountKey)
+            }
+        }
+        LibrarySync.shared.reset()
+        resetLoadedData()
+        loadAllData()
+        initializeAchievements()
+        updateGoalProgress()
+        syncStickers()
+        syncWidgetData()
+    }
+
+    /// Fills an empty collection from the account's online copy (a new phone, a reinstall).
+    func restoreFromCloud(_ games: [Game]) {
+        guard myGames.isEmpty, !games.isEmpty else { return }
+        myGames = games
+        saveGames()
+    }
+
+    func deleteLocalData(forAccount id: UUID) {
+        FileStore.forAccount(id, in: guestStore).removeAll()
+    }
+
+    func flush() { fileStore.flush() }
+
+    private func resetLoadedData() {
+        myGames = []
+        playSessions = []
+        gameLists = []
+        userProfile = UserProfile()
+        achievements = []
+        customTags = []
+        monthlyGoals = []
+        completedGoals = []
+        linkedAccounts = []
+        importedGames = []
+        stickers = []
+        steamSuggestions = []
+        notifications = []
+        recentlyUnlockedAchievements = []
+    }
+
     private func loadAllData() {
         loadGames()
         loadPlaySessions()
@@ -303,7 +380,7 @@ final class GameStore {
             
             storeLinkedAccount(account, games: games)
             // A fresh link starts counting from now: the whole history isn't "a session".
-            SteamSync.shared.resetBaseline()
+            SteamSync.shared.resetBaseline(steamId: steamId)
             
         case .playstation:
             let (games, profile) = try await psnService.syncLibrary(psnId: platformId)

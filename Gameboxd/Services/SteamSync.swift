@@ -75,8 +75,8 @@ final class SteamSync {
 
         guard let owned = try? await SteamService.shared.getOwnedGames(steamId: steamId, includeAppInfo: false) else { return }
         let minutes = Dictionary(owned.map { ($0.appid, $0.playtime_forever) }, uniquingKeysWith: max)
-        let plan = SteamSyncRules.plan(library: store.myGames, steamMinutes: minutes, baseline: loadBaseline())
-        saveBaseline(plan.baseline)
+        let plan = SteamSyncRules.plan(library: store.myGames, steamMinutes: minutes, baseline: loadBaseline(steamId))
+        saveBaseline(plan.baseline, steamId)
 
         // Achievements: games that just moved first, then the ones never checked.
         let checked = UserDefaults.standard.dictionary(forKey: achievementsCheckedKey) as? [String: Double] ?? [:]
@@ -104,17 +104,18 @@ final class SteamSync {
     }
 
     /// After linking an account: start from now, so the whole history isn't "a session".
-    func resetBaseline() {
-        UserDefaults.standard.removeObject(forKey: baselineKey)
+    func resetBaseline(steamId: String) {
+        UserDefaults.standard.removeObject(forKey: "\(baselineKey)_\(steamId)")
         lastRun = nil
     }
 
-    private func loadBaseline() -> [Int: Int]? {
-        guard let raw = UserDefaults.standard.dictionary(forKey: baselineKey) as? [String: Int] else { return nil }
+    /// Per Steam account: two Gameboxd accounts on one phone can link different ones.
+    private func loadBaseline(_ steamId: String) -> [Int: Int]? {
+        guard let raw = UserDefaults.standard.dictionary(forKey: "\(baselineKey)_\(steamId)") as? [String: Int] else { return nil }
         return Dictionary(uniqueKeysWithValues: raw.compactMap { key, value in Int(key).map { ($0, value) } })
     }
 
-    private func saveBaseline(_ baseline: [Int: Int]) {
-        UserDefaults.standard.set(Dictionary(uniqueKeysWithValues: baseline.map { (String($0.key), $0.value) }), forKey: baselineKey)
+    private func saveBaseline(_ baseline: [Int: Int], _ steamId: String) {
+        UserDefaults.standard.set(Dictionary(uniqueKeysWithValues: baseline.map { (String($0.key), $0.value) }), forKey: "\(baselineKey)_\(steamId)")
     }
 }

@@ -72,7 +72,7 @@ struct GameboxdApp: App {
             // Saves are written in the background; make sure they hit disk
             // before iOS may suspend or kill the app.
             if phase == .background {
-                FileStore.shared.flush()
+                store.flush()
             }
         }
     }

@@ -8,6 +8,7 @@
 
 import Foundation
 import Supabase
+import SwiftUI
 
 /// A game in someone's public collection.
 nonisolated struct RemoteLibraryGame: Codable, Identifiable, Equatable {
@@ -29,6 +30,17 @@ nonisolated struct RemoteLibraryGame: Codable, Identifiable, Equatable {
     var completedAt: Date?
 
     var id: UUID { gameId }
+
+    /// Back to a game of the collection (restoring a phone from the online copy).
+    @MainActor var asGame: Game {
+        var game = Game(id: gameId, title: title, developer: "", platform: platform ?? "", releaseYear: releaseYear ?? "",
+                        coverImageURL: coverURL, coverColor: .gray, rating: rating, status: gameStatus,
+                        review: review ?? "", isSpoiler: isSpoiler, playTimeMinutes: playMinutes,
+                        completionPercentage: completion, isFavorite: isFavorite, completedDate: completedAt,
+                        rawgId: rawgId, genres: genres)
+        game.boxArtURL = coverURL
+        return game
+    }
 
     /// Stable keys online; the app's own raw values are French labels.
     static func key(for status: GameStatus) -> String {
@@ -121,7 +133,9 @@ final class LibrarySync {
                 hasFullState = true
             }
             let changed = current.values.filter { lastSent[$0.gameId] != $0 }
-            let removed = lastSent.keys.filter { current[$0] == nil }
+            // An empty phone never wipes the online copy: that's a new phone or a fresh
+            // account space, and the copy is what restores it (see `restore`).
+            let removed = current.isEmpty ? [] : lastSent.keys.filter { current[$0] == nil }
             for batch in stride(from: 0, to: changed.count, by: 200).map({ Array(changed[$0..<min($0 + 200, changed.count)]) }) {
                 try await client.from("library_games").upsert(batch, onConflict: "user_id,game_id").execute()
             }
@@ -152,6 +166,13 @@ final class LibrarySync {
         pending?.cancel()
         lastSent = [:]
         hasFullState = false
+    }
+
+    /// Brings the account's online collection back to an empty phone.
+    func restore(into store: GameStore) async {
+        guard store.myGames.isEmpty, let me = account.profile?.id,
+              let online = try? await library(of: me), !online.isEmpty else { return }
+        store.restoreFromCloud(online.map(\.asGame))
     }
 
     /// Someone's public collection, most recently finished first.

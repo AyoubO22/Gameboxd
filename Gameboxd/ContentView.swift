@@ -67,6 +67,11 @@ struct ContentView: View {
         .task {
             LibrarySync.shared.store = store
             await AccountService.shared.restore()
+            // Offline, the profile can't load: stay on the space the app opened with.
+            if let id = AccountService.shared.profile?.id {
+                store.switchAccount(to: id)
+                await LibrarySync.shared.restore(into: store)
+            }
             await SocialService.shared.loadFollowing()
             await LibrarySync.shared.pushCurrent()
             await SteamSync.shared.run(store: store)

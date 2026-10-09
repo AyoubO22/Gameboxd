@@ -160,8 +160,10 @@ struct SettingsView: View {
             Button("Supprimer", role: .destructive) {
                 Task {
                     do {
+                        let id = account.profile?.id
                         try await account.deleteAccount()
                         store.logout()
+                        if let id { store.deleteLocalData(forAccount: id) }
                     } catch {
                         accountError = error.localizedDescription
                     }

@@ -186,7 +186,7 @@ struct AuthView: View {
                 } else {
                     try await account.signUp(email: trimmedEmail, password: password, username: normalizedUsername)
                 }
-                enterApp()
+                enterApp(isNewAccount: !isLogin)
             } catch AccountError.confirmEmail {
                 alert = AlertContent(title: "Vérifie tes e-mails", message: AccountError.confirmEmail.localizedDescription)
                 isLogin = true
@@ -214,9 +214,11 @@ struct AuthView: View {
         }
     }
 
-    /// Mirrors the online profile into the local one, then opens the app.
-    private func enterApp() {
+    /// Opens the account's own data on this phone, mirrors the online profile into it,
+    /// then opens the app. A new account keeps what was made without one.
+    private func enterApp(isNewAccount: Bool) {
         guard let profile = account.profile else { return }
+        store.switchAccount(to: profile.id, claimGuestData: isNewAccount)
         store.userProfile.username = profile.displayName ?? profile.username
         store.userProfile.email = trimmedEmail
         store.userProfile.authProvider = "supabase"
@@ -225,6 +227,7 @@ struct AuthView: View {
         store.setLoggedIn(true)
         LibrarySync.shared.store = store
         Task {
+            await LibrarySync.shared.restore(into: store)
             await SocialService.shared.loadFollowing()
             await LibrarySync.shared.pushCurrent()
         }

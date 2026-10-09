@@ -125,3 +125,10 @@ drop policy if exists "own library update" on public.library_games;
 create policy "own library update" on public.library_games for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
 drop policy if exists "own library delete" on public.library_games;
 create policy "own library delete" on public.library_games for delete using (auth.uid() = user_id);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- v3 — Steam id on the profile: lets players find their Steam friends on Gameboxd and
+-- shows what they're playing. Public, like a Steam profile link; set by the app on link.
+alter table public.profiles add column if not exists steam_id text
+    check (steam_id ~ '^[0-9]{17}$');
+create unique index if not exists profiles_steam_id_key on public.profiles (steam_id) where steam_id is not null;

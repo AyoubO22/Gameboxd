@@ -51,6 +51,8 @@ final class GameStore {
     var linkedAccounts: [LinkedAccount] = []
     /// Unlocked stickers, all games (see StickerRules for what unlocks them).
     var stickers: [Sticker] = []
+    /// Play Steam saw since last time, offered as diary sessions (see SteamSync).
+    var steamSuggestions: [SteamSessionSuggestion] = []
     var importedGames: [ImportedGame] = []
     
     // Services
@@ -76,6 +78,7 @@ final class GameStore {
         static let importedGames = "gameboxd_imported_games"
         static let discoverCache = "gameboxd_discover_cache"
         static let stickers = "gameboxd_stickers"
+        static let steamSuggestions = "gameboxd_steam_suggestions"
     }
     
     // Collections are stored as JSON files (see FileStore); small flags stay in UserDefaults.
@@ -134,6 +137,7 @@ final class GameStore {
         loadImportedGames()
         loadDiscoverCache()
         stickers = load([Sticker].self, key: StorageKeys.stickers) ?? []
+        steamSuggestions = load([SteamSessionSuggestion].self, key: StorageKeys.steamSuggestions) ?? []
         // Recut art made by an older StickerMaker, once (v2: main character first;
         // v3: same art in another crop no longer repeats; v4: Steam art as a source).
         // Unlocks are kept.
@@ -298,6 +302,8 @@ final class GameStore {
             )
             
             storeLinkedAccount(account, games: games)
+            // A fresh link starts counting from now: the whole history isn't "a session".
+            SteamSync.shared.resetBaseline()
             
         case .playstation:
             let (games, profile) = try await psnService.syncLibrary(psnId: platformId)
@@ -744,14 +750,74 @@ final class GameStore {
         }
     }
 
-    func addPlaySession(_ session: PlaySession) {
+    // MARK: - Steam
+
+    /// Applies what SteamSync found: playtime (Steam knows more), completion from
+    /// achievements (100 % is a platinum) and new session suggestions. One save.
+    func applySteamSync(playtime: [UUID: Int], completion: [UUID: Int], suggestions: [SteamSessionSuggestion]) {
+        var changed = false
+        for index in myGames.indices {
+            let old = myGames[index]
+            var game = old
+            if let total = playtime[game.id], total > game.playTimeMinutes {
+                game.playTimeMinutes = total
+                if game.status == .wantToPlay || game.status == .none {
+                    game.status = .playing
+                    if game.startedDate == nil { game.startedDate = Date() }
+                }
+            }
+            if let percent = completion[game.id], percent != game.completionPercentage, game.status != .platinum || percent == 100 {
+                game.completionPercentage = percent
+                if percent == 100 {
+                    game.status = .platinum
+                    if game.completedDate == nil { game.completedDate = Date() }
+                }
+            }
+            if game != old {
+                myGames[index] = game
+                shareChanges(from: old, to: game)
+                changed = true
+            }
+        }
+        if !suggestions.isEmpty {
+            // One pending suggestion per game: a newer one adds up with the older.
+            for suggestion in suggestions {
+                if let i = steamSuggestions.firstIndex(where: { $0.gameId == suggestion.gameId }) {
+                    let previous = steamSuggestions[i]
+                    steamSuggestions[i] = SteamSessionSuggestion(gameId: previous.gameId, gameTitle: previous.gameTitle,
+                                                                 minutes: previous.minutes + suggestion.minutes, date: suggestion.date)
+                } else {
+                    steamSuggestions.append(suggestion)
+                }
+            }
+            fileStore.save(steamSuggestions, key: StorageKeys.steamSuggestions)
+        }
+        if changed { saveGames() }
+    }
+
+    /// Logs the suggested session. Its time is already in the game's total (Steam counted it).
+    func acceptSteamSuggestion(_ suggestion: SteamSessionSuggestion) {
+        if let game = myGames.first(where: { $0.id == suggestion.gameId }) {
+            addPlaySession(PlaySession(gameId: game.id, gameTitle: game.title, gameCoverURL: game.artURL?.absoluteString,
+                                       gameCoverColor: game.coverColor, date: suggestion.date, duration: suggestion.minutes),
+                           countsTowardPlaytime: false)
+        }
+        dismissSteamSuggestion(suggestion)
+    }
+
+    func dismissSteamSuggestion(_ suggestion: SteamSessionSuggestion) {
+        steamSuggestions.removeAll { $0.id == suggestion.id }
+        fileStore.save(steamSuggestions, key: StorageKeys.steamSuggestions)
+    }
+
+    func addPlaySession(_ session: PlaySession, countsTowardPlaytime: Bool = true) {
         // Keep newest-first by session date, so back-dated entries land in place.
         let index = playSessions.firstIndex { $0.date < session.date } ?? playSessions.endIndex
         playSessions.insert(session, at: index)
         
         // Update game's total play time
         if let index = myGames.firstIndex(where: { $0.id == session.gameId }) {
-            myGames[index].playTimeMinutes += session.duration
+            if countsTowardPlaytime { myGames[index].playTimeMinutes += session.duration }
             SocialService.shared.publish(.played, game: myGames[index], minutes: session.duration)
         }
         

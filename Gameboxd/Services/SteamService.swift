@@ -350,3 +350,119 @@ class SteamService {
         }
     }
 }
+
+// MARK: - Achievements, friends, presence
+
+/// One achievement as Steam reports it for a player.
+struct SteamPlayerAchievement: Codable {
+    let apiname: String
+    let achieved: Int
+    let unlocktime: Int
+}
+
+/// An achievement's name and icon (from the game's schema) with how rare it is worldwide.
+struct SteamAchievementInfo: Identifiable {
+    let id: String
+    let name: String
+    let iconURL: URL?
+    let globalPercent: Double?
+    let unlockedAt: Date?
+}
+
+extension SteamService {
+    /// The player's achievements for a game: (unlocked api names with their date, total).
+    /// Nil when the game has no achievements or the player's stats are private.
+    func playerAchievements(steamId: String, appId: Int) async -> (unlocked: [String: Date], total: Int)? {
+        struct Response: Decodable {
+            struct Stats: Decodable { let achievements: [SteamPlayerAchievement]?; let success: Bool }
+            let playerstats: Stats
+        }
+        guard SteamConfig.isConfigured,
+              let url = URL(string: "\(SteamConfig.baseURL)/ISteamUserStats/GetPlayerAchievements/v1/?key=\(SteamConfig.apiKey)&steamid=\(steamId)&appid=\(appId)"),
+              let (data, _) = try? await URLSession.shared.data(from: url),
+              let stats = try? JSONDecoder().decode(Response.self, from: data).playerstats,
+              stats.success, let list = stats.achievements, !list.isEmpty else { return nil }
+        var unlocked: [String: Date] = [:]
+        for achievement in list where achievement.achieved == 1 {
+            unlocked[achievement.apiname] = Date(timeIntervalSince1970: TimeInterval(achievement.unlocktime))
+        }
+        return (unlocked, list.count)
+    }
+
+    /// Names and icons of a game's achievements (needs the key), with worldwide unlock rates (public).
+    func achievementInfo(appId: Int) async -> [String: (name: String, icon: URL?, percent: Double?)] {
+        struct Schema: Decodable {
+            struct Game: Decodable {
+                struct Stats: Decodable {
+                    struct Achievement: Decodable { let name: String; let displayName: String; let icon: String? }
+                    let achievements: [Achievement]?
+                }
+                let availableGameStats: Stats?
+            }
+            let game: Game
+        }
+        struct Global: Decodable {
+            struct List: Decodable {
+                // Steam sends the percentage as a number or as a string depending on the endpoint version.
+                struct Entry: Decodable {
+                    let name: String
+                    let percent: Double
+                    init(from decoder: Decoder) throws {
+                        let c = try decoder.container(keyedBy: CodingKeys.self)
+                        name = try c.decode(String.self, forKey: .name)
+                        if let d = try? c.decode(Double.self, forKey: .percent) { percent = d }
+                        else { percent = Double(try c.decode(String.self, forKey: .percent)) ?? 0 }
+                    }
+                    enum CodingKeys: String, CodingKey { case name, percent }
+                }
+                let achievements: [Entry]
+            }
+            let achievementpercentages: List
+        }
+        var result: [String: (name: String, icon: URL?, percent: Double?)] = [:]
+        if SteamConfig.isConfigured,
+           let url = URL(string: "\(SteamConfig.baseURL)/ISteamUserStats/GetSchemaForGame/v2/?key=\(SteamConfig.apiKey)&appid=\(appId)&l=french"),
+           let (data, _) = try? await URLSession.shared.data(from: url),
+           let schema = try? JSONDecoder().decode(Schema.self, from: data) {
+            for a in schema.game.availableGameStats?.achievements ?? [] {
+                result[a.name] = (a.displayName, a.icon.flatMap(URL.init(string:)), nil)
+            }
+        }
+        if let url = URL(string: "\(SteamConfig.baseURL)/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v2/?gameid=\(appId)"),
+           let (data, _) = try? await URLSession.shared.data(from: url),
+           let global = try? JSONDecoder().decode(Global.self, from: data) {
+            for entry in global.achievementpercentages.achievements {
+                let known = result[entry.name]
+                result[entry.name] = (known?.name ?? entry.name, known?.icon, entry.percent)
+            }
+        }
+        return result
+    }
+
+    /// Steam ids of the player's friends. Empty when the friend list is private.
+    func friendIds(steamId: String) async -> [String] {
+        struct Response: Decodable {
+            struct List: Decodable { struct Friend: Decodable { let steamid: String }; let friends: [Friend] }
+            let friendslist: List?
+        }
+        guard SteamConfig.isConfigured,
+              let url = URL(string: "\(SteamConfig.baseURL)/ISteamUser/GetFriendList/v1/?key=\(SteamConfig.apiKey)&steamid=\(steamId)&relationship=friend"),
+              let (data, _) = try? await URLSession.shared.data(from: url),
+              let list = try? JSONDecoder().decode(Response.self, from: data).friendslist else { return [] }
+        return list.friends.map(\.steamid)
+    }
+
+    /// Public summaries (name, game being played right now) for up to 100 players at once.
+    func summaries(steamIds: [String]) async -> [SteamPlayerSummary] {
+        guard SteamConfig.isConfigured, !steamIds.isEmpty else { return [] }
+        var all: [SteamPlayerSummary] = []
+        for start in stride(from: 0, to: steamIds.count, by: 100) {
+            let ids = steamIds[start..<min(start + 100, steamIds.count)].joined(separator: ",")
+            guard let url = URL(string: "\(SteamConfig.baseURL)/ISteamUser/GetPlayerSummaries/v2/?key=\(SteamConfig.apiKey)&steamids=\(ids)"),
+                  let (data, _) = try? await URLSession.shared.data(from: url),
+                  let response = try? JSONDecoder().decode(SteamPlayerSummaryResponse.self, from: data) else { continue }
+            all += response.response.players
+        }
+        return all
+    }
+}

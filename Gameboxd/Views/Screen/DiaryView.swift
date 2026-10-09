@@ -26,6 +26,8 @@ struct DiaryView: View {
                     .padding()
                     .background(Color.gbDark)
 
+                SteamSuggestionsBanner()
+
                 if viewMode == .list {
                     DiaryListView(showingAddSession: $showingAddSession)
                 } else {

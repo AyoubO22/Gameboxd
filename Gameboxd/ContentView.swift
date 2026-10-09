@@ -63,6 +63,7 @@ struct ContentView: View {
         // Also on launch: if the app was killed mid-setup, isLoggedIn is already
         // true and onChange never fires.
         .onAppear(perform: checkUsernameSetup)
+        .task { await AccountService.shared.restore() }
         .sheet(isPresented: $showingUsernameSetup) {
             UsernameSetupView()
                 .environment(store)

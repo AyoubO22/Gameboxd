@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		5ABA5E0130A0000100000003 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 5ABA5E0130A0000100000002 /* Supabase */; };
 		5AD9FD483064240600BD7817 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5AD9FD473064240600BD7817 /* WidgetKit.framework */; };
 		5AD9FD4A3064240600BD7817 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5AD9FD493064240600BD7817 /* SwiftUI.framework */; };
 		5AD9FD553064240700BD7817 /* GameboxdWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 5AD9FD453064240600BD7817 /* GameboxdWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -99,6 +100,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5ABA5E0130A0000100000003 /* Supabase in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -175,6 +177,7 @@
 			);
 			name = Gameboxd;
 			packageProductDependencies = (
+				5ABA5E0130A0000100000002 /* Supabase */,
 			);
 			productName = Gameboxd;
 			productReference = 5A1F60432EDDDEF7005EB529 /* Gameboxd.app */;
@@ -257,6 +260,9 @@
 			);
 			mainGroup = 5A1F603A2EDDDEF7005EB529;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				5ABA5E0130A0000100000001 /* XCRemoteSwiftPackageReference "supabase-swift" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 5A1F60442EDDDEF7005EB529 /* Products */;
 			projectDirPath = "";
@@ -703,6 +709,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		5ABA5E0130A0000100000001 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/supabase/supabase-swift.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.55.3;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		5ABA5E0130A0000100000002 /* Supabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5ABA5E0130A0000100000001 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Supabase;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 5A1F603B2EDDDEF7005EB529 /* Project object */;
 }

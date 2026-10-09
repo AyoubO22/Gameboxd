@@ -111,10 +111,7 @@ final class GameStore {
     }
     
     func logout() {
-        // Sign out from social providers if needed
-        if userProfile.authProvider == "google" {
-            GoogleSignInService.shared.signOut()
-        }
+        Task { await AccountService.shared.signOut() }
         
         // Reset auth state
         userProfile.authProvider = "email"

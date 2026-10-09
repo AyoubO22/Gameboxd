@@ -10,6 +10,9 @@
 RAWG_API_KEY =
 IGDB_CLIENT_ID =
 IGDB_CLIENT_SECRET =
+SUPABASE_HOST =
+SUPABASE_ANON_KEY =
+STEAM_API_KEY =
 
 // Override with the real key when Secrets.xcconfig is present.
 #include? "Secrets.xcconfig"

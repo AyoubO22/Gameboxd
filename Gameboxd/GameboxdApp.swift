@@ -61,18 +61,11 @@ struct GameboxdApp: App {
                     .environment(store)
                     .environment(timerManager)
                     .preferredColorScheme(.dark)
-                    .onOpenURL { url in
-                        // Handle Google Sign-In redirect URL
-                        _ = GoogleSignInService.shared.handleURL(url)
-                    }
             } else {
                 OnboardingView(hasCompletedOnboarding: $hasCompletedOnboarding)
                     .environment(store)
                     .environment(timerManager)
                     .preferredColorScheme(.dark)
-                    .onOpenURL { url in
-                        _ = GoogleSignInService.shared.handleURL(url)
-                    }
             }
         }
         .onChange(of: scenePhase) { _, phase in

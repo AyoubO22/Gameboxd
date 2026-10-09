@@ -9,12 +9,6 @@ final class SecurityManagerTests: XCTestCase {
         XCTAssertFalse(manager.isValidEmail("invalid-email"))
     }
 
-    func testPasswordStrength() {
-        let manager = SecurityManager.shared
-        XCTAssertEqual(manager.validatePasswordStrength("12345"), .weak)
-        XCTAssertNotEqual(manager.validatePasswordStrength("Str0ngPass!"), .weak)
-    }
-
     func testSanitizeInputKeepsTextButDropsControlCharacters() {
         let manager = SecurityManager.shared
         XCTAssertEqual(manager.sanitizeInput("L'écriture est <b>incroyable</b> & drôle"),

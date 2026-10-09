@@ -16,15 +16,16 @@ import Foundation
 
 // MARK: - Steam Configuration
 struct SteamConfig {
-    /// Get your API key at: https://steamcommunity.com/dev/apikey
-    static let apiKey = "YOUR_STEAM_API_KEY"
+    /// STEAM_API_KEY in Secrets.xcconfig (https://steamcommunity.com/dev/apikey).
+    /// ponytail: the key ships inside the app; move the calls behind a Supabase Edge
+    /// Function before the App Store, like IGDB's secret.
+    static var apiKey: String {
+        (Bundle.main.object(forInfoDictionaryKey: "STEAM_API_KEY") as? String) ?? ""
+    }
     static let baseURL = "https://api.steampowered.com"
     static let storeBaseURL = "https://store.steampowered.com"
-    
-    /// Check if the API key is configured
-    static var isConfigured: Bool {
-        apiKey != "YOUR_STEAM_API_KEY" && !apiKey.isEmpty
-    }
+
+    static var isConfigured: Bool { !apiKey.isEmpty }
 }
 
 // MARK: - Steam API Response Models
@@ -128,11 +129,11 @@ enum SteamServiceError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .notConfigured:
-            return "Clé API Steam non configurée. Ajoutez votre clé dans SteamConfig."
+            return "L'import Steam n'est pas disponible dans cette version."
         case .invalidSteamId:
             return "Steam ID invalide. Vérifie ton identifiant Steam."
         case .profilePrivate:
-            return "Profil Steam privé. Rends ton profil public dans les paramètres Steam."
+            return "Ta liste de jeux Steam est privée. Dans Steam : Profil → Modifier le profil → Confidentialité → « Détails des jeux » sur Public, puis réessaie."
         case .networkError(let msg):
             return "Erreur réseau Steam : \(msg)"
         case .decodingError(let msg):
@@ -150,7 +151,7 @@ enum SteamServiceError: LocalizedError {
 ///
 /// ## Setup Instructions:
 /// 1. Register for a Steam Web API Key: https://steamcommunity.com/dev/apikey
-/// 2. Replace `YOUR_STEAM_API_KEY` in `SteamConfig.apiKey`
+/// 2. Set STEAM_API_KEY in Secrets.xcconfig
 /// 3. Users need to:
 ///    - Have a public Steam profile (Settings → Privacy → Game Details: Public)
 ///    - Provide their Steam ID (64-bit) or custom URL name
@@ -272,6 +273,8 @@ class SteamService {
         
         let result = try JSONDecoder().decode(SteamOwnedGamesResponse.self, from: data)
         
+        // A private game list comes back as an empty response, without even a count.
+        guard result.response.game_count != nil else { throw SteamServiceError.profilePrivate }
         guard let games = result.response.games, !games.isEmpty else {
             throw SteamServiceError.noGamesFound
         }

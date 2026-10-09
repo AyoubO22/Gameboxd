@@ -14,6 +14,9 @@ struct SettingsView: View {
     @State private var showingExportSheet = false
     @State private var showingImportPicker = false
     @State private var showingDeleteConfirmation = false
+    @State private var showingDeleteAccount = false
+    @State private var accountError: String?
+    private let account = AccountService.shared
     @State private var exportedFileURL: URL?
     @State private var showingImportError = false
     @State private var importErrorMessage = ""
@@ -82,6 +85,12 @@ struct SettingsView: View {
                 Button(action: { store.logout() }) {
                     SettingsRow(icon: "rectangle.portrait.and.arrow.right", title: "Déconnexion", color: .gray)
                 }
+
+                if account.isSignedIn {
+                    Button(action: { showingDeleteAccount = true }) {
+                        SettingsRow(icon: "person.crop.circle.badge.xmark", title: "Supprimer mon compte", color: .red)
+                    }
+                }
             } header: {
                 Text("Compte")
             }
@@ -135,6 +144,26 @@ struct SettingsView: View {
             allowsMultipleSelection: false
         ) { result in
             handleImport(result)
+        }
+        .alert("Supprimer ton compte ?", isPresented: $showingDeleteAccount) {
+            Button("Annuler", role: .cancel) {}
+            Button("Supprimer", role: .destructive) {
+                Task {
+                    do {
+                        try await account.deleteAccount()
+                        store.logout()
+                    } catch {
+                        accountError = error.localizedDescription
+                    }
+                }
+            }
+        } message: {
+            Text("Ton profil public, tes abonnements et ton activité seront effacés. Les jeux enregistrés sur ce téléphone restent.")
+        }
+        .alert("Oups", isPresented: Binding(get: { accountError != nil }, set: { if !$0 { accountError = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(accountError ?? "")
         }
         .alert("Supprimer toutes les données ?", isPresented: $showingDeleteConfirmation) {
             Button("Annuler", role: .cancel) {}

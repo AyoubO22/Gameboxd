@@ -19,6 +19,7 @@ struct LibraryView: View {
     @State private var gameToDelete: Game? = nil
     @State private var showingDeleteConfirm = false
     @State private var showingComparison = false
+    @State private var searchText = ""
     
     // Advanced Filters
     @State private var selectedPlatform: String? = nil
@@ -76,6 +77,15 @@ struct LibraryView: View {
 
     private func filteredAndSorted(_ games: [Game]) -> [Game] {
         var filtered = games
+
+        // Search your own games: title, developer, platform or genre.
+        let query = searchText.trimmingCharacters(in: .whitespaces)
+        if !query.isEmpty {
+            filtered = filtered.filter { game in
+                ([game.title, game.developer, game.platform] + game.genres)
+                    .contains { $0.localizedStandardContains(query) }
+            }
+        }
         
         // Apply advanced filters
         if let platform = selectedPlatform {
@@ -282,7 +292,12 @@ struct LibraryView: View {
                 // Grille de contenu
                 ScrollView {
                     let games = viewStyle == .shelf ? shelfGames : filteredGames
-                    if games.isEmpty && viewStyle == .shelf {
+                    let query = searchText.trimmingCharacters(in: .whitespaces)
+                    if games.isEmpty && !query.isEmpty {
+                        EmptyState(icon: "magnifyingglass", title: "Aucun jeu ne correspond à « \(query) »",
+                                   message: "Pour l'ajouter à ta collection, cherche-le dans l'onglet Recherche.")
+                            .frame(minHeight: 420)
+                    } else if games.isEmpty && viewStyle == .shelf {
                         EmptyState(icon: "books.vertical", title: "Ton étagère est vide", message: "Cherche un jeu dans l'onglet Recherche pour poser ta première boîte.")
                             .frame(minHeight: 420)
                     } else if viewStyle == .shelf {
@@ -332,6 +347,7 @@ struct LibraryView: View {
                 }
             }
             .navigationTitle("Ma collection")
+            .searchable(text: $searchText, prompt: "Chercher dans ta collection")
             .navigationBarTitleDisplayMode(.large)
             .background(
                 LinearGradient(colors: [Shelf.wallTop, Color.gbDark], startPoint: .top, endPoint: .center)

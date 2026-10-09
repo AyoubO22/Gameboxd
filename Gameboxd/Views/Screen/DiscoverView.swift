@@ -40,6 +40,14 @@ struct DiscoverView: View {
                         EndcapFeature(game: featured, namespace: aisle)
                     }
 
+                    // Picked from your own tastes (genres, ratings), next to what's popular.
+                    NavigationLink(destination: RecommendationsView()) {
+                        ProfileNavRow(icon: "sparkles", title: "Pour toi", subtitle: "Des jeux choisis selon tes goûts")
+                            .background(Color.surfacePrimary, in: RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal)
+
                     StoreShelf(title: "Tendances", subtitle: "Ce qui se joue en ce moment",
                                games: Array(store.trendingGames.dropFirst()), isLoading: store.isLoadingTrending,
                                namespace: aisle) { _, index in

@@ -76,18 +76,6 @@ struct ProfileNavigationSection: View {
                 ProfileNavRow(icon: "target", title: "Objectifs", subtitle: "Défis mensuels")
             }
             Divider().overlay(Color.gbBorder)
-            NavigationLink(destination: BacklogView()) {
-                ProfileNavRow(icon: "tray.full.fill", title: "Backlog", subtitle: "À quoi jouer?")
-            }
-            Divider().overlay(Color.gbBorder)
-            NavigationLink(destination: RecommendationsView()) {
-                ProfileNavRow(icon: "sparkles", title: "Pour toi", subtitle: "Recommandations")
-            }
-            Divider().overlay(Color.gbBorder)
-            NavigationLink(destination: SocialView()) {
-                ProfileNavRow(icon: "person.2.fill", title: "Social", subtitle: "Amis & Activité")
-            }
-            Divider().overlay(Color.gbBorder)
             NavigationLink(destination: LinkedAccountsView()) {
                 ProfileNavRow(
                     icon: "link.badge.plus",

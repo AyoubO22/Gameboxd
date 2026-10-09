@@ -89,8 +89,8 @@ struct SettingsView: View {
                 if account.isSignedIn {
                     Toggle(isOn: Bindable(SocialService.shared).isSharing) {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Partager mon activité")
-                            Text("Sessions, jeux terminés, notes et critiques, visibles par les joueurs.")
+                            Text("Profil public")
+                            Text("Ta collection, tes notes, tes critiques et ton activité sont visibles par les autres joueurs.")
                                 .font(DS.Typography.caption)
                                 .foregroundStyle(Color.textSecondary)
                         }

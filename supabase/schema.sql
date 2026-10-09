@@ -90,3 +90,38 @@ returns void language sql security definer set search_path = public as $$
 $$;
 revoke all on function public.delete_account() from public, anon;
 grant execute on function public.delete_account() to authenticated;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- v2 — Public library: each player's collection, readable by everyone, written by its
+-- owner only. The phone stays the source of truth; this is a mirror friends can browse.
+create table if not exists public.library_games (
+    user_id       uuid not null references public.profiles (id) on delete cascade,
+    game_id       uuid not null,              -- the id of the game on the owner's phone
+    rawg_id       integer,
+    title         text not null check (char_length(title) <= 200),
+    platform      text check (char_length(platform) <= 60),
+    release_year  text check (char_length(release_year) <= 10),
+    cover_url     text,
+    genres        text[] not null default '{}',
+    status        text not null check (status in ('none', 'wantToPlay', 'playing', 'completed', 'shelved', 'platinum')),
+    rating        smallint not null default 0 check (rating between 0 and 5),
+    review        text check (char_length(review) <= 10000),
+    is_spoiler    boolean not null default false,
+    play_minutes  integer not null default 0 check (play_minutes >= 0),
+    completion    smallint not null default 0 check (completion between 0 and 100),
+    is_favorite   boolean not null default false,
+    completed_at  timestamptz,
+    updated_at    timestamptz not null default now(),
+    primary key (user_id, game_id)
+);
+create index if not exists library_games_user_status_idx on public.library_games (user_id, status);
+
+alter table public.library_games enable row level security;
+drop policy if exists "libraries are public" on public.library_games;
+create policy "libraries are public" on public.library_games for select using (true);
+drop policy if exists "own library insert" on public.library_games;
+create policy "own library insert" on public.library_games for insert with check (auth.uid() = user_id);
+drop policy if exists "own library update" on public.library_games;
+create policy "own library update" on public.library_games for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+drop policy if exists "own library delete" on public.library_games;
+create policy "own library delete" on public.library_games for delete using (auth.uid() = user_id);

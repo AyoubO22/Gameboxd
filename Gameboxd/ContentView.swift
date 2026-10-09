@@ -64,8 +64,10 @@ struct ContentView: View {
         // true and onChange never fires.
         .onAppear(perform: checkUsernameSetup)
         .task {
+            LibrarySync.shared.store = store
             await AccountService.shared.restore()
             await SocialService.shared.loadFollowing()
+            await LibrarySync.shared.pushCurrent()
         }
         .sheet(isPresented: $showingUsernameSetup) {
             UsernameSetupView()

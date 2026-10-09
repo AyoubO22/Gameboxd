@@ -108,6 +108,7 @@ final class GameStore {
     }
     
     func logout() {
+        LibrarySync.shared.reset()
         Task { await AccountService.shared.signOut() }
         
         // Reset auth state
@@ -161,6 +162,7 @@ final class GameStore {
     
     private func saveGames(syncWidget: Bool = true) {
         fileStore.save(myGames, key: StorageKeys.myGames)
+        LibrarySync.shared.schedule(myGames)
         syncStickers()
         checkAchievements()
         updateGoalProgress()

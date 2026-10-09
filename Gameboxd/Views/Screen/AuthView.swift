@@ -223,6 +223,11 @@ struct AuthView: View {
         store.userProfile.authProviderUserId = profile.id.uuidString
         store.userProfile.needsUsernameSetup = false
         store.setLoggedIn(true)
+        LibrarySync.shared.store = store
+        Task {
+            await SocialService.shared.loadFollowing()
+            await LibrarySync.shared.pushCurrent()
+        }
     }
 }
 

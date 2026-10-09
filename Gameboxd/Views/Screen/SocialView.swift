@@ -159,6 +159,7 @@ struct PlayerProfileView: View {
     private let social = SocialService.shared
 
     @State private var activities: [RemoteActivity] = []
+    @State private var library: [RemoteLibraryGame] = []
     @State private var counts: (followers: Int, following: Int) = (0, 0)
     @State private var error: String?
 
@@ -193,6 +194,8 @@ struct PlayerProfileView: View {
 
                 FollowButton(player: player, followerCount: $counts.followers, error: $error)
 
+                PlayerLibrarySection(games: library)
+
                 Text("Activité récente")
                     .font(DS.Typography.title3)
                     .foregroundStyle(Color.textPrimary)
@@ -215,6 +218,8 @@ struct PlayerProfileView: View {
         .task {
             async let list = social.activities(of: player.id)
             async let numbers = social.counts(for: player.id)
+            async let games = LibrarySync.shared.library(of: player.id)
+            library = (try? await games) ?? []
             activities = (try? await list) ?? []
             counts = (try? await numbers) ?? (0, 0)
         }
@@ -258,6 +263,182 @@ private struct FollowButton: View {
                 .foregroundStyle(isFollowing ? Color.textPrimary : Color.gbDark)
         }
         .buttonStyle(.plain)
+    }
+}
+
+// MARK: - A player's collection
+
+private struct PlayerLibrarySection: View {
+    let games: [RemoteLibraryGame]
+    @State private var filter: GameStatus?
+    @State private var opened: RemoteLibraryGame?
+
+    private static let filters: [GameStatus?] = [nil, .playing, .completed, .platinum, .wantToPlay, .shelved]
+
+    var body: some View {
+        let shown = games.filter { filter == nil || $0.gameStatus == filter }
+        VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Collection")
+                    .font(DS.Typography.title3)
+                    .foregroundStyle(Color.textPrimary)
+                Spacer()
+                Text("\(games.count) jeu\(games.count > 1 ? "x" : "")")
+                    .font(DS.Typography.caption)
+                    .foregroundStyle(Color.textSecondary)
+            }
+
+            if games.isEmpty {
+                Text("Sa collection n'est pas encore en ligne.")
+                    .font(DS.Typography.body)
+                    .foregroundStyle(Color.textTertiary)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: DS.Spacing.xs) {
+                        ForEach(Self.filters.filter { status in status == nil || games.contains { $0.gameStatus == status } }, id: \.self) { status in
+                            let count = status.map { s in games.filter { $0.gameStatus == s }.count } ?? games.count
+                            Button { filter = status } label: {
+                                Text("\(status?.rawValue ?? "Tout") \(count)")
+                                    .font(DS.Typography.captionMedium)
+                                    .padding(.horizontal, DS.Spacing.sm)
+                                    .padding(.vertical, 6)
+                                    .background(filter == status ? Color.textPrimary : Color.surfacePrimary, in: Capsule())
+                                    .foregroundStyle(filter == status ? Color.gbDark : Color.textSecondary)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 76), spacing: DS.Spacing.sm)], spacing: DS.Spacing.sm) {
+                    ForEach(shown) { game in
+                        Button { opened = game } label: { RemoteCover(game: game) }
+                            .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+        .sheet(item: $opened) { RemoteGameSheet(game: $0) }
+    }
+}
+
+private struct RemoteCover: View {
+    let game: RemoteLibraryGame
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            CachedAsyncImage(url: game.coverURL.flatMap(URL.init(string:))) { image in
+                image.resizable().aspectRatio(contentMode: .fill)
+            } placeholder: {
+                Color.surfaceSecondary.overlay(
+                    Text(game.title).font(DS.Typography.micro).foregroundStyle(Color.textTertiary).padding(4)
+                )
+            }
+            .aspectRatio(0.72, contentMode: .fit)
+            .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+            .overlay(alignment: .topTrailing) {
+                if game.isFavorite {
+                    Image(systemName: "heart.fill")
+                        .font(.system(size: 10))
+                        .foregroundStyle(DS.Colors.error)
+                        .padding(4)
+                }
+            }
+
+            if game.rating > 0 {
+                HStack(spacing: 1) {
+                    ForEach(1...game.rating, id: \.self) { _ in Image(systemName: "star.fill") }
+                }
+                .font(.system(size: 8))
+                .foregroundStyle(DS.Colors.warning)
+            }
+        }
+        .accessibilityElement()
+        .accessibilityLabel("\(game.title), \(game.gameStatus.rawValue)\(game.rating > 0 ? ", \(game.rating) étoiles" : "")")
+    }
+}
+
+/// A friend's game, read-only: their status, rating, hours and review.
+private struct RemoteGameSheet: View {
+    let game: RemoteLibraryGame
+    @State private var revealSpoiler = false
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: DS.Spacing.lg) {
+                    HStack(alignment: .top, spacing: DS.Spacing.md) {
+                        CachedAsyncImage(url: game.coverURL.flatMap(URL.init(string:))) { image in
+                            image.resizable().aspectRatio(contentMode: .fill)
+                        } placeholder: { Color.surfaceSecondary }
+                        .frame(width: 96, height: 132)
+                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(game.title)
+                                .font(DS.Typography.title)
+                                .foregroundStyle(Color.textPrimary)
+                            Text([game.platform, game.releaseYear].compactMap { $0 }.joined(separator: " · "))
+                                .font(DS.Typography.caption)
+                                .foregroundStyle(Color.textSecondary)
+                            HStack(spacing: 5) {
+                                Circle().fill(game.gameStatus.color).frame(width: 7, height: 7)
+                                Text(game.gameStatus.rawValue)
+                            }
+                            .font(DS.Typography.captionMedium)
+                            .foregroundStyle(Color.textSecondary)
+                        }
+                    }
+
+                    HStack(spacing: DS.Spacing.lg) {
+                        if game.rating > 0 {
+                            HStack(spacing: 2) {
+                                ForEach(1...5, id: \.self) { star in
+                                    Image(systemName: "star.fill")
+                                        .foregroundStyle(star <= game.rating ? DS.Colors.warning : Color.surfaceSecondary)
+                                }
+                            }
+                            .accessibilityLabel("\(game.rating) étoiles sur 5")
+                        }
+                        if game.playMinutes > 0 {
+                            Label("\(game.playMinutes / 60) h", systemImage: "clock")
+                        }
+                        if game.completion > 0 {
+                            Label("\(game.completion) %", systemImage: "checkmark.circle")
+                        }
+                    }
+                    .font(DS.Typography.body)
+                    .foregroundStyle(Color.textSecondary)
+
+                    if let review = game.review {
+                        VStack(alignment: .leading, spacing: DS.Spacing.xs) {
+                            Text("Sa critique")
+                                .font(DS.Typography.title3)
+                                .foregroundStyle(Color.textPrimary)
+                            if game.isSpoiler && !revealSpoiler {
+                                Button { revealSpoiler = true } label: {
+                                    Label("Contient des spoilers — toucher pour lire", systemImage: "eye.slash")
+                                        .font(DS.Typography.body)
+                                        .frame(maxWidth: .infinity)
+                                        .padding()
+                                        .background(DS.Colors.warning.opacity(0.14), in: RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
+                                        .foregroundStyle(DS.Colors.warning)
+                                }
+                                .buttonStyle(.plain)
+                            } else {
+                                Text(review)
+                                    .font(DS.Typography.body)
+                                    .foregroundStyle(Color.textPrimary)
+                            }
+                        }
+                    }
+                }
+                .padding()
+            }
+            .background(Color.gbDark.ignoresSafeArea())
+            .navigationBarTitleDisplayMode(.inline)
+        }
+        .presentationDetents([.medium, .large])
     }
 }
 

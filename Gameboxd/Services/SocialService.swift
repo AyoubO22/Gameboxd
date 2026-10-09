@@ -82,10 +82,16 @@ final class SocialService {
     /// Ids of the players you follow.
     private(set) var following: Set<UUID> = []
 
-    /// Share your activity with your followers (Réglages). On by default once signed in.
-    var isSharing: Bool {
-        get { UserDefaults.standard.object(forKey: Self.sharingKey) as? Bool ?? true }
-        set { UserDefaults.standard.set(newValue, forKey: Self.sharingKey) }
+    /// Public profile (Réglages): your collection and activity are visible to other players.
+    /// On by default once signed in. Turning it off takes the collection offline.
+    var isSharing: Bool = UserDefaults.standard.object(forKey: SocialService.sharingKey) as? Bool ?? true {
+        didSet {
+            UserDefaults.standard.set(isSharing, forKey: Self.sharingKey)
+            guard isSharing != oldValue else { return }
+            Task {
+                if isSharing { await LibrarySync.shared.pushCurrent() } else { await LibrarySync.shared.removeAll() }
+            }
+        }
     }
     private static let sharingKey = "gameboxd_share_activity"
 
@@ -189,7 +195,15 @@ final class SocialService {
         let activity = NewActivity(user_id: myId, kind: kind.rawValue, game_title: game.title,
                                    game_cover_url: game.artURL?.absoluteString, rating: rating,
                                    review: review.map { String($0.prefix(2000)) }, minutes: minutes)
-        Task { _ = try? await client.from("activities").insert(activity).execute().status }
+        Task {
+            do {
+                _ = try await client.from("activities").insert(activity).execute().status
+            } catch {
+                #if DEBUG
+                print("SocialService: sharing \(kind.rawValue) failed: \(error)")
+                #endif
+            }
+        }
     }
 
     func deleteActivity(_ id: UUID) async throws {

@@ -15,6 +15,28 @@
 import Foundation
 
 // MARK: - Steam Configuration
+/// Steam's public art for a game (no key needed): the key art and store screenshots.
+enum SteamStore {
+    /// Wide key art, usually characters without the logo.
+    static func heroURL(appId: Int) -> URL? {
+        URL(string: "https://cdn.cloudflare.steamstatic.com/steam/apps/\(appId)/library_hero.jpg")
+    }
+
+    /// Full-size screenshots from the store page.
+    static func screenshots(appId: Int, limit: Int = 4) async -> [URL] {
+        struct Details: Decodable {
+            struct Data: Decodable { struct Shot: Decodable { let path_full: String }; let screenshots: [Shot]? }
+            let success: Bool
+            let data: Data?
+        }
+        guard let url = URL(string: "https://store.steampowered.com/api/appdetails?appids=\(appId)&filters=screenshots"),
+              let (data, _) = try? await URLSession.shared.data(from: url),
+              let details = try? JSONDecoder().decode([String: Details].self, from: data)["\(appId)"],
+              details.success else { return [] }
+        return (details.data?.screenshots ?? []).prefix(limit).compactMap { URL(string: $0.path_full) }
+    }
+}
+
 struct SteamConfig {
     /// STEAM_API_KEY in Secrets.xcconfig (https://steamcommunity.com/dev/apikey).
     /// ponytail: the key ships inside the app; move the calls behind a Supabase Edge

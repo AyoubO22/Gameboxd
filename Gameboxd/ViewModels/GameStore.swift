@@ -135,12 +135,13 @@ final class GameStore {
         loadDiscoverCache()
         stickers = load([Sticker].self, key: StorageKeys.stickers) ?? []
         // Recut art made by an older StickerMaker, once (v2: main character first;
-        // v3: same art in another crop no longer repeats). Unlocks are kept.
-        if UserDefaults.standard.integer(forKey: "gameboxd_sticker_art_version") < 3 {
+        // v3: same art in another crop no longer repeats; v4: Steam art as a source).
+        // Unlocks are kept.
+        if UserDefaults.standard.integer(forKey: "gameboxd_sticker_art_version") < 4 {
             StickerService.shared.remove(stickers)
             for i in stickers.indices { stickers[i].imageFile = nil }
             fileStore.save(stickers, key: StorageKeys.stickers)
-            UserDefaults.standard.set(3, forKey: "gameboxd_sticker_art_version")
+            UserDefaults.standard.set(4, forKey: "gameboxd_sticker_art_version")
         }
     }
     
@@ -268,6 +269,12 @@ final class GameStore {
         if let decoded = load([ImportedGame].self, key: StorageKeys.importedGames) {
             importedGames = decoded
         }
+        // Steam imports made before games kept their app id: give it back to them.
+        for imported in importedGames where imported.platform == .steam {
+            guard let gameId = imported.linkedGameId, let appId = Int(imported.platformGameId),
+                  let index = myGames.firstIndex(where: { $0.id == gameId }), myGames[index].steamAppId == nil else { continue }
+            myGames[index].steamAppId = appId
+        }
     }
     
     private func saveImportedGames() {
@@ -376,7 +383,7 @@ final class GameStore {
         case .playstation: platformName = "PlayStation"
         }
         
-        let game = Game(
+        var game = Game(
             title: importedGame.title,
             developer: "",
             platform: platformName,
@@ -387,6 +394,7 @@ final class GameStore {
             playTimeMinutes: importedGame.playtimeMinutes,
             completionPercentage: importedGame.completionPercentage
         )
+        if importedGame.platform == .steam { game.steamAppId = Int(importedGame.platformGameId) }
         
         myGames.append(game)
         saveGames()

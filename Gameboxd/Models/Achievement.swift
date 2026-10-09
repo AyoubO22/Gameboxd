@@ -94,39 +94,6 @@ enum AchievementDefinitions {
     ]
 }
 
-// MARK: - Friend
-
-struct Friend: Identifiable, Codable {
-    var id = UUID()
-    var username: String
-    var avatarEmoji: String
-    var gamesCount: Int
-    var isFollowing: Bool = true
-    var lastActive: Date = Date()
-}
-
-// MARK: - ActivityItem
-
-struct ActivityItem: Identifiable, Codable {
-    var id: UUID
-    var username: String
-    var avatarEmoji: String
-    var actionType: ActivityType
-    var gameTitle: String
-    var gameCoverURL: String?
-    var rating: Int?
-    var review: String?
-    var timestamp: Date
-
-    enum ActivityType: String, Codable {
-        case played = "joue à"
-        case completed = "a terminé"
-        case rated = "a noté"
-        case reviewed = "a critiqué"
-        case added = "a ajouté"
-    }
-}
-
 // MARK: - GameNotification
 
 struct GameNotification: Identifiable, Codable {

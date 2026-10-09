@@ -87,6 +87,16 @@ struct SettingsView: View {
                 }
 
                 if account.isSignedIn {
+                    Toggle(isOn: Bindable(SocialService.shared).isSharing) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Partager mon activité")
+                            Text("Sessions, jeux terminés, notes et critiques, visibles par les joueurs.")
+                                .font(DS.Typography.caption)
+                                .foregroundStyle(Color.textSecondary)
+                        }
+                    }
+                    .tint(.accent)
+
                     Button(action: { showingDeleteAccount = true }) {
                         SettingsRow(icon: "person.crop.circle.badge.xmark", title: "Supprimer mon compte", color: .red)
                     }

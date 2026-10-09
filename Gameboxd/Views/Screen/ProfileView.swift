@@ -64,6 +64,10 @@ struct ProfileNavigationSection: View {
     
     var body: some View {
         VStack(spacing: 0) {
+            NavigationLink(destination: SocialView()) {
+                ProfileNavRow(icon: "person.2.fill", title: "Amis", subtitle: "Suis tes amis et vois ce qu'ils jouent")
+            }
+            Divider().overlay(Color.gbBorder)
             NavigationLink(destination: StatisticsView()) {
                 ProfileNavRow(icon: "chart.bar.fill", title: "Statistiques", subtitle: "Graphiques détaillés")
             }

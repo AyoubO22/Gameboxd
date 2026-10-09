@@ -2,459 +2,382 @@
 //  SocialView.swift
 //  Gameboxd
 //
-//  Social features: Friends, Activity Feed, Comments
+//  Friends: the activity of the players you follow, finding players by pseudo, and a
+//  player's public page. Backed by Supabase (SocialService); needs an account.
 //
 
 import SwiftUI
 
 struct SocialView: View {
     @Environment(GameStore.self) private var store
-    @State private var selectedTab = 0
-    
+    private let account = AccountService.shared
+    private let social = SocialService.shared
+
+    @State private var tab: Tab = .feed
+    @State private var feed: [RemoteActivity] = []
+    @State private var isLoadingFeed = true
+    @State private var query = ""
+    @State private var results: [RemoteProfile] = []
+    @State private var followed: [RemoteProfile] = []
+    @State private var error: String?
+
+    enum Tab: String, CaseIterable { case feed = "Fil", players = "Joueurs" }
+
     var body: some View {
-        VStack(spacing: 0) {
-            // Tab Selector
-            Picker("Section", selection: $selectedTab) {
-                Text("Activité").tag(0)
-                Text("Amis").tag(1)
-            }
-            .pickerStyle(.segmented)
-            .padding()
-            .background(Color.gbDark)
-            
-            // Content
-            switch selectedTab {
-            case 0:
-                ActivityFeedView()
-            case 1:
-                FriendsListView()
-            default:
-                EmptyView()
+        Group {
+            if account.isSignedIn {
+                content
+            } else {
+                signedOut
             }
         }
         .background(Color.gbDark.ignoresSafeArea())
-        .navigationTitle("Social")
-        .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                NavigationLink(destination: FindFriendsView()) {
-                    Image(systemName: "person.badge.plus")
-                        .foregroundColor(.gbCoral)
-                }
-            }
+        .navigationTitle("Amis")
+        .alert("Oups", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(error ?? "")
         }
     }
-}
 
-// MARK: - Activity Feed
-struct ActivityFeedView: View {
-    @Environment(GameStore.self) private var store
-    
-    var body: some View {
-        if store.activityFeed.isEmpty {
-            EmptyActivityView()
-        } else {
-            ScrollView {
-                LazyVStack(spacing: 16) {
-                    ForEach(store.activityFeed) { activity in
-                        ActivityCard(activity: activity)
-                    }
-                }
+    // MARK: - Signed in
+
+    private var content: some View {
+        VStack(spacing: 0) {
+            PillSegmentedControl(options: Tab.allCases, selection: $tab) { $0.rawValue }
                 .padding()
+
+            switch tab {
+            case .feed: feedList
+            case .players: playersList
             }
         }
-    }
-}
-
-struct EmptyActivityView: View {
-    var body: some View {
-        VStack(spacing: 20) {
-            Spacer()
-            
-            Image(systemName: "person.2.fill")
-                .font(.system(size: 60))
-                .foregroundColor(.textSecondary.opacity(0.3))
-            
-            Text("Aucune activité")
-                .font(DS.Typography.headline)
-                .foregroundColor(.textSecondary)
-            
-            Text("Suis des amis pour voir leur activité")
-                .font(DS.Typography.body)
-                .foregroundColor(.textSecondary.opacity(0.7))
-                .multilineTextAlignment(.center)
-            
-            NavigationLink(destination: FindFriendsView()) {
-                Text("Trouver des amis")
-                    .font(DS.Typography.headline)
-                    .padding(.horizontal, 24)
-                    .padding(.vertical, 12)
-                    .background(Color.gbCoral)
-                    .foregroundColor(.gbDark)
-                    .cornerRadius(25)
-            }
-            
-            Spacer()
+        .task {
+            await social.loadFollowing()
+            await reloadFeed()
         }
-        .padding()
     }
-}
 
-struct ActivityCard: View {
-    let activity: ActivityItem
-    @State private var isLiked = false
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Header
-            HStack(spacing: 10) {
-                // Avatar
-                ZStack {
-                    Circle()
-                        .fill(Color.gbCoral.gradient)
-                        .frame(width: 40, height: 40)
-                    
-                    Text(activity.avatarEmoji)
-                        .font(DS.Typography.title3)
-                }
-                
-                // User & Action
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 4) {
-                        Text(activity.username)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.textPrimary)
-                        
-                        Text(activity.actionType.rawValue)
-                            .foregroundColor(.textSecondary)
-                    }
-                    .font(DS.Typography.body)
-                    
-                    Text(activity.timestamp, style: .relative)
-                        .font(DS.Typography.caption)
-                        .foregroundColor(.textSecondary.opacity(0.7))
-                }
-                
-                Spacer()
-            }
-            
-            // Game Info
-            HStack(spacing: 12) {
-                // Cover
-                if let coverURL = activity.gameCoverURL, let url = URL(string: coverURL) {
-                    CachedAsyncImage(url: url) { image in
-                        image.resizable().aspectRatio(contentMode: .fill)
-                    } placeholder: {
-                        Rectangle().fill(Color.gbCard)
-                    }
-                    .frame(width: 60, height: 80)
-                    .cornerRadius(8)
-                    .clipped()
+    private var feedList: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 0) {
+                if isLoadingFeed && feed.isEmpty {
+                    ProgressView().tint(.accent).frame(maxWidth: .infinity).padding(.top, 60)
+                } else if feed.isEmpty {
+                    EmptyState(icon: "person.2", title: "Ton fil est vide",
+                               message: "Suis des joueurs dans l'onglet Joueurs pour voir ce qu'ils jouent. Ton activité apparaît aussi ici.")
+                        .frame(minHeight: 360)
                 } else {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color.gbCard)
-                        .frame(width: 60, height: 80)
-                        .overlay(
-                            Image(systemName: "gamecontroller.fill")
-                                .foregroundColor(.textSecondary)
-                        )
-                }
-                
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(activity.gameTitle)
-                        .font(DS.Typography.headline)
-                        .foregroundColor(.textPrimary)
-                        .lineLimit(2)
-                    
-                    // Rating if present
-                    if let rating = activity.rating, rating > 0 {
-                        HStack(spacing: 2) {
-                            ForEach(1...rating, id: \.self) { _ in
-                                Image(systemName: "star.fill")
-                                    .font(DS.Typography.caption)
-                            }
-                        }
-                        .foregroundColor(.gbCoral)
-                    }
-                    
-                    // Review excerpt if present
-                    if let review = activity.review, !review.isEmpty {
-                        Text(review)
-                            .font(DS.Typography.caption)
-                            .foregroundColor(.textSecondary)
-                            .lineLimit(2)
+                    ForEach(feed) { activity in
+                        ActivityRow(activity: activity, isMine: activity.userId == account.profile?.id)
                     }
                 }
-                
-                Spacer()
             }
-            
-            // Actions
-            HStack(spacing: 20) {
-                Button(action: { isLiked.toggle() }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: isLiked ? "heart.fill" : "heart")
-                        Text("J'aime")
+            .padding(.horizontal)
+            .padding(.bottom, 90)
+        }
+        .refreshable { await reloadFeed() }
+    }
+
+    private var playersList: some View {
+        List {
+            Section {
+                ForEach(query.count >= 2 ? results : followed) { player in
+                    NavigationLink(destination: PlayerProfileView(player: player)) {
+                        PlayerRow(player: player)
                     }
-                    .font(DS.Typography.caption)
-                    .foregroundColor(isLiked ? .gbCoral : .gray)
+                    .listRowBackground(Color.gbCard)
                 }
-                
-                Spacer()
+            } header: {
+                if query.count < 2 {
+                    Text(followed.isEmpty ? "Cherche un pseudo pour suivre quelqu'un" : "Tes abonnements")
+                } else if results.isEmpty {
+                    Text("Aucun joueur trouvé")
+                }
             }
         }
-        .padding()
-        .background(Color.gbCard)
-        .cornerRadius(12)
-    }
-}
-
-// MARK: - Friends List
-struct FriendsListView: View {
-    @Environment(GameStore.self) private var store
-    
-    var body: some View {
-        if store.friends.isEmpty {
-            EmptyFriendsView()
-        } else {
-            ScrollView {
-                LazyVStack(spacing: 12) {
-                    ForEach(store.friends) { friend in
-                        FriendRow(friend: friend)
-                    }
-                }
-                .padding()
+        .scrollContentBackground(.hidden)
+        .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Chercher un pseudo")
+        .textInputAutocapitalization(.never)
+        .autocorrectionDisabled()
+        .task(id: query) {
+            // Wait for a pause in typing before asking the server.
+            try? await Task.sleep(for: .milliseconds(350))
+            guard !Task.isCancelled else { return }
+            do {
+                results = try await social.searchPlayers(query)
+            } catch {
+                self.error = AccountService.translate(error).localizedDescription
             }
         }
+        .task(id: social.following) {
+            followed = (try? await social.profiles(ids: social.following)) ?? []
+        }
     }
-}
 
-struct EmptyFriendsView: View {
-    var body: some View {
-        VStack(spacing: 20) {
+    private func reloadFeed() async {
+        isLoadingFeed = true
+        defer { isLoadingFeed = false }
+        do {
+            feed = try await social.feed()
+        } catch {
+            self.error = AccountService.translate(error).localizedDescription
+        }
+    }
+
+    // MARK: - Signed out
+
+    private var signedOut: some View {
+        VStack(spacing: DS.Spacing.md) {
             Spacer()
-            
-            Image(systemName: "person.2.slash")
-                .font(.system(size: 60))
-                .foregroundColor(.textSecondary.opacity(0.3))
-            
-            Text("Pas encore d'amis")
-                .font(DS.Typography.headline)
-                .foregroundColor(.textSecondary)
-            
-            Text("Trouve des joueurs avec les mêmes goûts")
+            Image(systemName: "person.2.fill")
+                .font(.system(size: 48))
+                .foregroundStyle(Color.accent)
+            Text("Suis tes amis")
+                .font(DS.Typography.title)
+                .foregroundStyle(Color.textPrimary)
+            Text("Crée un compte gratuit pour suivre des joueurs et partager ce que tu joues. Ta collection reste sur ton téléphone.")
                 .font(DS.Typography.body)
-                .foregroundColor(.textSecondary.opacity(0.7))
-            
-            NavigationLink(destination: FindFriendsView()) {
-                Text("Trouver des amis")
-                    .font(DS.Typography.headline)
-                    .padding(.horizontal, 24)
-                    .padding(.vertical, 12)
-                    .background(Color.gbCoral)
-                    .foregroundColor(.gbDark)
-                    .cornerRadius(25)
-            }
-            
+                .foregroundStyle(Color.textSecondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, DS.Spacing.xl)
+            Button("Créer un compte ou se connecter") { store.logout() }
+                .font(DS.Typography.headline)
+                .padding(.horizontal, DS.Spacing.lg)
+                .padding(.vertical, DS.Spacing.sm)
+                .background(Color.accent, in: Capsule())
+                .foregroundStyle(Color.gbDark)
             Spacer()
         }
     }
 }
 
-struct FriendRow: View {
-    let friend: Friend
-    @Environment(GameStore.self) private var store
-    
-    var body: some View {
-        HStack(spacing: 12) {
-            // Avatar
-            ZStack {
-                Circle()
-                    .fill(Color.gbCoral.gradient)
-                    .frame(width: 50, height: 50)
-                
-                Text(friend.avatarEmoji)
-                    .font(DS.Typography.title)
-            }
-            
-            // Info
-            VStack(alignment: .leading, spacing: 4) {
-                Text(friend.username)
-                    .font(DS.Typography.headline)
-                    .foregroundColor(.textPrimary)
-                
-                Text("\(friend.gamesCount) jeux • Actif \(friend.lastActive, style: .relative)")
-                    .font(DS.Typography.caption)
-                    .foregroundColor(.textSecondary)
-            }
-            
-            Spacer()
-            
-            // Follow Button
-            Button(action: { toggleFollow() }) {
-                Text(friend.isFollowing ? "Suivi" : "Suivre")
-                    .font(DS.Typography.body)
-                    .fontWeight(.medium)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(friend.isFollowing ? Color.gbCard : Color.gbCoral)
-                    .foregroundColor(friend.isFollowing ? .gray : .gbDark)
-                    .cornerRadius(20)
-            }
-        }
-        .padding()
-        .background(Color.gbCard)
-        .cornerRadius(12)
-    }
-    
-    func toggleFollow() {
-        store.toggleFollowFriend(friend)
-    }
-}
+// MARK: - Player page
 
-// MARK: - Find Friends
-struct FindFriendsView: View {
-    @State private var searchText = ""
-    @Environment(GameStore.self) private var store
-    
-    // Mock suggested users
-    let suggestedUsers = [
-        Friend(username: "GamerPro42", avatarEmoji: "🎮", gamesCount: 156, isFollowing: false),
-        Friend(username: "RetroLover", avatarEmoji: "👾", gamesCount: 89, isFollowing: false),
-        Friend(username: "RPGMaster", avatarEmoji: "⚔️", gamesCount: 234, isFollowing: false),
-        Friend(username: "IndieExplorer", avatarEmoji: "🌟", gamesCount: 67, isFollowing: false),
-        Friend(username: "SpeedRunner", avatarEmoji: "🏃", gamesCount: 45, isFollowing: false)
-    ]
-    
-    private var filteredSuggestions: [Friend] {
-        guard !searchText.isEmpty else { return suggestedUsers }
-        return suggestedUsers.filter { $0.username.localizedCaseInsensitiveContains(searchText) }
-    }
+struct PlayerProfileView: View {
+    let player: RemoteProfile
+    private let social = SocialService.shared
 
-    /// Stable across launches (String.hashValue is randomly seeded per launch).
-    private var friendCode: String {
-        let name = store.userProfile.username
-        let checksum = name.unicodeScalars.reduce(0) { ($0 &* 31 &+ Int($1.value)) % 10_000 }
-        return "GBOXD-\(name.prefix(4).uppercased())-\(checksum)"
-    }
-    
+    @State private var activities: [RemoteActivity] = []
+    @State private var counts: (followers: Int, following: Int) = (0, 0)
+    @State private var error: String?
+
+    private var isFollowing: Bool { social.following.contains(player.id) }
+
     var body: some View {
         ScrollView {
-            VStack(spacing: 24) {
-                // Search
-                HStack {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundColor(.textSecondary)
-                    
-                    TextField("Rechercher un joueur...", text: $searchText)
-                        .foregroundColor(.textPrimary)
-                }
-                .padding()
-                .background(Color.gbCard)
-                .cornerRadius(12)
-                
-                // Suggestions
-                VStack(alignment: .leading, spacing: 16) {
-                    Text("Suggestions")
-                        .font(DS.Typography.headline)
-                        .foregroundColor(.textPrimary)
-                    
-                    ForEach(filteredSuggestions) { user in
-                        SuggestedUserRow(user: user)
+            VStack(alignment: .leading, spacing: DS.Spacing.lg) {
+                HStack(spacing: DS.Spacing.md) {
+                    PlayerAvatar(name: player.username, size: 64)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(player.displayName ?? player.username)
+                            .font(DS.Typography.title)
+                            .foregroundStyle(Color.textPrimary)
+                        Text("@\(player.username)")
+                            .font(DS.Typography.body)
+                            .foregroundStyle(Color.textSecondary)
                     }
+                    Spacer()
                 }
-                
-                // Share Code
-                VStack(spacing: 12) {
-                    Text("Partage ton code ami")
-                        .font(DS.Typography.headline)
-                        .foregroundColor(.textPrimary)
-                    
-                    Text(friendCode)
-                        .font(.system(.title3, design: .monospaced))
-                        .fontWeight(.bold)
-                        .foregroundColor(.gbCoral)
-                        .padding()
-                        .background(Color.gbCard)
-                        .cornerRadius(12)
-                    
-                    Button(action: {
-                        UIPasteboard.general.string = friendCode
-                        HapticManager.notification(.success)
-                    }) {
-                        HStack {
-                            Image(systemName: "doc.on.doc")
-                            Text("Copier")
-                        }
+
+                if let bio = player.bio, !bio.isEmpty {
+                    Text(bio).font(DS.Typography.body).foregroundStyle(Color.textSecondary)
+                }
+
+                HStack(spacing: DS.Spacing.lg) {
+                    Label("\(counts.followers) abonné\(counts.followers > 1 ? "s" : "")", systemImage: "person.2")
+                    Label("\(counts.following) abonnement\(counts.following > 1 ? "s" : "")", systemImage: "person.badge.plus")
+                }
+                .font(DS.Typography.caption)
+                .foregroundStyle(Color.textSecondary)
+
+                FollowButton(player: player, followerCount: $counts.followers, error: $error)
+
+                Text("Activité récente")
+                    .font(DS.Typography.title3)
+                    .foregroundStyle(Color.textPrimary)
+                if activities.isEmpty {
+                    Text("Rien de partagé pour l'instant.")
                         .font(DS.Typography.body)
-                        .foregroundColor(.gbCoral)
+                        .foregroundStyle(Color.textTertiary)
+                } else {
+                    LazyVStack(spacing: 0) {
+                        ForEach(activities) { ActivityRow(activity: $0, isMine: false, showsAuthor: false) }
                     }
                 }
-                .padding()
-                .background(Color.gbCard.opacity(0.5))
-                .cornerRadius(12)
             }
             .padding()
+            .padding(.bottom, 90)
         }
         .background(Color.gbDark.ignoresSafeArea())
-        .navigationTitle("Trouver des amis")
+        .navigationTitle("@\(player.username)")
+        .navigationBarTitleDisplayMode(.inline)
+        .task {
+            async let list = social.activities(of: player.id)
+            async let numbers = social.counts(for: player.id)
+            activities = (try? await list) ?? []
+            counts = (try? await numbers) ?? (0, 0)
+        }
+        .alert("Oups", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(error ?? "")
+        }
     }
 }
 
-struct SuggestedUserRow: View {
-    @Environment(GameStore.self) private var store
-    let user: Friend
+private struct FollowButton: View {
+    let player: RemoteProfile
+    @Binding var followerCount: Int
+    @Binding var error: String?
+    private let social = SocialService.shared
 
-    private var isFollowing: Bool {
-        store.friends.contains { $0.username == user.username }
-    }
-    
     var body: some View {
-        HStack(spacing: 12) {
-            ZStack {
-                Circle()
-                    .fill(Color.gbCoral.gradient)
-                    .frame(width: 45, height: 45)
-                
-                Text(user.avatarEmoji)
-                    .font(DS.Typography.title3)
-            }
-            
-            VStack(alignment: .leading, spacing: 2) {
-                Text(user.username)
-                    .fontWeight(.medium)
-                    .foregroundColor(.textPrimary)
-                
-                Text("\(user.gamesCount) jeux")
-                    .font(DS.Typography.caption)
-                    .foregroundColor(.textSecondary)
-            }
-            
-            Spacer()
-            
-            Button(action: {
-                if let friend = store.friends.first(where: { $0.username == user.username }) {
-                    store.removeFriend(friend)
-                } else {
-                    store.addFriend(user)
+        let isFollowing = social.following.contains(player.id)
+        Button {
+            Task {
+                do {
+                    if isFollowing {
+                        try await social.unfollow(player.id)
+                        followerCount -= 1
+                    } else {
+                        try await social.follow(player.id)
+                        followerCount += 1
+                    }
+                    HapticManager.selection()
+                } catch {
+                    self.error = error.localizedDescription
                 }
-            }) {
-                Text(isFollowing ? "Suivi ✓" : "Suivre")
-                    .font(DS.Typography.body)
-                    .fontWeight(.medium)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(isFollowing ? Color.gbCard : Color.gbCoral)
-                    .foregroundColor(isFollowing ? .gbCoral : .gbDark)
-                    .cornerRadius(20)
+            }
+        } label: {
+            Label(isFollowing ? "Abonné" : "Suivre", systemImage: isFollowing ? "checkmark" : "plus")
+                .font(DS.Typography.headline)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, DS.Spacing.sm)
+                .background(isFollowing ? Color.surfacePrimary : Color.accent, in: RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
+                .foregroundStyle(isFollowing ? Color.textPrimary : Color.gbDark)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Rows
+
+private struct PlayerRow: View {
+    let player: RemoteProfile
+    private let social = SocialService.shared
+
+    var body: some View {
+        HStack(spacing: DS.Spacing.sm) {
+            PlayerAvatar(name: player.username, size: 40)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(player.displayName ?? player.username)
+                    .font(DS.Typography.bodyMedium)
+                    .foregroundStyle(Color.textPrimary)
+                Text("@\(player.username)")
+                    .font(DS.Typography.caption)
+                    .foregroundStyle(Color.textSecondary)
+            }
+            Spacer()
+            if social.following.contains(player.id) {
+                Text("Abonné")
+                    .font(DS.Typography.captionMedium)
+                    .foregroundStyle(Color.textTertiary)
             }
         }
-        .padding()
-        .background(Color.gbCard)
-        .cornerRadius(12)
     }
 }
 
-// MARK: - Preview
+struct ActivityRow: View {
+    let activity: RemoteActivity
+    let isMine: Bool
+    var showsAuthor = true
+
+    private var who: String {
+        if isMine { return "Tu" }
+        return activity.author.map { "@\($0.username)" } ?? "Un joueur"
+    }
+
+    private var verb: String {
+        // "Tu a terminé" → "Tu as terminé".
+        isMine ? activity.kind.verb.replacingOccurrences(of: "a ", with: "as ", options: .anchored) : activity.kind.verb
+    }
+
+    /// Capitalised when there's no author before it ("A terminé …").
+    private var sentenceVerb: String {
+        showsAuthor ? verb : verb.prefix(1).uppercased() + verb.dropFirst()
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: DS.Spacing.sm) {
+            CachedAsyncImage(url: activity.gameCoverURL.flatMap(URL.init(string:))) { image in
+                image.resizable().aspectRatio(contentMode: .fill)
+            } placeholder: {
+                Color.surfaceSecondary
+            }
+            .frame(width: 40, height: 54)
+            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("\(Text(showsAuthor ? "\(who) " : "").font(DS.Typography.bodyMedium).foregroundStyle(Color.textPrimary))\(Text(sentenceVerb + " ").font(DS.Typography.body).foregroundStyle(Color.textSecondary))\(Text(activity.gameTitle).font(DS.Typography.bodyMedium).foregroundStyle(Color.textPrimary))")
+                    .lineLimit(2)
+
+                HStack(spacing: DS.Spacing.xs) {
+                    if let rating = activity.rating, rating > 0 {
+                        HStack(spacing: 2) {
+                            ForEach(1...5, id: \.self) { star in
+                                Image(systemName: "star.fill")
+                                    .foregroundStyle(star <= rating ? DS.Colors.warning : Color.surfaceSecondary)
+                            }
+                        }
+                        .font(.system(size: 9))
+                        .accessibilityLabel("\(rating) étoiles sur 5")
+                    }
+                    if let minutes = activity.minutes, minutes > 0 {
+                        Text(minutes >= 60 ? "\(minutes / 60) h \(minutes % 60 > 0 ? "\(minutes % 60)" : "")" : "\(minutes) min")
+                    }
+                    Text(activity.createdAt, format: .relative(presentation: .named))
+                }
+                .font(DS.Typography.caption)
+                .foregroundStyle(Color.textTertiary)
+
+                if let review = activity.review, !review.isEmpty {
+                    Text(review)
+                        .font(DS.Typography.body)
+                        .foregroundStyle(Color.textSecondary)
+                        .lineLimit(4)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, DS.Spacing.sm)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(Color.gbBorder).frame(height: 0.5).padding(.leading, 52)
+        }
+    }
+}
+
+/// Initial on a coloured disc (no photos yet): the colour is stable per pseudo.
+struct PlayerAvatar: View {
+    let name: String
+    let size: CGFloat
+
+    private var color: Color {
+        let palette: [Color] = [.accent, DS.Colors.success, GameStatus.completed.color, DS.Colors.warning, Color(hex: "C79BFF")]
+        let sum = name.unicodeScalars.reduce(0) { $0 + Int($1.value) }
+        return palette[sum % palette.count]
+    }
+
+    var body: some View {
+        Text(name.prefix(1).uppercased())
+            .font(.system(size: size * 0.45, weight: .bold))
+            .foregroundStyle(Color.gbDark)
+            .frame(width: size, height: size)
+            .background(color, in: Circle())
+            .accessibilityHidden(true)
+    }
+}
+
 #Preview {
     NavigationStack { SocialView() }
         .environment(GameStore())

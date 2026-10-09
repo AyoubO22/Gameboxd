@@ -33,11 +33,8 @@ final class GameStore {
     var isLoadingUpcoming = false
     var isSearching = false
     
-    // NEW: Achievements, Social
     var achievements: [Achievement] = []
     var customTags: [CustomTag] = []
-    var friends: [Friend] = []
-    var activityFeed: [ActivityItem] = []
     var notifications: [GameNotification] = []
     var recentlyUnlockedAchievements: [Achievement] = []
     
@@ -131,7 +128,6 @@ final class GameStore {
         loadUserProfile()
         loadAchievements()
         loadCustomTags()
-        loadFriends()
         loadMonthlyGoals()
         loadLinkedAccounts()
         loadImportedGames()
@@ -615,6 +611,7 @@ final class GameStore {
             updated.completedDate = Date()
         }
 
+        let previous = index.map { myGames[$0] }
         if let index {
             updated.id = myGames[index].id
             if updated.boxArtURL == nil { updated.boxArtURL = myGames[index].boxArtURL }
@@ -623,6 +620,7 @@ final class GameStore {
             myGames.append(updated)
             Task { await fetchMissingBoxArt() }
         }
+        shareChanges(from: previous, to: updated)
 
         // Sync favorite state with userProfile
         syncFavoriteIds(for: updated, syncWidget: false)
@@ -716,6 +714,26 @@ final class GameStore {
     
     // MARK: - Play Session Methods
     
+    /// Tells followers about what changed: a new game, a finish, a first rating, a review.
+    /// Small edits (moving the rating, retyping the review) aren't re-shared.
+    private func shareChanges(from old: Game?, to new: Game) {
+        let social = SocialService.shared
+        guard let old else {
+            social.publish(new.status == .platinum ? .platinum : new.status == .completed ? .completed : .added, game: new)
+            return
+        }
+        if new.status != old.status, new.status == .completed || new.status == .platinum {
+            social.publish(new.status == .platinum ? .platinum : .completed, game: new, rating: new.rating > 0 ? new.rating : nil)
+        }
+        if old.rating == 0, new.rating > 0 {
+            social.publish(.rated, game: new, rating: new.rating)
+        }
+        let review = new.review.trimmingCharacters(in: .whitespacesAndNewlines)
+        if old.review.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, !review.isEmpty, !new.isSpoiler {
+            social.publish(.reviewed, game: new, rating: new.rating > 0 ? new.rating : nil, review: review)
+        }
+    }
+
     func addPlaySession(_ session: PlaySession) {
         // Keep newest-first by session date, so back-dated entries land in place.
         let index = playSessions.firstIndex { $0.date < session.date } ?? playSessions.endIndex
@@ -724,6 +742,7 @@ final class GameStore {
         // Update game's total play time
         if let index = myGames.firstIndex(where: { $0.id == session.gameId }) {
             myGames[index].playTimeMinutes += session.duration
+            SocialService.shared.publish(.played, game: myGames[index], minutes: session.duration)
         }
         
         savePlaySessions()
@@ -1109,18 +1128,6 @@ final class GameStore {
     }
     
     
-    // MARK: - Friends & Social
-    
-    private func loadFriends() {
-        if let decoded = load([Friend].self, key: StorageKeys.friends) {
-            friends = decoded
-        }
-    }
-    
-    private func saveFriends() {
-        fileStore.save(friends, key: StorageKeys.friends)
-    }
-    
     // MARK: - Monthly Goals
     
     private func loadMonthlyGoals() {
@@ -1225,57 +1232,6 @@ final class GameStore {
         saveMonthlyGoals()
     }
     
-    
-    func addFriend(_ friend: Friend) {
-        var newFriend = friend
-        newFriend.isFollowing = true
-        friends.append(newFriend)
-        saveFriends()
-        generateMockActivity(for: newFriend)
-    }
-    
-    func removeFriend(_ friend: Friend) {
-        friends.removeAll { $0.id == friend.id }
-        activityFeed.removeAll { $0.username == friend.username }
-        saveFriends()
-    }
-    
-    func toggleFollowFriend(_ friend: Friend) {
-        if let index = friends.firstIndex(where: { $0.id == friend.id }) {
-            friends[index].isFollowing.toggle()
-            if !friends[index].isFollowing {
-                activityFeed.removeAll { $0.username == friend.username }
-            } else {
-                generateMockActivity(for: friends[index])
-            }
-            saveFriends()
-        }
-    }
-    
-    private func generateMockActivity(for friend: Friend) {
-        // Generate some mock activity for demo purposes
-        let mockGames = ["The Witcher 3", "Red Dead Redemption 2", "God of War", "Hades", "Celeste"]
-        let mockCovers = [
-            "https://media.rawg.io/media/games/618/618c2031a07bbff6b4f611f10b6f6f92.jpg",
-            "https://media.rawg.io/media/games/511/5118aff5091cb3efec399c808f8c598f.jpg"
-        ]
-        
-        for i in 0..<2 {
-            let activity = ActivityItem(
-                id: UUID(),
-                username: friend.username,
-                avatarEmoji: friend.avatarEmoji,
-                actionType: [.played, .completed, .rated].randomElement() ?? .played,
-                gameTitle: mockGames.randomElement() ?? "Unknown Game",
-                gameCoverURL: mockCovers.randomElement(),
-                rating: Int.random(in: 3...5),
-                review: i == 0 ? "Incroyable jeu!" : nil,
-                timestamp: Date().addingTimeInterval(Double(-i * 3600))
-            )
-            activityFeed.append(activity)
-        }
-        activityFeed.sort { $0.timestamp > $1.timestamp }
-    }
     
     // MARK: - Notifications
     
@@ -1382,8 +1338,6 @@ final class GameStore {
         playSessions = []
         gameLists = []
         customTags = []
-        friends = []
-        activityFeed = []
         achievements = []
         monthlyGoals = []
         completedGoals = []

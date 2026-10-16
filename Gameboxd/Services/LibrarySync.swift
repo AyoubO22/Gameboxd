@@ -65,7 +65,7 @@ nonisolated struct RemoteLibraryGame: Codable, Identifiable, Equatable {
         title = String(game.title.prefix(200))
         platform = game.platform.isEmpty ? nil : String(game.platform.prefix(60))
         releaseYear = game.releaseYear.isEmpty ? nil : String(game.releaseYear.prefix(10))
-        coverURL = game.artURL?.absoluteString
+        coverURL = RemoteImage.shareable(game.artURL?.absoluteString)
         genres = game.genres
         status = Self.key(for: game.status)
         rating = min(max(game.rating, 0), 5)

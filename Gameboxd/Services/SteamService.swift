@@ -8,11 +8,13 @@
 //  
 //  Setup:
 //  1. Get a Steam Web API Key from https://steamcommunity.com/dev/apikey
-//  2. Set it in SteamConfig.apiKey
+//  2. Store it as the STEAM_API_KEY secret of the `steam` Edge Function
+//     (supabase/functions/steam), never in the app
 //  3. User needs a public Steam profile
 //
 
 import Foundation
+import Supabase
 
 // MARK: - Steam Configuration
 /// Steam's public art for a game (no key needed): the key art and store screenshots.
@@ -38,16 +40,8 @@ enum SteamStore {
 }
 
 struct SteamConfig {
-    /// STEAM_API_KEY in Secrets.xcconfig (https://steamcommunity.com/dev/apikey).
-    /// ponytail: the key ships inside the app; move the calls behind a Supabase Edge
-    /// Function before the App Store, like IGDB's secret.
-    static var apiKey: String {
-        (Bundle.main.object(forInfoDictionaryKey: "STEAM_API_KEY") as? String) ?? ""
-    }
-    static let baseURL = "https://api.steampowered.com"
-    static let storeBaseURL = "https://store.steampowered.com"
-
-    static var isConfigured: Bool { !apiKey.isEmpty }
+    /// The Steam Web API key lives in the `steam` Edge Function; the app only needs Supabase.
+    static var isConfigured: Bool { SupabaseConfig.isConfigured }
 }
 
 // MARK: - Steam API Response Models
@@ -173,7 +167,7 @@ enum SteamServiceError: LocalizedError {
 ///
 /// ## Setup Instructions:
 /// 1. Register for a Steam Web API Key: https://steamcommunity.com/dev/apikey
-/// 2. Set STEAM_API_KEY in Secrets.xcconfig
+/// 2. Set STEAM_API_KEY as a secret of the `steam` Edge Function
 /// 3. Users need to:
 ///    - Have a public Steam profile (Settings → Privacy → Game Details: Public)
 ///    - Provide their Steam ID (64-bit) or custom URL name
@@ -187,36 +181,18 @@ enum SteamServiceError: LocalizedError {
 ///
 class SteamService {
     static let shared = SteamService()
-    
-    private let session: URLSession
-    
-    init() {
-        let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = 15
-        config.httpAdditionalHeaders = ["Accept": "application/json"]
-        self.session = URLSession(configuration: config)
-    }
-    
+
     // MARK: - Resolve Steam ID from custom URL
-    
+
     /// Resolves a Steam vanity URL (custom profile URL) to a 64-bit Steam ID
     /// Input: "myprofilename" from https://steamcommunity.com/id/myprofilename
     func resolveSteamId(vanityName: String) async throws -> String {
-        guard SteamConfig.isConfigured else { throw SteamServiceError.notConfigured }
-        
-        guard let url = URL(string: "\(SteamConfig.baseURL)/ISteamUser/ResolveVanityURL/v1/?key=\(SteamConfig.apiKey)&vanityurl=\(vanityName)") else {
-            throw SteamServiceError.invalidSteamId
-        }
-        
-        let (data, response) = try await session.data(from: url)
-        try validateResponse(response)
-        
-        let result = try JSONDecoder().decode(SteamVanityURLResponse.self, from: data)
-        
+        let result: SteamVanityURLResponse = try await call(SteamRequest(method: "resolveVanity", value: vanityName))
+
         guard result.response.success == 1, let steamId = result.response.steamid else {
             throw SteamServiceError.invalidSteamId
         }
-        
+
         return steamId
     }
     
@@ -256,51 +232,27 @@ class SteamService {
     
     /// Fetches Steam player profile summary
     func getPlayerSummary(steamId: String) async throws -> SteamPlayerSummary {
-        guard SteamConfig.isConfigured else { throw SteamServiceError.notConfigured }
-        
-        guard let url = URL(string: "\(SteamConfig.baseURL)/ISteamUser/GetPlayerSummaries/v2/?key=\(SteamConfig.apiKey)&steamids=\(steamId)") else {
-            throw SteamServiceError.invalidSteamId
-        }
-        
-        let (data, response) = try await session.data(from: url)
-        try validateResponse(response)
-        
-        let result = try JSONDecoder().decode(SteamPlayerSummaryResponse.self, from: data)
-        
+        let result: SteamPlayerSummaryResponse = try await call(SteamRequest(method: "playerSummary", value: steamId))
+
         guard let player = result.response.players.first else {
             throw SteamServiceError.invalidSteamId
         }
-        
+
         return player
     }
-    
+
     // MARK: - Game Library
-    
-    /// Fetches user's owned games with playtime
+
+    /// Fetches user's owned games with playtime (free games included)
     func getOwnedGames(steamId: String, includeAppInfo: Bool = true) async throws -> [SteamGame] {
-        guard SteamConfig.isConfigured else { throw SteamServiceError.notConfigured }
-        
-        var urlString = "\(SteamConfig.baseURL)/IPlayerService/GetOwnedGames/v1/?key=\(SteamConfig.apiKey)&steamid=\(steamId)&format=json"
-        if includeAppInfo {
-            urlString += "&include_appinfo=1"
-        }
-        urlString += "&include_played_free_games=1"
-        
-        guard let url = URL(string: urlString) else {
-            throw SteamServiceError.invalidSteamId
-        }
-        
-        let (data, response) = try await session.data(from: url)
-        try validateResponse(response)
-        
-        let result = try JSONDecoder().decode(SteamOwnedGamesResponse.self, from: data)
-        
+        let result: SteamOwnedGamesResponse = try await call(SteamRequest(method: "ownedGames", value: steamId, appInfo: includeAppInfo))
+
         // A private game list comes back as an empty response, without even a count.
         guard result.response.game_count != nil else { throw SteamServiceError.profilePrivate }
         guard let games = result.response.games, !games.isEmpty else {
             throw SteamServiceError.noGamesFound
         }
-        
+
         return games
     }
     
@@ -336,19 +288,37 @@ class SteamService {
     }
     
     // MARK: - Helpers
-    
-    private func validateResponse(_ response: URLResponse) throws {
-        guard let httpResponse = response as? HTTPURLResponse else { return }
-        
-        switch httpResponse.statusCode {
-        case 200: return
-        case 401: throw SteamServiceError.notConfigured
-        case 403: throw SteamServiceError.profilePrivate
-        case 429: throw SteamServiceError.rateLimited
-        default:
-            throw SteamServiceError.networkError("Code HTTP \(httpResponse.statusCode)")
+
+    /// Calls the Steam Web API through the `steam` Edge Function, which holds the key and
+    /// checks the input (17-digit ids, plain vanity names).
+    fileprivate func call<T: Decodable>(_ request: SteamRequest) async throws -> T {
+        guard let client = AccountService.shared.client else { throw SteamServiceError.notConfigured }
+        do {
+            return try await client.functions.invoke(
+                "steam",
+                options: FunctionInvokeOptions(body: request),
+                decoder: JSONDecoder()
+            )
+        } catch FunctionsError.httpError(let code, _) {
+            switch code {
+            case 400: throw SteamServiceError.invalidSteamId
+            case 403: throw SteamServiceError.profilePrivate
+            case 429: throw SteamServiceError.rateLimited
+            case 404, 503: throw SteamServiceError.notConfigured
+            default: throw SteamServiceError.networkError("Code HTTP \(code)")
+            }
+        } catch let error as DecodingError {
+            throw SteamServiceError.decodingError(error.localizedDescription)
         }
     }
+}
+
+/// What the `steam` Edge Function accepts (see supabase/functions/steam).
+nonisolated private struct SteamRequest: Encodable {
+    let method: String
+    var value: String?
+    var appId: Int?
+    var appInfo: Bool?
 }
 
 // MARK: - Achievements, friends, presence
@@ -378,9 +348,8 @@ extension SteamService {
             let playerstats: Stats
         }
         guard SteamConfig.isConfigured,
-              let url = URL(string: "\(SteamConfig.baseURL)/ISteamUserStats/GetPlayerAchievements/v1/?key=\(SteamConfig.apiKey)&steamid=\(steamId)&appid=\(appId)"),
-              let (data, _) = try? await URLSession.shared.data(from: url),
-              let stats = try? JSONDecoder().decode(Response.self, from: data).playerstats,
+              let response: Response = try? await call(SteamRequest(method: "achievements", value: steamId, appId: appId)),
+              case let stats = response.playerstats,
               stats.success, let list = stats.achievements, !list.isEmpty else { return nil }
         var unlocked: [String: Date] = [:]
         for achievement in list where achievement.achieved == 1 {
@@ -421,14 +390,13 @@ extension SteamService {
         }
         var result: [String: (name: String, icon: URL?, percent: Double?)] = [:]
         if SteamConfig.isConfigured,
-           let url = URL(string: "\(SteamConfig.baseURL)/ISteamUserStats/GetSchemaForGame/v2/?key=\(SteamConfig.apiKey)&appid=\(appId)&l=french"),
-           let (data, _) = try? await URLSession.shared.data(from: url),
-           let schema = try? JSONDecoder().decode(Schema.self, from: data) {
+           let schema: Schema = try? await call(SteamRequest(method: "schema", appId: appId)) {
             for a in schema.game.availableGameStats?.achievements ?? [] {
                 result[a.name] = (a.displayName, a.icon.flatMap(URL.init(string:)), nil)
             }
         }
-        if let url = URL(string: "\(SteamConfig.baseURL)/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v2/?gameid=\(appId)"),
+        // Public endpoint, no key: called directly.
+        if let url = URL(string: "https://api.steampowered.com/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v2/?gameid=\(appId)"),
            let (data, _) = try? await URLSession.shared.data(from: url),
            let global = try? JSONDecoder().decode(Global.self, from: data) {
             for entry in global.achievementpercentages.achievements {
@@ -446,9 +414,8 @@ extension SteamService {
             let friendslist: List?
         }
         guard SteamConfig.isConfigured,
-              let url = URL(string: "\(SteamConfig.baseURL)/ISteamUser/GetFriendList/v1/?key=\(SteamConfig.apiKey)&steamid=\(steamId)&relationship=friend"),
-              let (data, _) = try? await URLSession.shared.data(from: url),
-              let list = try? JSONDecoder().decode(Response.self, from: data).friendslist else { return [] }
+              let response: Response = try? await call(SteamRequest(method: "friends", value: steamId)),
+              let list = response.friendslist else { return [] }
         return list.friends.map(\.steamid)
     }
 
@@ -458,9 +425,7 @@ extension SteamService {
         var all: [SteamPlayerSummary] = []
         for start in stride(from: 0, to: steamIds.count, by: 100) {
             let ids = steamIds[start..<min(start + 100, steamIds.count)].joined(separator: ",")
-            guard let url = URL(string: "\(SteamConfig.baseURL)/ISteamUser/GetPlayerSummaries/v2/?key=\(SteamConfig.apiKey)&steamids=\(ids)"),
-                  let (data, _) = try? await URLSession.shared.data(from: url),
-                  let response = try? JSONDecoder().decode(SteamPlayerSummaryResponse.self, from: data) else { continue }
+            guard let response: SteamPlayerSummaryResponse = try? await call(SteamRequest(method: "playerSummary", value: ids)) else { continue }
             all += response.response.players
         }
         return all

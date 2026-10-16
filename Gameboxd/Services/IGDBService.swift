@@ -7,28 +7,15 @@
 //
 
 import Foundation
-
-enum IGDBConfig {
-    // Set IGDB_CLIENT_ID and IGDB_CLIENT_SECRET in Secrets.xcconfig
-    // (a free Twitch developer application). Without them the app keeps RAWG images.
-    static var clientID: String { value(for: "IGDB_CLIENT_ID") }
-    static var clientSecret: String { value(for: "IGDB_CLIENT_SECRET") }
-
-    private static func value(for key: String) -> String {
-        if let v = Bundle.main.object(forInfoDictionaryKey: key) as? String, !v.isEmpty { return v }
-        return ProcessInfo.processInfo.environment[key] ?? ""
-    }
-}
+import Supabase
 
 final class IGDBService {
     static let shared = IGDBService()
 
-    // ponytail: the client secret ships inside the app, so anyone can extract it and spend
-    // our IGDB quota. Fine for a personal build; before the App Store, move the token
-    // exchange behind a tiny proxy (e.g. a free Cloudflare Worker) and drop the secret here.
-    var isConfigured: Bool { !IGDBConfig.clientID.isEmpty && !IGDBConfig.clientSecret.isEmpty }
+    // The Twitch client secret lives in the `igdb` Edge Function (supabase/functions/igdb),
+    // never in the app. Without Supabase configured the app keeps RAWG images.
+    var isConfigured: Bool { SupabaseConfig.isConfigured }
 
-    private var token: (value: String, expires: Date)?
     private var cache: [String: URL?] = [:]
 
     struct SearchResult: Decodable {
@@ -172,34 +159,13 @@ final class IGDBService {
 
     // MARK: - HTTP
 
+    /// Runs an IGDB query through the `igdb` Edge Function, which holds the credentials.
     private func post<T: Decodable>(_ endpoint: String, body: String) async throws -> T {
-        var request = URLRequest(url: URL(string: "https://api.igdb.com/v4/\(endpoint)")!)
-        request.httpMethod = "POST"
-        request.setValue(IGDBConfig.clientID, forHTTPHeaderField: "Client-ID")
-        request.setValue("Bearer \(try await accessToken())", forHTTPHeaderField: "Authorization")
-        request.httpBody = Data(body.utf8)
-        let (data, response) = try await URLSession.shared.data(for: request)
-        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-        if status == 401 { token = nil }
-        guard (200...299).contains(status) else { throw URLError(.badServerResponse) }
-        return try JSONDecoder().decode(T.self, from: data)
-    }
-
-    private func accessToken() async throws -> String {
-        if let token, token.expires > Date() { return token.value }
-        var components = URLComponents(string: "https://id.twitch.tv/oauth2/token")!
-        components.queryItems = [
-            URLQueryItem(name: "client_id", value: IGDBConfig.clientID),
-            URLQueryItem(name: "client_secret", value: IGDBConfig.clientSecret),
-            URLQueryItem(name: "grant_type", value: "client_credentials"),
-        ]
-        var request = URLRequest(url: components.url!)
-        request.httpMethod = "POST"
-        let (data, response) = try await URLSession.shared.data(for: request)
-        guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw URLError(.userAuthenticationRequired) }
-        struct Token: Decodable { let access_token: String; let expires_in: TimeInterval }
-        let decoded = try JSONDecoder().decode(Token.self, from: data)
-        token = (decoded.access_token, Date().addingTimeInterval(decoded.expires_in - 60))
-        return decoded.access_token
+        guard let client = AccountService.shared.client else { throw URLError(.userAuthenticationRequired) }
+        return try await client.functions.invoke(
+            "igdb",
+            options: FunctionInvokeOptions(body: ["endpoint": endpoint, "query": body]),
+            decoder: JSONDecoder()
+        )
     }
 }

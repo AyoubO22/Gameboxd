@@ -83,17 +83,39 @@ final class SocialService {
     private(set) var following: Set<UUID> = []
 
     /// Public profile (Réglages): your collection and activity are visible to other players.
-    /// On by default once signed in. Turning it off takes the collection offline.
-    var isSharing: Bool = UserDefaults.standard.object(forKey: SocialService.sharingKey) as? Bool ?? true {
-        didSet {
-            UserDefaults.standard.set(isSharing, forKey: Self.sharingKey)
-            guard isSharing != oldValue else { return }
-            Task {
-                if isSharing { await LibrarySync.shared.pushCurrent() } else { await LibrarySync.shared.removeAll() }
-            }
+    /// On by default. Stored in `profiles.is_public`, so the server enforces it: while it's
+    /// off, nobody else can read your collection or activity.
+    var isSharing: Bool {
+        get {
+            // A "private" choice made when this setting lived on the phone wins until it
+            // has been carried over to the account.
+            if UserDefaults.standard.object(forKey: Self.legacySharingKey) as? Bool == false { return false }
+            return account.profile?.isPublic ?? true
+        }
+        set {
+            guard newValue != isSharing, account.isSignedIn else { return }
+            Task { await setSharing(newValue) }
         }
     }
-    private static let sharingKey = "gameboxd_share_activity"
+    private static let legacySharingKey = "gameboxd_share_activity"
+
+    private func setSharing(_ value: Bool) async {
+        do {
+            try await account.setPublic(value)
+        } catch {
+            return // setPublic already put the switch back
+        }
+        UserDefaults.standard.removeObject(forKey: Self.legacySharingKey)
+        if value { await LibrarySync.shared.pushCurrent() } else { await LibrarySync.shared.removeAll() }
+    }
+
+    /// Carries a "private" choice made on the phone (before it moved online) over to the
+    /// account. Run at launch and after sign-in, before the collection is pushed.
+    func migrateLegacySharing() async {
+        guard account.isSignedIn,
+              UserDefaults.standard.object(forKey: Self.legacySharingKey) as? Bool == false else { return }
+        await setSharing(false)
+    }
 
     private let account = AccountService.shared
     private static let activityColumns = "*, profiles(username, display_name)"
@@ -222,7 +244,7 @@ final class SocialService {
     func publish(_ kind: RemoteActivity.Kind, game: Game, rating: Int? = nil, review: String? = nil, minutes: Int? = nil) {
         guard isSharing, let client, let myId else { return }
         let activity = NewActivity(user_id: myId, kind: kind.rawValue, game_title: game.title,
-                                   game_cover_url: game.artURL?.absoluteString, rating: rating,
+                                   game_cover_url: RemoteImage.shareable(game.artURL?.absoluteString), rating: rating,
                                    review: review.map { String($0.prefix(2000)) }, minutes: minutes)
         Task {
             do {

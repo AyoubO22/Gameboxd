@@ -361,7 +361,7 @@ private struct RemoteCover: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            CachedAsyncImage(url: game.coverURL.flatMap(URL.init(string:))) { image in
+            CachedAsyncImage(url: RemoteImage.url(game.coverURL)) { image in
                 image.resizable().aspectRatio(contentMode: .fill)
             } placeholder: {
                 Color.surfaceSecondary.overlay(
@@ -402,7 +402,7 @@ private struct RemoteGameSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: DS.Spacing.lg) {
                     HStack(alignment: .top, spacing: DS.Spacing.md) {
-                        CachedAsyncImage(url: game.coverURL.flatMap(URL.init(string:))) { image in
+                        CachedAsyncImage(url: RemoteImage.url(game.coverURL)) { image in
                             image.resizable().aspectRatio(contentMode: .fill)
                         } placeholder: { Color.surfaceSecondary }
                         .frame(width: 96, height: 132)
@@ -579,7 +579,7 @@ struct ActivityRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: DS.Spacing.sm) {
-            CachedAsyncImage(url: activity.gameCoverURL.flatMap(URL.init(string:))) { image in
+            CachedAsyncImage(url: RemoteImage.url(activity.gameCoverURL)) { image in
                 image.resizable().aspectRatio(contentMode: .fill)
             } placeholder: {
                 Color.surfaceSecondary

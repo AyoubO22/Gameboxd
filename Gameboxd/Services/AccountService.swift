@@ -34,12 +34,16 @@ nonisolated struct RemoteProfile: Codable, Identifiable, Equatable {
     var avatarURL: String?
     /// Public 64-bit Steam id, set when the player links Steam (finds Steam friends).
     var steamId: String?
+    /// "Profil public": while false, the server hides this player's collection and activity.
+    /// Optional so profiles still decode before supabase/schema.sql v4 is run.
+    var isPublic: Bool?
 
     enum CodingKeys: String, CodingKey {
         case id, username, bio
         case displayName = "display_name"
         case avatarURL = "avatar_url"
         case steamId = "steam_id"
+        case isPublic = "is_public"
     }
 }
 
@@ -143,6 +147,21 @@ final class AccountService {
             throw Self.translate(error)
         }
         await signOut()
+    }
+
+    /// Shows or hides your collection and activity to other players. Applied right away on
+    /// the phone, rolled back if the server refuses.
+    func setPublic(_ value: Bool) async throws {
+        let client = try requireClient()
+        guard let id = profile?.id else { return }
+        let previous = profile?.isPublic
+        profile?.isPublic = value
+        do {
+            try await client.from("profiles").update(["is_public": value]).eq("id", value: id).execute()
+        } catch {
+            profile?.isPublic = previous
+            throw Self.translate(error)
+        }
     }
 
     func isUsernameAvailable(_ name: String) async throws -> Bool {

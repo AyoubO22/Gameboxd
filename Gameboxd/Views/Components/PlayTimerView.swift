@@ -2,30 +2,22 @@
 //  PlayTimerView.swift
 //  Gameboxd
 //
-//  Floating overlay that surfaces the active play-session timer above all content.
+//  The active play-session timer: docked in the tab bar accessory on iOS 26.1+,
+//  as a floating card on iOS 26.0.
 //
 
 import SwiftUI
 
-/// A floating bottom-anchored overlay that displays the active play-session timer.
+/// A floating bottom-anchored card that displays the active play-session timer.
+/// Used on iOS 26.0 only; `MainTabView` docks `SessionAccessory` in the tab bar on 26.1+.
 ///
 /// The overlay is fully transparent when no session is running, so it can be
-/// permanently attached to the root view hierarchy without any conditional
-/// wrapping at the call site:
-///
-/// ```swift
-/// ZStack(alignment: .bottom) {
-///     MainTabView()
-///     PlayTimerOverlay(timerManager: timerManager) {
-///         handleSessionStop()
-///     }
-/// }
-/// ```
+/// permanently attached without any conditional wrapping at the call site.
 struct PlayTimerOverlay: View {
 
     // MARK: - Dependencies
 
-    let timerManager: TimerManager
+    @Environment(TimerManager.self) private var timerManager
 
     /// Called when the user taps the stop button.
     /// The caller is responsible for persisting the returned elapsed minutes.
@@ -135,5 +127,84 @@ struct PlayTimerOverlay: View {
     private var overlayBorder: some View {
         RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
             .stroke(Color.separator, lineWidth: 1)
+    }
+}
+
+// MARK: - Tab Bar Accessory
+
+/// The timer as a tab bar accessory (iOS 26.1+). The system draws the glass capsule,
+/// so this view has no background of its own. Expanded above the bar it shows the
+/// cover, title and time; folded into a minimized bar it keeps the time and controls.
+@available(iOS 26.1, *)
+struct SessionAccessory: View {
+    @Environment(TimerManager.self) private var timerManager
+    @Environment(\.tabViewBottomAccessoryPlacement) private var placement
+
+    let onStop: () -> Void
+
+    var body: some View {
+        if let game = timerManager.activeGame {
+            HStack(spacing: DS.Spacing.sm) {
+                if placement != .inline {
+                    cover(for: game)
+
+                    Text(game.title)
+                        .font(DS.Typography.captionMedium)
+                        .foregroundStyle(Color.textPrimary)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 0)
+
+                Text(timerManager.formattedTime)
+                    .font(DS.Typography.headline.monospacedDigit())
+                    .foregroundStyle(Color.accent)
+                    .contentTransition(.numericText())
+                    .animation(.linear(duration: 0.3), value: timerManager.formattedTime)
+
+                Button {
+                    if timerManager.isPaused {
+                        timerManager.resume()
+                    } else {
+                        timerManager.pause()
+                    }
+                } label: {
+                    Image(systemName: timerManager.isPaused ? "play.fill" : "pause.fill")
+                        .foregroundStyle(Color.textPrimary)
+                        .frame(width: 32, height: 32)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityLabel(timerManager.isPaused ? "Reprendre le chrono" : "Mettre le chrono en pause")
+
+                Button(action: onStop) {
+                    Image(systemName: "stop.fill")
+                        .foregroundStyle(DS.Colors.error)
+                        .frame(width: 32, height: 32)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityLabel("Arrêter et enregistrer la session")
+            }
+            .font(.body.weight(.semibold))
+            .padding(.horizontal, DS.Spacing.sm)
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Session en cours : \(game.title)")
+        }
+    }
+
+    @ViewBuilder
+    private func cover(for game: Game) -> some View {
+        Group {
+            if let url = game.artURL {
+                CachedAsyncImage(url: url) { image in
+                    image.resizable().aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    Rectangle().fill(game.coverColor.gradient)
+                }
+            } else {
+                Rectangle().fill(game.coverColor.gradient)
+            }
+        }
+        .frame(width: 24, height: 32)
+        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
     }
 }

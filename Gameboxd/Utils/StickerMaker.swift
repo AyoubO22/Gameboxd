@@ -146,9 +146,22 @@ nonisolated enum StickerMaker {
         let small = image.transformed(by: .init(scaleX: 8 / image.extent.width, y: 8 / image.extent.height))
         var pixels = [UInt8](repeating: 0, count: 8 * 8 * 4)
         context.render(small, toBitmap: &pixels, rowBytes: 32, bounds: CGRect(x: 0, y: 0, width: 8, height: 8), format: .RGBA8, colorSpace: nil)
-        let luma = stride(from: 0, to: pixels.count, by: 4).map { (Int(pixels[$0]) + Int(pixels[$0 + 1]) + Int(pixels[$0 + 2])) / 3 }
-        let mean = luma.reduce(0, +) / luma.count
-        return luma.enumerated().reduce(UInt64(0)) { $1.element > mean ? $0 | (1 << UInt64($1.offset)) : $0 }
+        // Plain loops with explicit types: the one-line map/reduce version made the
+        // compiler give up ("unable to type-check this expression in reasonable time").
+        var luma: [Int] = []
+        luma.reserveCapacity(pixels.count / 4)
+        for i in stride(from: 0, to: pixels.count, by: 4) {
+            let red: Int = Int(pixels[i])
+            let green: Int = Int(pixels[i + 1])
+            let blue: Int = Int(pixels[i + 2])
+            luma.append((red + green + blue) / 3)
+        }
+        let mean: Int = luma.reduce(0, +) / luma.count
+        var hash: UInt64 = 0
+        for (offset, value) in luma.enumerated() where value > mean {
+            hash |= UInt64(1) << UInt64(offset)
+        }
+        return hash
     }
 
     private static func containsPerson(_ image: CGImage) -> Bool {

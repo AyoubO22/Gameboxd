@@ -6,10 +6,12 @@
 //  player's public page. Backed by Supabase (SocialService); needs an account.
 //
 
+import AuthenticationServices
 import SwiftUI
 
 struct SocialView: View {
     @Environment(GameStore.self) private var store
+    @Environment(\.webAuthenticationSession) private var webAuthenticationSession
     private let account = AccountService.shared
     private let social = SocialService.shared
 
@@ -39,6 +41,27 @@ struct SocialView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(error ?? "")
+        }
+    }
+
+    // MARK: - Steam
+
+    /// Steam sign-in in a browser sheet; the server saves the Steam id once Steam confirms it.
+    private func linkSteam() async {
+        do {
+            let url = try await social.steamLinkURL()
+            let callback = try await webAuthenticationSession.authenticate(using: url, callbackURLScheme: "gameboxd")
+            let failed = URLComponents(url: callback, resolvingAgainstBaseURL: false)?
+                .queryItems?.contains { $0.name == "error" } ?? true
+            if failed {
+                error = "Steam n'a pas confirmé ce compte. Réessaie avec le compte Steam lié dans l'app."
+                return
+            }
+            await account.reloadProfile()
+        } catch let authError as ASWebAuthenticationSessionError where authError.code == .canceledLogin {
+            return
+        } catch {
+            self.error = "La liaison avec Steam a échoué. Réessaie."
         }
     }
 
@@ -92,8 +115,30 @@ struct SocialView: View {
         }
     }
 
+    /// Steam linked on this phone but not yet proven on the profile.
+    private var unverifiedSteamId: String? {
+        guard let steamId = SteamSync.shared.steamId(in: store), account.profile?.steamId != steamId else { return nil }
+        return steamId
+    }
+
     private var playersList: some View {
         List {
+            if query.count < 2, unverifiedSteamId != nil {
+                Section {
+                    Button {
+                        Task { await linkSteam() }
+                    } label: {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Montrer mon Steam à mes amis")
+                                .foregroundStyle(Color.textPrimary)
+                            Text("Connecte-toi à Steam pour prouver que ce compte est le tien. Tes amis Steam pourront alors te trouver ici.")
+                                .font(DS.Typography.caption)
+                                .foregroundStyle(Color.textSecondary)
+                        }
+                    }
+                    .listRowBackground(Color.gbCard)
+                }
+            }
             let newSteamFriends = steamFriends.filter { !social.following.contains($0.id) }
             if query.count < 2 && !newSteamFriends.isEmpty {
                 Section("Tes amis Steam sur Gameboxd") {

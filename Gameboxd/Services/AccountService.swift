@@ -95,6 +95,12 @@ final class AccountService {
         profile = try? await fetchProfile(id: session.user.id)
     }
 
+    /// Reads the profile again (after the server changed it, e.g. a verified Steam link).
+    func reloadProfile() async {
+        guard let id = profile?.id, let fresh = try? await fetchProfile(id: id) else { return }
+        profile = fresh
+    }
+
     func signUp(email: String, password: String, username: String) async throws {
         let client = try requireClient()
         let name = username.lowercased()

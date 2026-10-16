@@ -69,6 +69,10 @@ nonisolated private struct NewActivity: Encodable {
     let minutes: Int?
 }
 
+nonisolated private struct SteamLinkResponse: Decodable {
+    let url: URL
+}
+
 nonisolated private struct Follow: Codable {
     let follower_id: UUID
     let followee_id: UUID
@@ -172,10 +176,13 @@ final class SocialService {
 
     // MARK: - Steam
 
-    /// Puts your Steam id on your public profile so your Steam friends can find you.
-    func saveSteamId(_ steamId: String) async {
-        guard let client, let myId, account.profile?.steamId != steamId else { return }
-        _ = try? await client.from("profiles").update(["steam_id": steamId]).eq("id", value: myId).execute().status
+    /// Steam's sign-in page. Signing in there proves you own the Steam account, and only
+    /// then does your profile show its id so your Steam friends can find you: the app
+    /// itself can't write it (supabase/functions/steam-link, trigger in schema.sql).
+    func steamLinkURL() async throws -> URL {
+        guard let client else { throw AccountError.notConfigured }
+        let response: SteamLinkResponse = try await client.functions.invoke("steam-link", decoder: JSONDecoder())
+        return response.url
     }
 
     /// Your Steam friends who have a Gameboxd account (needs a public Steam friend list).

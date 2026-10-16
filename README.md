@@ -52,10 +52,13 @@ cp Secrets.xcconfig.example Secrets.xcconfig
 Put your RAWG key in `Secrets.xcconfig` (free at [rawg.io/apidocs](https://rawg.io/apidocs)). For accounts, social, IGDB box art and Steam import, add your Supabase host and anon key, run `supabase/schema.sql` in the SQL editor, then deploy the two functions with their keys as server secrets:
 
 ```bash
-supabase secrets set IGDB_CLIENT_ID=… IGDB_CLIENT_SECRET=… STEAM_API_KEY=…
+supabase secrets set IGDB_CLIENT_ID=… IGDB_CLIENT_SECRET=… STEAM_API_KEY=… STEAM_LINK_SECRET=…
 supabase functions deploy igdb
 supabase functions deploy steam
+supabase functions deploy steam-link --no-verify-jwt
 ```
+
+`STEAM_LINK_SECRET` is any long random string (`openssl rand -hex 32`). `steam-link` puts a player's Steam id on their profile only after they sign in through Steam, so nobody can claim someone else's account.
 
 Then open `Gameboxd.xcodeproj`, pick an iPhone simulator and run.
 

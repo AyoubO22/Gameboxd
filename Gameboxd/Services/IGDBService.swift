@@ -106,14 +106,28 @@ final class IGDBService {
     /// Characters never mentioned follow, recurring ones (more games) first.
     static func byProminence(_ characters: [Character], in story: String) -> [Character] {
         let text = story.lowercased()
+        // Split into small, explicitly typed steps: the one-line chain made the
+        // compiler give up ("unable to type-check this expression in reasonable time").
         func firstMention(_ c: Character) -> Int {
-            let names = [c.name.lowercased()] + c.name.lowercased().split(separator: " ").map(String.init).filter { $0.count >= 3 }
-            return names.compactMap { text.range(of: $0).map { text.distance(from: text.startIndex, to: $0.lowerBound) } }.min() ?? .max
+            let fullName: String = c.name.lowercased()
+            let parts: [String] = fullName.split(separator: " ").map(String.init).filter { $0.count >= 3 }
+            let names: [String] = [fullName] + parts
+            var best: Int = .max
+            for name in names {
+                guard let range = text.range(of: name) else { continue }
+                let offset: Int = text.distance(from: text.startIndex, to: range.lowerBound)
+                best = min(best, offset)
+            }
+            return best
         }
-        return characters
-            .map { ($0, firstMention($0)) }
-            .sorted { a, b in a.1 != b.1 ? a.1 < b.1 : (a.0.games?.count ?? 0) > (b.0.games?.count ?? 0) }
-            .map(\.0)
+        let ranked: [(character: Character, mention: Int)] = characters.map { (character: $0, mention: firstMention($0)) }
+        let sorted: [(character: Character, mention: Int)] = ranked.sorted { a, b in
+            if a.mention != b.mention { return a.mention < b.mention }
+            let gamesA: Int = a.character.games?.count ?? 0
+            let gamesB: Int = b.character.games?.count ?? 0
+            return gamesA > gamesB
+        }
+        return sorted.map { $0.character }
     }
 
     private static func imageURL(_ id: String, size: String) -> URL? {

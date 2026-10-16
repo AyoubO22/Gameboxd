@@ -69,7 +69,9 @@ nonisolated enum StickerMaker {
 
     /// Every usable subject in the image, people first. Empty on failure.
     static func cutouts(from data: Data) -> [Cutout] {
-        guard let image = downsized(data, maxPixelSize: 1200) else { return [] }
+        // Short side capped, not the long one: a wide banner (Steam's 3840 × 1240 key art)
+        // keeps enough height for its characters.
+        guard let image = downsized(data, shortSide: 1000, longSide: 2600) else { return [] }
         let handler = VNImageRequestHandler(cgImage: image)
         let request = VNGenerateForegroundInstanceMaskRequest()
         guard (try? handler.perform([request])) != nil, let observation = request.results?.first else { return [] }
@@ -91,6 +93,15 @@ nonisolated enum StickerMaker {
     }
 
     // MARK: - Steps
+
+    private static func downsized(_ data: Data, shortSide: CGFloat, longSide: CGFloat) -> CGImage? {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let w = props[kCGImagePropertyPixelWidth] as? CGFloat, let h = props[kCGImagePropertyPixelHeight] as? CGFloat,
+              w > 0, h > 0 else { return nil }
+        let scale = min(1, shortSide / min(w, h), longSide / max(w, h))
+        return downsized(data, maxPixelSize: Int(max(w, h) * scale))
+    }
 
     private static func downsized(_ data: Data, maxPixelSize: Int) -> CGImage? {
         guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }

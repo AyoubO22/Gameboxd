@@ -181,6 +181,9 @@ struct Game: Identifiable, Hashable, Codable {
     var startedDate: Date?
     var completedDate: Date?
     var rawgId: Int?
+    /// The game's Steam app id: set when imported from Steam, else found via RAWG.
+    /// Lets stickers use Steam's key art and store screenshots.
+    var steamAppId: Int? = nil
     var genres: [String]
     var metacriticScore: Int?
     var estimatedPlaytime: Int? // in hours from RAWG
@@ -310,6 +313,7 @@ struct Game: Identifiable, Hashable, Codable {
         startedDate = try c.decodeIfPresent(Date.self, forKey: .startedDate)
         completedDate = try c.decodeIfPresent(Date.self, forKey: .completedDate)
         rawgId = try c.decodeIfPresent(Int.self, forKey: .rawgId)
+        steamAppId = try c.decodeIfPresent(Int.self, forKey: .steamAppId)
         genres = try c.decodeIfPresent([String].self, forKey: .genres) ?? []
         metacriticScore = try c.decodeIfPresent(Int.self, forKey: .metacriticScore)
         estimatedPlaytime = try c.decodeIfPresent(Int.self, forKey: .estimatedPlaytime)

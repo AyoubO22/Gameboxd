@@ -134,6 +134,35 @@ final class SocialService {
         return try await (followers ?? 0, following ?? 0)
     }
 
+    // MARK: - Steam
+
+    /// Puts your Steam id on your public profile so your Steam friends can find you.
+    func saveSteamId(_ steamId: String) async {
+        guard let client, let myId, account.profile?.steamId != steamId else { return }
+        _ = try? await client.from("profiles").update(["steam_id": steamId]).eq("id", value: myId).execute().status
+    }
+
+    /// Your Steam friends who have a Gameboxd account (needs a public Steam friend list).
+    func steamFriendsOnGameboxd(steamId: String) async -> [RemoteProfile] {
+        guard let client else { return [] }
+        let ids = await SteamService.shared.friendIds(steamId: steamId)
+        guard !ids.isEmpty else { return [] }
+        let players: [RemoteProfile] = (try? await client.from("profiles").select().in("steam_id", values: ids).execute().value) ?? []
+        return players.filter { $0.id != myId }
+    }
+
+    /// What the players you follow are playing on Steam right now, by player id.
+    func nowPlaying() async -> [UUID: String] {
+        guard let players = try? await profiles(ids: following) else { return [:] }
+        let bySteamId = Dictionary(players.compactMap { p in p.steamId.map { ($0, p.id) } }, uniquingKeysWith: { a, _ in a })
+        let summaries = await SteamService.shared.summaries(steamIds: Array(bySteamId.keys))
+        var result: [UUID: String] = [:]
+        for summary in summaries {
+            if let game = summary.gameextrainfo, let id = bySteamId[summary.steamid] { result[id] = game }
+        }
+        return result
+    }
+
     // MARK: - Following
 
     func loadFollowing() async {

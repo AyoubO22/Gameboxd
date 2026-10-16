@@ -51,6 +51,8 @@ final class GameStore {
     var linkedAccounts: [LinkedAccount] = []
     /// Unlocked stickers, all games (see StickerRules for what unlocks them).
     var stickers: [Sticker] = []
+    /// Play Steam saw since last time, offered as diary sessions (see SteamSync).
+    var steamSuggestions: [SteamSessionSuggestion] = []
     var importedGames: [ImportedGame] = []
     
     // Services
@@ -76,14 +78,28 @@ final class GameStore {
         static let importedGames = "gameboxd_imported_games"
         static let discoverCache = "gameboxd_discover_cache"
         static let stickers = "gameboxd_stickers"
+        static let steamSuggestions = "gameboxd_steam_suggestions"
     }
     
     // Collections are stored as JSON files (see FileStore); small flags stay in UserDefaults.
-    private let fileStore: FileStore
+    private var fileStore: FileStore
+    /// The no-account space; accounts' spaces live inside it.
+    private let guestStore: FileStore
+    /// The app remembers the account between launches; tests (own space) don't.
+    private let remembersAccount: Bool
+    /// The account whose data is loaded (nil: no account). Remembered so the app reopens
+    /// on it right away, offline too.
+    private(set) var currentAccountId: UUID?
+    private static let currentAccountKey = "gameboxd_current_account"
 
     // MARK: - Initialization
-    init(fileStore: FileStore = .shared) {
-        self.fileStore = fileStore
+    init(fileStore: FileStore? = nil) {
+        // Tests pass their own space and start without an account.
+        let saved = fileStore == nil ? UserDefaults.standard.string(forKey: Self.currentAccountKey).flatMap(UUID.init(uuidString:)) : nil
+        guestStore = fileStore ?? .shared
+        remembersAccount = fileStore == nil
+        currentAccountId = saved
+        self.fileStore = .forAccount(saved, in: guestStore)
         isLoggedIn = UserDefaults.standard.bool(forKey: StorageKeys.isLoggedIn)
         loadAllData()
         initializeAchievements()
@@ -108,8 +124,8 @@ final class GameStore {
     }
     
     func logout() {
-        LibrarySync.shared.reset()
         Task { await AccountService.shared.signOut() }
+        switchAccount(to: nil)
         
         // Reset auth state
         userProfile.authProvider = "email"
@@ -122,6 +138,70 @@ final class GameStore {
     
     // MARK: - Persistence
     
+    // MARK: - Accounts on this phone
+
+    /// Loads the data of `account` (nil: no account). A brand new account takes the
+    /// collection made without an account (`claimGuestData`), moved so no other account
+    /// can get it too.
+    func switchAccount(to account: UUID?, claimGuestData: Bool = false) {
+        let legacy = remembersAccount && account != nil && UserDefaults.standard.string(forKey: Self.currentAccountKey) == nil
+            && UserDefaults.standard.bool(forKey: StorageKeys.isLoggedIn)
+        guard account != currentAccountId || legacy else { return }
+        let target = FileStore.forAccount(account, in: guestStore)
+        // Before accounts had their own space, the signed-in player used the shared one:
+        // their collection moves to their account on the first launch of this version.
+        if account != nil, !target.hasData, claimGuestData || legacy {
+            guestStore.moveContents(to: target)
+        }
+        fileStore.flush()
+        fileStore = target
+        currentAccountId = account
+        if remembersAccount {
+            if let account {
+                UserDefaults.standard.set(account.uuidString, forKey: Self.currentAccountKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: Self.currentAccountKey)
+            }
+        }
+        LibrarySync.shared.reset()
+        resetLoadedData()
+        loadAllData()
+        initializeAchievements()
+        updateGoalProgress()
+        syncStickers()
+        syncWidgetData()
+    }
+
+    /// Fills an empty collection from the account's online copy (a new phone, a reinstall).
+    func restoreFromCloud(_ games: [Game]) {
+        guard myGames.isEmpty, !games.isEmpty else { return }
+        myGames = games
+        saveGames()
+    }
+
+    func deleteLocalData(forAccount id: UUID) {
+        FileStore.forAccount(id, in: guestStore).removeAll()
+    }
+
+    func flush() { fileStore.flush() }
+
+    private func resetLoadedData() {
+        myGames = []
+        playSessions = []
+        gameLists = []
+        userProfile = UserProfile()
+        achievements = []
+        customTags = []
+        monthlyGoals = []
+        completedGoals = []
+        linkedAccounts = []
+        importedGames = []
+        stickers = []
+        steamSuggestions = []
+        notifications = []
+        recentlyUnlockedAchievements = []
+    }
+
     private func loadAllData() {
         loadGames()
         loadPlaySessions()
@@ -134,13 +214,15 @@ final class GameStore {
         loadImportedGames()
         loadDiscoverCache()
         stickers = load([Sticker].self, key: StorageKeys.stickers) ?? []
+        steamSuggestions = load([SteamSessionSuggestion].self, key: StorageKeys.steamSuggestions) ?? []
         // Recut art made by an older StickerMaker, once (v2: main character first;
-        // v3: same art in another crop no longer repeats). Unlocks are kept.
-        if UserDefaults.standard.integer(forKey: "gameboxd_sticker_art_version") < 3 {
+        // v3: same art in another crop no longer repeats; v4: Steam art as a source).
+        // Unlocks are kept.
+        if UserDefaults.standard.integer(forKey: "gameboxd_sticker_art_version") < 4 {
             StickerService.shared.remove(stickers)
             for i in stickers.indices { stickers[i].imageFile = nil }
             fileStore.save(stickers, key: StorageKeys.stickers)
-            UserDefaults.standard.set(3, forKey: "gameboxd_sticker_art_version")
+            UserDefaults.standard.set(4, forKey: "gameboxd_sticker_art_version")
         }
     }
     
@@ -268,6 +350,12 @@ final class GameStore {
         if let decoded = load([ImportedGame].self, key: StorageKeys.importedGames) {
             importedGames = decoded
         }
+        // Steam imports made before games kept their app id: give it back to them.
+        for imported in importedGames where imported.platform == .steam {
+            guard let gameId = imported.linkedGameId, let appId = Int(imported.platformGameId),
+                  let index = myGames.firstIndex(where: { $0.id == gameId }), myGames[index].steamAppId == nil else { continue }
+            myGames[index].steamAppId = appId
+        }
     }
     
     private func saveImportedGames() {
@@ -291,6 +379,8 @@ final class GameStore {
             )
             
             storeLinkedAccount(account, games: games)
+            // A fresh link starts counting from now: the whole history isn't "a session".
+            SteamSync.shared.resetBaseline(steamId: steamId)
             
         case .playstation:
             let (games, profile) = try await psnService.syncLibrary(psnId: platformId)
@@ -376,7 +466,7 @@ final class GameStore {
         case .playstation: platformName = "PlayStation"
         }
         
-        let game = Game(
+        var game = Game(
             title: importedGame.title,
             developer: "",
             platform: platformName,
@@ -387,6 +477,7 @@ final class GameStore {
             playTimeMinutes: importedGame.playtimeMinutes,
             completionPercentage: importedGame.completionPercentage
         )
+        if importedGame.platform == .steam { game.steamAppId = Int(importedGame.platformGameId) }
         
         myGames.append(game)
         saveGames()
@@ -736,14 +827,74 @@ final class GameStore {
         }
     }
 
-    func addPlaySession(_ session: PlaySession) {
+    // MARK: - Steam
+
+    /// Applies what SteamSync found: playtime (Steam knows more), completion from
+    /// achievements (100 % is a platinum) and new session suggestions. One save.
+    func applySteamSync(playtime: [UUID: Int], completion: [UUID: Int], suggestions: [SteamSessionSuggestion]) {
+        var changed = false
+        for index in myGames.indices {
+            let old = myGames[index]
+            var game = old
+            if let total = playtime[game.id], total > game.playTimeMinutes {
+                game.playTimeMinutes = total
+                if game.status == .wantToPlay || game.status == .none {
+                    game.status = .playing
+                    if game.startedDate == nil { game.startedDate = Date() }
+                }
+            }
+            if let percent = completion[game.id], percent != game.completionPercentage, game.status != .platinum || percent == 100 {
+                game.completionPercentage = percent
+                if percent == 100 {
+                    game.status = .platinum
+                    if game.completedDate == nil { game.completedDate = Date() }
+                }
+            }
+            if game != old {
+                myGames[index] = game
+                shareChanges(from: old, to: game)
+                changed = true
+            }
+        }
+        if !suggestions.isEmpty {
+            // One pending suggestion per game: a newer one adds up with the older.
+            for suggestion in suggestions {
+                if let i = steamSuggestions.firstIndex(where: { $0.gameId == suggestion.gameId }) {
+                    let previous = steamSuggestions[i]
+                    steamSuggestions[i] = SteamSessionSuggestion(gameId: previous.gameId, gameTitle: previous.gameTitle,
+                                                                 minutes: previous.minutes + suggestion.minutes, date: suggestion.date)
+                } else {
+                    steamSuggestions.append(suggestion)
+                }
+            }
+            fileStore.save(steamSuggestions, key: StorageKeys.steamSuggestions)
+        }
+        if changed { saveGames() }
+    }
+
+    /// Logs the suggested session. Its time is already in the game's total (Steam counted it).
+    func acceptSteamSuggestion(_ suggestion: SteamSessionSuggestion) {
+        if let game = myGames.first(where: { $0.id == suggestion.gameId }) {
+            addPlaySession(PlaySession(gameId: game.id, gameTitle: game.title, gameCoverURL: game.artURL?.absoluteString,
+                                       gameCoverColor: game.coverColor, date: suggestion.date, duration: suggestion.minutes),
+                           countsTowardPlaytime: false)
+        }
+        dismissSteamSuggestion(suggestion)
+    }
+
+    func dismissSteamSuggestion(_ suggestion: SteamSessionSuggestion) {
+        steamSuggestions.removeAll { $0.id == suggestion.id }
+        fileStore.save(steamSuggestions, key: StorageKeys.steamSuggestions)
+    }
+
+    func addPlaySession(_ session: PlaySession, countsTowardPlaytime: Bool = true) {
         // Keep newest-first by session date, so back-dated entries land in place.
         let index = playSessions.firstIndex { $0.date < session.date } ?? playSessions.endIndex
         playSessions.insert(session, at: index)
         
         // Update game's total play time
         if let index = myGames.firstIndex(where: { $0.id == session.gameId }) {
-            myGames[index].playTimeMinutes += session.duration
+            if countsTowardPlaytime { myGames[index].playTimeMinutes += session.duration }
             SocialService.shared.publish(.played, game: myGames[index], minutes: session.duration)
         }
         

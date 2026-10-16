@@ -211,6 +211,18 @@ class RAWGService: ObservableObject {
     }
     
     // MARK: - Get Screenshots
+    /// The game's Steam app id, from its store links. Nil when it isn't on Steam.
+    func steamAppID(gameId: Int) async throws -> Int? {
+        struct Stores: Decodable { struct Store: Decodable { let url: String? }; let results: [Store] }
+        guard hasValidAPIKey else { return nil }
+        let stores: Stores = try await fetch("/games/\(gameId)/stores")
+        return stores.results.lazy
+            .compactMap { $0.url }
+            .first { $0.contains("steampowered.com/app/") }
+            .flatMap { $0.components(separatedBy: "/app/").last?.split(separator: "/").first }
+            .flatMap { Int($0) }
+    }
+
     func getScreenshots(gameId: Int) async throws -> [RAWGScreenshot] {
         guard hasValidAPIKey else { return [] }
         let response: RAWGScreenshotsResponse = try await fetch("/games/\(gameId)/screenshots")

@@ -14,6 +14,7 @@ struct ContentView: View {
     @State private var toastAchievement: Achievement?
     @State private var achievementQueue: [Achievement] = []
     @State private var showingUsernameSetup = false
+    @Environment(\.scenePhase) private var scenePhase
     #if DEBUG
     @State private var debugGame: Game?
     #endif
@@ -60,8 +61,18 @@ struct ContentView: View {
         .task {
             LibrarySync.shared.store = store
             await AccountService.shared.restore()
+            // Offline, the profile can't load: stay on the space the app opened with.
+            if let id = AccountService.shared.profile?.id {
+                store.switchAccount(to: id)
+                await LibrarySync.shared.restore(into: store)
+            }
             await SocialService.shared.loadFollowing()
             await LibrarySync.shared.pushCurrent()
+            await SteamSync.shared.run(store: store)
+        }
+        .onChange(of: scenePhase) { _, phase in
+            // Back from a game: pick up the play Steam just recorded.
+            if phase == .active { Task { await SteamSync.shared.run(store: store) } }
         }
         .sheet(isPresented: $showingUsernameSetup) {
             UsernameSetupView()

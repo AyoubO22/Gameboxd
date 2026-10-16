@@ -32,11 +32,14 @@ nonisolated struct RemoteProfile: Codable, Identifiable, Equatable {
     var displayName: String?
     var bio: String?
     var avatarURL: String?
+    /// Public 64-bit Steam id, set when the player links Steam (finds Steam friends).
+    var steamId: String?
 
     enum CodingKeys: String, CodingKey {
         case id, username, bio
         case displayName = "display_name"
         case avatarURL = "avatar_url"
+        case steamId = "steam_id"
     }
 }
 

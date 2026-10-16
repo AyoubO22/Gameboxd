@@ -19,6 +19,8 @@ struct SocialView: View {
     @State private var query = ""
     @State private var results: [RemoteProfile] = []
     @State private var followed: [RemoteProfile] = []
+    @State private var steamFriends: [RemoteProfile] = []
+    @State private var nowPlaying: [UUID: String] = [:]
     @State private var error: String?
 
     enum Tab: String, CaseIterable { case feed = "Fil", players = "Joueurs" }
@@ -55,12 +57,20 @@ struct SocialView: View {
         .task {
             await social.loadFollowing()
             await reloadFeed()
+            followed = (try? await social.profiles(ids: social.following)) ?? []
+            nowPlaying = await social.nowPlaying()
+            if let steamId = SteamSync.shared.steamId(in: store) {
+                steamFriends = await social.steamFriendsOnGameboxd(steamId: steamId)
+            }
         }
     }
 
     private var feedList: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
+                if !nowPlaying.isEmpty {
+                    NowPlayingStrip(players: followed.filter { nowPlaying[$0.id] != nil }, games: nowPlaying)
+                }
                 if isLoadingFeed && feed.isEmpty {
                     ProgressView().tint(.accent).frame(maxWidth: .infinity).padding(.top, 60)
                 } else if feed.isEmpty {
@@ -76,15 +86,29 @@ struct SocialView: View {
             .padding(.horizontal)
             .padding(.bottom, 90)
         }
-        .refreshable { await reloadFeed() }
+        .refreshable {
+            await reloadFeed()
+            nowPlaying = await social.nowPlaying()
+        }
     }
 
     private var playersList: some View {
         List {
+            let newSteamFriends = steamFriends.filter { !social.following.contains($0.id) }
+            if query.count < 2 && !newSteamFriends.isEmpty {
+                Section("Tes amis Steam sur Gameboxd") {
+                    ForEach(newSteamFriends) { player in
+                        NavigationLink(destination: PlayerProfileView(player: player)) {
+                            PlayerRow(player: player, playing: nowPlaying[player.id])
+                        }
+                        .listRowBackground(Color.gbCard)
+                    }
+                }
+            }
             Section {
                 ForEach(query.count >= 2 ? results : followed) { player in
                     NavigationLink(destination: PlayerProfileView(player: player)) {
-                        PlayerRow(player: player)
+                        PlayerRow(player: player, playing: nowPlaying[player.id])
                     }
                     .listRowBackground(Color.gbCard)
                 }
@@ -160,6 +184,7 @@ struct PlayerProfileView: View {
 
     @State private var activities: [RemoteActivity] = []
     @State private var library: [RemoteLibraryGame] = []
+    @State private var playing: String?
     @State private var counts: (followers: Int, following: Int) = (0, 0)
     @State private var error: String?
 
@@ -179,6 +204,12 @@ struct PlayerProfileView: View {
                             .foregroundStyle(Color.textSecondary)
                     }
                     Spacer()
+                }
+
+                if let playing {
+                    Label("Joue à \(playing) en ce moment", systemImage: "gamecontroller.fill")
+                        .font(DS.Typography.bodyMedium)
+                        .foregroundStyle(DS.Colors.success)
                 }
 
                 if let bio = player.bio, !bio.isEmpty {
@@ -220,6 +251,9 @@ struct PlayerProfileView: View {
             async let numbers = social.counts(for: player.id)
             async let games = LibrarySync.shared.library(of: player.id)
             library = (try? await games) ?? []
+            if let steamId = player.steamId {
+                playing = await SteamService.shared.summaries(steamIds: [steamId]).first?.gameextrainfo
+            }
             activities = (try? await list) ?? []
             counts = (try? await numbers) ?? (0, 0)
         }
@@ -442,10 +476,57 @@ private struct RemoteGameSheet: View {
     }
 }
 
+// MARK: - Playing right now
+
+/// Followed players in a game at this moment (from Steam), at the top of the feed.
+private struct NowPlayingStrip: View {
+    let players: [RemoteProfile]
+    let games: [UUID: String]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: DS.Spacing.xs) {
+            Text("En jeu maintenant")
+                .font(DS.Typography.overline)
+                .tracking(1.2)
+                .foregroundStyle(Color.textTertiary)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: DS.Spacing.sm) {
+                    ForEach(players) { player in
+                        NavigationLink(destination: PlayerProfileView(player: player)) {
+                            HStack(spacing: DS.Spacing.xs) {
+                                PlayerAvatar(name: player.username, size: 28)
+                                    .overlay(alignment: .bottomTrailing) {
+                                        Circle().fill(DS.Colors.success).frame(width: 9, height: 9)
+                                            .overlay(Circle().stroke(Color.gbDark, lineWidth: 2))
+                                    }
+                                VStack(alignment: .leading, spacing: 0) {
+                                    Text("@\(player.username)")
+                                        .font(DS.Typography.captionMedium)
+                                        .foregroundStyle(Color.textPrimary)
+                                    Text(games[player.id] ?? "")
+                                        .font(DS.Typography.caption)
+                                        .foregroundStyle(DS.Colors.success)
+                                        .lineLimit(1)
+                                }
+                            }
+                            .padding(.horizontal, DS.Spacing.sm)
+                            .padding(.vertical, 6)
+                            .background(Color.surfacePrimary, in: Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+        .padding(.vertical, DS.Spacing.sm)
+    }
+}
+
 // MARK: - Rows
 
 private struct PlayerRow: View {
     let player: RemoteProfile
+    var playing: String? = nil
     private let social = SocialService.shared
 
     var body: some View {
@@ -455,9 +536,16 @@ private struct PlayerRow: View {
                 Text(player.displayName ?? player.username)
                     .font(DS.Typography.bodyMedium)
                     .foregroundStyle(Color.textPrimary)
-                Text("@\(player.username)")
-                    .font(DS.Typography.caption)
-                    .foregroundStyle(Color.textSecondary)
+                if let playing {
+                    Label("Joue à \(playing)", systemImage: "gamecontroller.fill")
+                        .font(DS.Typography.caption)
+                        .foregroundStyle(DS.Colors.success)
+                        .lineLimit(1)
+                } else {
+                    Text("@\(player.username)")
+                        .font(DS.Typography.caption)
+                        .foregroundStyle(Color.textSecondary)
+                }
             }
             Spacer()
             if social.following.contains(player.id) {

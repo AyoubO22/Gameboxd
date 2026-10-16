@@ -69,7 +69,8 @@ final class StickerService {
     }
 
     /// Reads art sources until there are `needed` distinct cut-outs or no sources left.
-    /// Character portraits and artworks (IGDB) first, then the game's screenshots.
+    /// Character portraits (IGDB) first, then key art (Steam, IGDB), then screenshots
+    /// (Steam's store, RAWG).
     private func pool(for game: Game, needed: Int) async -> (cutouts: [StickerMaker.Cutout], exhausted: Bool) {
         var entry = pools[game.id] ?? ([], 0, nil)
         if entry.sources == nil {
@@ -78,9 +79,14 @@ final class StickerService {
             guard let art = try? await IGDBService.shared.stickerArt(title: game.title, year: game.releaseYear) else {
                 return (entry.cutouts, false)
             }
+            var steamHero: [URL] = [], steamShots: [URL] = []
+            if let appId = await steamAppId(for: game) {
+                steamHero = SteamStore.heroURL(appId: appId).map { [$0] } ?? []
+                steamShots = await SteamStore.screenshots(appId: appId)
+            }
             entry.sources = art.portraits.map { Source(url: $0, isArtwork: false) }
-                + art.artworks.map { Source(url: $0, isArtwork: true) }
-                + game.screenshotURLs.compactMap(URL.init(string:)).map { Source(url: $0, isArtwork: false) }
+                + (steamHero + art.artworks).map { Source(url: $0, isArtwork: true) }
+                + (steamShots + game.screenshotURLs.compactMap(URL.init(string:))).map { Source(url: $0, isArtwork: false) }
         }
         let sources = entry.sources ?? []
         while entry.cutouts.count < needed, entry.sourcesRead < sources.count {
@@ -103,5 +109,12 @@ final class StickerService {
         }
         pools[game.id] = entry
         return (entry.cutouts, entry.sourcesRead >= sources.count)
+    }
+
+    /// Known for Steam imports; otherwise asked to RAWG (nil when the game isn't on Steam).
+    private func steamAppId(for game: Game) async -> Int? {
+        if let id = game.steamAppId { return id }
+        guard let rawgId = game.rawgId else { return nil }
+        return try? await RAWGService.shared.steamAppID(gameId: rawgId)
     }
 }

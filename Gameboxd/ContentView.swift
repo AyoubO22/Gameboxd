@@ -72,6 +72,7 @@ struct ContentView: View {
                 store.switchAccount(to: id)
                 await LibrarySync.shared.restore(into: store)
             }
+            await SocialService.shared.migrateLegacySharing()
             await SocialService.shared.loadFollowing()
             await LibrarySync.shared.pushCurrent()
             await SteamSync.shared.run(store: store)

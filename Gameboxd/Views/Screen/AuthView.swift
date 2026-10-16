@@ -228,6 +228,7 @@ struct AuthView: View {
         LibrarySync.shared.store = store
         Task {
             await LibrarySync.shared.restore(into: store)
+            await SocialService.shared.migrateLegacySharing()
             await SocialService.shared.loadFollowing()
             await LibrarySync.shared.pushCurrent()
         }

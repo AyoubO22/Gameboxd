@@ -32,9 +32,9 @@
 | --- | --- |
 | iOS app: library, diary, stats, goals, achievements, discover | ✅ Works |
 | RAWG game data | ✅ Works with your own API key |
-| IGDB box art | ✅ Optional, needs a Twitch app ID and secret |
+| IGDB box art | ✅ Optional, through the `igdb` Supabase Edge Function (Twitch app ID and secret stay on the server) |
 | Home screen widget | ✅ Separate target, shares data through an App Group |
-| Steam | ⚠️ Real REST client, needs your own Steam Web API key |
+| Steam | ⚠️ Real REST client, through the `steam` Supabase Edge Function (Steam Web API key stays on the server) |
 | PlayStation, Google sign-in | ⚠️ Stubs that show the intended API shape |
 | Social feed | ⚠️ Local demo data, no backend yet |
 | `Docker/` | ⚠️ Deployment sketch for a future backend, which isn't in this repo |
@@ -49,7 +49,18 @@ cd Gameboxd
 cp Secrets.xcconfig.example Secrets.xcconfig
 ```
 
-Put your RAWG key in `Secrets.xcconfig` (free at [rawg.io/apidocs](https://rawg.io/apidocs)). The IGDB keys are optional and only add portrait box art. Then open `Gameboxd.xcodeproj`, pick an iPhone simulator and run.
+Put your RAWG key in `Secrets.xcconfig` (free at [rawg.io/apidocs](https://rawg.io/apidocs)). For accounts, social, IGDB box art and Steam import, add your Supabase host and anon key, run `supabase/schema.sql` in the SQL editor, then deploy the two functions with their keys as server secrets:
+
+```bash
+supabase secrets set IGDB_CLIENT_ID=… IGDB_CLIENT_SECRET=… STEAM_API_KEY=… STEAM_LINK_SECRET=…
+supabase functions deploy igdb
+supabase functions deploy steam
+supabase functions deploy steam-link --no-verify-jwt
+```
+
+`STEAM_LINK_SECRET` is any long random string (`openssl rand -hex 32`). `steam-link` puts a player's Steam id on their profile only after they sign in through Steam, so nobody can claim someone else's account.
+
+Then open `Gameboxd.xcodeproj`, pick an iPhone simulator and run.
 
 The app also builds without any key: RAWG calls then return empty results.
 

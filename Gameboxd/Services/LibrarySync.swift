@@ -42,6 +42,19 @@ nonisolated struct RemoteLibraryGame: Codable, Identifiable, Equatable {
         return game
     }
 
+    /// Same bounds as the database check: at most 30 labels, 1000 characters in all.
+    static func boundedGenres(_ genres: [String]) -> [String] {
+        var kept: [String] = []
+        var length = 0
+        for genre in genres.prefix(30) {
+            let added = genre.count + (kept.isEmpty ? 0 : 1)
+            guard length + added <= 1000 else { break }
+            kept.append(genre)
+            length += added
+        }
+        return kept
+    }
+
     /// Stable keys online; the app's own raw values are French labels.
     static func key(for status: GameStatus) -> String {
         switch status {
@@ -65,8 +78,8 @@ nonisolated struct RemoteLibraryGame: Codable, Identifiable, Equatable {
         title = String(game.title.prefix(200))
         platform = game.platform.isEmpty ? nil : String(game.platform.prefix(60))
         releaseYear = game.releaseYear.isEmpty ? nil : String(game.releaseYear.prefix(10))
-        coverURL = game.artURL?.absoluteString
-        genres = game.genres
+        coverURL = RemoteImage.shareable(game.artURL?.absoluteString)
+        genres = Self.boundedGenres(game.genres)
         status = Self.key(for: game.status)
         rating = min(max(game.rating, 0), 5)
         let text = game.review.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -182,6 +195,7 @@ final class LibrarySync {
             .select()
             .eq("user_id", value: user)
             .order("updated_at", ascending: false)
+            .limit(10_000) // the database's per-player quota
             .execute().value
     }
 }

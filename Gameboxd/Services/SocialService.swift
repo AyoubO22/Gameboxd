@@ -87,9 +87,7 @@ final class SocialService {
     /// off, nobody else can read your collection or activity.
     var isSharing: Bool {
         get {
-            // A "private" choice made when this setting lived on the phone wins until it
-            // has been carried over to the account.
-            if UserDefaults.standard.object(forKey: Self.legacySharingKey) as? Bool == false { return false }
+            if hasLegacyPrivateChoice { return false }
             return account.profile?.isPublic ?? true
         }
         set {
@@ -97,23 +95,39 @@ final class SocialService {
             Task { await setSharing(newValue) }
         }
     }
+
+    /// Before this setting lived on the account, "private" was one switch for the whole
+    /// phone, without knowing which account turned it off. Every account on this phone
+    /// stays private until it has carried that choice over (or turned sharing back on).
     private static let legacySharingKey = "gameboxd_share_activity"
+    private static let legacyCarriedOverKey = "gameboxd_share_activity_carried_over"
+
+    private var hasLegacyPrivateChoice: Bool {
+        guard UserDefaults.standard.object(forKey: Self.legacySharingKey) as? Bool == false,
+              let myId else { return false }
+        let done = UserDefaults.standard.stringArray(forKey: Self.legacyCarriedOverKey) ?? []
+        return !done.contains(myId.uuidString)
+    }
 
     private func setSharing(_ value: Bool) async {
+        guard let id = myId else { return }
         do {
             try await account.setPublic(value)
         } catch {
             return // setPublic already put the switch back
         }
-        UserDefaults.standard.removeObject(forKey: Self.legacySharingKey)
+        var done = UserDefaults.standard.stringArray(forKey: Self.legacyCarriedOverKey) ?? []
+        if !done.contains(id.uuidString) {
+            done.append(id.uuidString)
+            UserDefaults.standard.set(done, forKey: Self.legacyCarriedOverKey)
+        }
         if value { await LibrarySync.shared.pushCurrent() } else { await LibrarySync.shared.removeAll() }
     }
 
-    /// Carries a "private" choice made on the phone (before it moved online) over to the
-    /// account. Run at launch and after sign-in, before the collection is pushed.
+    /// Carries the old phone-wide "private" choice over to the signed-in account. Run at
+    /// launch and after sign-in, before the collection is pushed.
     func migrateLegacySharing() async {
-        guard account.isSignedIn,
-              UserDefaults.standard.object(forKey: Self.legacySharingKey) as? Bool == false else { return }
+        guard hasLegacyPrivateChoice else { return }
         await setSharing(false)
     }
 

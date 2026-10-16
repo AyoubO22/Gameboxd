@@ -19,5 +19,13 @@ final class RemoteImageTests: XCTestCase {
         XCTAssertFalse(RemoteImage.isAllowed("file:///var/mobile/cover.jpg"))
         XCTAssertNil(RemoteImage.url(nil))
         XCTAssertNil(RemoteImage.shareable("https://evil.example/x.jpg"))
+        XCTAssertFalse(RemoteImage.isAllowed("https://media.rawg.io/" + String(repeating: "a", count: 3000)))
+    }
+
+    func testGenresAreBoundedLikeTheDatabase() {
+        XCTAssertEqual(RemoteLibraryGame.boundedGenres(Array(repeating: "RPG", count: 50)).count, 30)
+        let long = RemoteLibraryGame.boundedGenres(Array(repeating: String(repeating: "x", count: 400), count: 5))
+        XCTAssertEqual(long.count, 2)
+        XCTAssertLessThanOrEqual(long.joined(separator: ",").count, 1000)
     }
 }

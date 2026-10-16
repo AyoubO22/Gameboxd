@@ -15,7 +15,7 @@ nonisolated enum RemoteImage {
     private static let pattern = #"^https://([a-z0-9-]+\.)*(rawg\.io|igdb\.com|steamstatic\.com|steampowered\.com|playstation\.com|playstation\.net)/"#
 
     static func isAllowed(_ string: String) -> Bool {
-        string.range(of: pattern, options: .regularExpression) != nil
+        string.utf8.count <= 2048 && string.range(of: pattern, options: .regularExpression) != nil
     }
 
     /// The string itself when it may be shared, nil otherwise.

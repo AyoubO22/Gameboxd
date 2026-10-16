@@ -171,7 +171,9 @@ create policy "libraries of public profiles" on public.library_games for select 
 -- Mirrored in the app by RemoteImage.isAllowed.
 create or replace function public.is_allowed_image_url(url text)
 returns boolean language sql immutable as $$
-    select url is null or url ~ '^https://([a-z0-9-]+\.)*(rawg\.io|igdb\.com|steamstatic\.com|steampowered\.com|playstation\.com|playstation\.net)/';
+    select url is null
+        or (char_length(url) <= 2048
+            and url ~ '^https://([a-z0-9-]+\.)*(rawg\.io|igdb\.com|steamstatic\.com|steampowered\.com|playstation\.com|playstation\.net)/');
 $$;
 update public.profiles set avatar_url = null where not public.is_allowed_image_url(avatar_url);
 update public.activities set game_cover_url = null where not public.is_allowed_image_url(game_cover_url);
@@ -182,6 +184,12 @@ alter table public.activities drop constraint if exists activities_cover_allowed
 alter table public.activities add constraint activities_cover_allowed check (public.is_allowed_image_url(game_cover_url));
 alter table public.library_games drop constraint if exists library_games_cover_allowed;
 alter table public.library_games add constraint library_games_cover_allowed check (public.is_allowed_image_url(cover_url));
+
+-- Genres: a short list of short labels, not a place to store megabytes.
+update public.library_games set genres = genres[1:30] where cardinality(genres) > 30;
+alter table public.library_games drop constraint if exists library_games_genres_bounded;
+alter table public.library_games add constraint library_games_genres_bounded
+    check (cardinality(genres) <= 30 and char_length(array_to_string(genres, ',')) <= 1000);
 
 -- Names that would pass for the app itself. Existing accounts are left alone (not valid);
 -- new pseudos and new display names are checked.

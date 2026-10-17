@@ -256,18 +256,31 @@ struct ShelfLibrary<Menu: View>: View {
             ForEach(sections) { section in
                 VStack(alignment: .leading, spacing: DS.Spacing.xs) {
                     ShelfLabel(title: section.title, count: section.games.count)
+                    // Games in progress stand face out, cover forward, like the new releases
+                    // in a shop; the rest are spines packed tight.
+                    let facesOut = section.id == "playing"
                     ScrollView(.horizontal, showsIndicators: false) {
-                        LazyHStack(alignment: .bottom, spacing: 1) {
+                        LazyHStack(alignment: .bottom, spacing: facesOut ? DS.Spacing.md : 1) {
                             ForEach(section.games) { game in
                                 NavigationLink {
                                     GameDetailView(game: game)
                                         .navigationTransition(.zoom(sourceID: game.id, in: namespace))
                                 } label: {
-                                    GameSpine(game: game)
+                                    if facesOut {
+                                        FaceOutCase(game: game, coverWidth: 132)
+                                    } else {
+                                        GameSpine(game: game)
+                                    }
                                 }
-                                .buttonStyle(.plain)
+                                .buttonStyle(PressableCardStyle())
                                 .matchedTransitionSource(id: game.id, in: namespace)
                                 .contextMenu { contextMenu(game) }
+                                // Cases dim and shrink a touch as they slide off the edge.
+                                .scrollTransition(.interactive, axis: .horizontal) { content, phase in
+                                    content
+                                        .opacity(phase.isIdentity ? 1 : 0.55)
+                                        .scaleEffect(phase.isIdentity ? 1 : 0.94, anchor: .bottom)
+                                }
                             }
                         }
                         .padding(.horizontal, DS.Spacing.md)

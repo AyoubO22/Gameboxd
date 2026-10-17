@@ -3,8 +3,8 @@
 //  Gameboxd
 //
 //  Keeps the collection in step with a linked Steam account, on its own: playtime,
-//  suggested diary sessions, completion from achievements, and the Steam id on the
-//  public profile (so friends can find each other).
+//  suggested diary sessions and completion from achievements. (The Steam id on the
+//  public profile is set only after Steam sign-in: SocialService.steamLinkURL.)
 //
 
 import Foundation
@@ -70,6 +70,9 @@ final class SteamSync {
     /// Runs at launch and when the app comes back, at most every 10 minutes.
     func run(store: GameStore, force: Bool = false) async {
         guard SteamConfig.isConfigured, let steamId = steamId(in: store) else { return }
+        // The run waits on Steam for a while: if another account takes the phone
+        // meanwhile, its results must not land in that account's collection.
+        let accountAtStart = store.currentAccountId
         if !force, let lastRun, Date().timeIntervalSince(lastRun) < 600 { return }
         lastRun = Date()
 
@@ -99,8 +102,8 @@ final class SteamSync {
         }
         UserDefaults.standard.set(stamps, forKey: achievementsCheckedKey)
 
+        guard store.currentAccountId == accountAtStart, self.steamId(in: store) == steamId else { return }
         store.applySteamSync(playtime: plan.playtime, completion: completion, suggestions: plan.suggestions)
-        await SocialService.shared.saveSteamId(steamId)
     }
 
     /// After linking an account: start from now, so the whole history isn't "a session".

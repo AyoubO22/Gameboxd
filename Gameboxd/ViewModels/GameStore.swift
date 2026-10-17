@@ -164,6 +164,10 @@ final class GameStore {
             }
         }
         LibrarySync.shared.reset()
+        // The backlog reminder names a game of the previous account: drop it (Settings
+        // schedules a new one for this account).
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["backlog_reminder"])
+        UNUserNotificationCenter.current().removeAllDeliveredNotifications()
         resetLoadedData()
         loadAllData()
         initializeAchievements()

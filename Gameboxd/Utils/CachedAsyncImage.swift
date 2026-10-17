@@ -78,6 +78,9 @@ final class ImageCache {
         return image
     }
 
+    /// Covers are a few hundred KB; anything far bigger isn't a cover and isn't kept.
+    private static let maxDownloadBytes = 8_000_000
+
     private func fetch(_ url: URL, maxRetries: Int) async -> UIImage? {
         if let cached = await diskImage(for: url) { return cached }
         for attempt in 0...maxRetries {
@@ -86,6 +89,7 @@ final class ImageCache {
             }
             if let (data, response) = try? await URLSession.shared.data(from: Self.downloadURL(for: url)),
                (response as? HTTPURLResponse)?.statusCode == 200,
+               data.count <= Self.maxDownloadBytes,
                let image = await Task.detached(priority: .userInitiated, operation: { ImageCache.decode(data) }).value {
                 store(image, data: data, for: url)
                 return image

@@ -69,6 +69,10 @@ nonisolated private struct NewActivity: Encodable {
     let minutes: Int?
 }
 
+nonisolated private struct SteamLinkResponse: Decodable {
+    let url: URL
+}
+
 nonisolated private struct Follow: Codable {
     let follower_id: UUID
     let followee_id: UUID
@@ -83,17 +87,53 @@ final class SocialService {
     private(set) var following: Set<UUID> = []
 
     /// Public profile (Réglages): your collection and activity are visible to other players.
-    /// On by default once signed in. Turning it off takes the collection offline.
-    var isSharing: Bool = UserDefaults.standard.object(forKey: SocialService.sharingKey) as? Bool ?? true {
-        didSet {
-            UserDefaults.standard.set(isSharing, forKey: Self.sharingKey)
-            guard isSharing != oldValue else { return }
-            Task {
-                if isSharing { await LibrarySync.shared.pushCurrent() } else { await LibrarySync.shared.removeAll() }
-            }
+    /// On by default. Stored in `profiles.is_public`, so the server enforces it: while it's
+    /// off, nobody else can read your collection or activity.
+    var isSharing: Bool {
+        get {
+            if hasLegacyPrivateChoice { return false }
+            return account.profile?.isPublic ?? true
+        }
+        set {
+            guard newValue != isSharing, account.isSignedIn else { return }
+            Task { await setSharing(newValue) }
         }
     }
-    private static let sharingKey = "gameboxd_share_activity"
+
+    /// Before this setting lived on the account, "private" was one switch for the whole
+    /// phone, without knowing which account turned it off. Every account on this phone
+    /// stays private until it has carried that choice over (or turned sharing back on).
+    private static let legacySharingKey = "gameboxd_share_activity"
+    private static let legacyCarriedOverKey = "gameboxd_share_activity_carried_over"
+
+    private var hasLegacyPrivateChoice: Bool {
+        guard UserDefaults.standard.object(forKey: Self.legacySharingKey) as? Bool == false,
+              let myId else { return false }
+        let done = UserDefaults.standard.stringArray(forKey: Self.legacyCarriedOverKey) ?? []
+        return !done.contains(myId.uuidString)
+    }
+
+    private func setSharing(_ value: Bool) async {
+        guard let id = myId else { return }
+        do {
+            try await account.setPublic(value)
+        } catch {
+            return // setPublic already put the switch back
+        }
+        var done = UserDefaults.standard.stringArray(forKey: Self.legacyCarriedOverKey) ?? []
+        if !done.contains(id.uuidString) {
+            done.append(id.uuidString)
+            UserDefaults.standard.set(done, forKey: Self.legacyCarriedOverKey)
+        }
+        if value { await LibrarySync.shared.pushCurrent() } else { await LibrarySync.shared.removeAll() }
+    }
+
+    /// Carries the old phone-wide "private" choice over to the signed-in account. Run at
+    /// launch and after sign-in, before the collection is pushed.
+    func migrateLegacySharing() async {
+        guard hasLegacyPrivateChoice else { return }
+        await setSharing(false)
+    }
 
     private let account = AccountService.shared
     private static let activityColumns = "*, profiles(username, display_name)"
@@ -136,10 +176,13 @@ final class SocialService {
 
     // MARK: - Steam
 
-    /// Puts your Steam id on your public profile so your Steam friends can find you.
-    func saveSteamId(_ steamId: String) async {
-        guard let client, let myId, account.profile?.steamId != steamId else { return }
-        _ = try? await client.from("profiles").update(["steam_id": steamId]).eq("id", value: myId).execute().status
+    /// Steam's sign-in page. Signing in there proves you own the Steam account, and only
+    /// then does your profile show its id so your Steam friends can find you: the app
+    /// itself can't write it (supabase/functions/steam-link, trigger in schema.sql).
+    func steamLinkURL() async throws -> URL {
+        guard let client else { throw AccountError.notConfigured }
+        let response: SteamLinkResponse = try await client.functions.invoke("steam-link", decoder: JSONDecoder())
+        return response.url
     }
 
     /// Your Steam friends who have a Gameboxd account (needs a public Steam friend list).
@@ -222,7 +265,7 @@ final class SocialService {
     func publish(_ kind: RemoteActivity.Kind, game: Game, rating: Int? = nil, review: String? = nil, minutes: Int? = nil) {
         guard isSharing, let client, let myId else { return }
         let activity = NewActivity(user_id: myId, kind: kind.rawValue, game_title: game.title,
-                                   game_cover_url: game.artURL?.absoluteString, rating: rating,
+                                   game_cover_url: RemoteImage.shareable(game.artURL?.absoluteString), rating: rating,
                                    review: review.map { String($0.prefix(2000)) }, minutes: minutes)
         Task {
             do {

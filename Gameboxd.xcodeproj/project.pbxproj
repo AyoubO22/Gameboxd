@@ -65,6 +65,7 @@
 		5AD9FD5E306424BA00BD7817 /* Exceptions for "Gameboxd" folder in "GameboxdWidgetExtension" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				Services/PlaySessionActivity.swift,
 				Services/SharedDataProvider.swift,
 			);
 			target = 5AD9FD443064240600BD7817 /* GameboxdWidgetExtension */;

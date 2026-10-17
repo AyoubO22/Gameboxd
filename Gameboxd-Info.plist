@@ -17,6 +17,9 @@
 	<string>$(SUPABASE_HOST)</string>
 	<key>SUPABASE_ANON_KEY</key>
 	<string>$(SUPABASE_ANON_KEY)</string>
+	<!-- Play-session timer on the Lock Screen and in the Dynamic Island -->
+	<key>NSSupportsLiveActivities</key>
+	<true/>
 	<!-- Launch screen in the app's walnut, so opening the app doesn't flash white -->
 	<key>UILaunchScreen</key>
 	<dict>

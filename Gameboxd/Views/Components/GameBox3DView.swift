@@ -262,30 +262,25 @@ struct PlatformBand {
 
     init(platform: String) {
         let p = platform.lowercased()
-        let spec: (String, Color, Color, Color)
         if p.contains("playstation") || p.hasPrefix("ps") {
             if p.contains("4") {
                 // PS4: blue band, white logo, translucent blue case.
-                spec = ("PS4", Color(hex: "003791"), .white, Color(hex: "16337A"))
+                label = "PS4"; color = Color(hex: "003791"); ink = .white; plastic = Color(hex: "16337A")
             } else {
                 // PS5: white band, black logo, blue case.
-                spec = ("PS5", Color(hex: "F4F5F7"), Color(hex: "0B0B0C"), Color(hex: "1E3C8C"))
+                label = "PS5"; color = Color(hex: "F4F5F7"); ink = Color(hex: "0B0B0C"); plastic = Color(hex: "1E3C8C")
             }
         } else if p.contains("xbox") {
-            spec = ("XBOX", Color(hex: "107C10"), .white, Color(hex: "0E5E12"))
+            label = "XBOX"; color = Color(hex: "107C10"); ink = .white; plastic = Color(hex: "0E5E12")
         } else if p.contains("switch") || p.contains("nintendo") {
-            spec = ("SWITCH", Color(hex: "E60012"), .white, Color(hex: "B3000E"))
+            label = "SWITCH"; color = Color(hex: "E60012"); ink = .white; plastic = Color(hex: "B3000E")
         } else if p.contains("ios") || p.contains("android") || p.contains("mobile") {
-            spec = ("MOBILE", Color(hex: "5C6167"), .white, Color(hex: "2A2D31"))
+            label = "MOBILE"; color = Color(hex: "5C6167"); ink = .white; plastic = Color(hex: "2A2D31")
         } else if p.contains("mac") {
-            spec = ("MAC", Color(hex: "8E8E93"), .white, Color(hex: "2A2D31"))
+            label = "MAC"; color = Color(hex: "8E8E93"); ink = .white; plastic = Color(hex: "2A2D31")
         } else {
-            spec = ("PC", Color(hex: "121212"), .white, Color(hex: "0A0A0A"))
+            label = "PC"; color = Color(hex: "121212"); ink = .white; plastic = Color(hex: "0A0A0A")
         }
-        label = spec.0
-        color = spec.1
-        ink = spec.2
-        plastic = spec.3
     }
 }
 

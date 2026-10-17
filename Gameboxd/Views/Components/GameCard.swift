@@ -10,7 +10,6 @@ import Foundation
 
 struct GameCard: View {
     let game: Game
-    @State private var isPressed = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: DS.Spacing.xs) {
@@ -44,35 +43,36 @@ struct GameCard: View {
                         .stroke(Color.gbBorder, lineWidth: 1)
                 )
 
-                // Status capsule
-                if game.status != .none {
-                    HStack(spacing: 3) {
-                        Image(systemName: game.status.icon)
-                            .font(.system(size: 8))
-                        Text(game.status.rawValue)
-                            .font(DS.Typography.label)
-                            .lineLimit(1)
-                    }
-                    .foregroundStyle(game.status.color)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 3)
-                    .background(game.status.color.opacity(0.16))
-                    .background(Color.gbDark.opacity(0.85))
-                    .clipShape(Capsule())
-                    .overlay(Capsule().stroke(game.status.color.opacity(0.4), lineWidth: 1))
-                    .padding(6)
-                }
+                // Status and favorite float on the cover as Liquid Glass: the glass picks
+                // up the cover's colours, and the two drops merge instead of overlapping.
+                GlassEffectContainer(spacing: 6) {
+                    HStack(spacing: 6) {
+                        if game.status != .none {
+                            HStack(spacing: 3) {
+                                Image(systemName: game.status.icon)
+                                    .font(DS.Typography.glyph)
+                                Text(game.status.rawValue)
+                                    .font(DS.Typography.label)
+                                    .lineLimit(1)
+                            }
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .glassEffect(.regular.tint(game.status.color.opacity(0.5)), in: .capsule)
+                        }
 
-                if game.isFavorite {
-                    Image(systemName: "heart.fill")
-                        .font(DS.Typography.micro)
-                        .padding(6)
-                        .background(Color.gbDark.opacity(0.7))
-                        .foregroundStyle(DS.Colors.error)
-                        .clipShape(Circle())
-                        .padding(6)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                        Spacer(minLength: 0)
+
+                        if game.isFavorite {
+                            Image(systemName: "heart.fill")
+                                .font(DS.Typography.micro)
+                                .foregroundStyle(DS.Colors.error)
+                                .padding(6)
+                                .glassEffect(.regular, in: .circle)
+                        }
+                    }
                 }
+                .padding(6)
             }
 
             // Title
@@ -88,7 +88,7 @@ struct GameCard: View {
                     HStack(spacing: 2) {
                         ForEach(1...game.rating, id: \.self) { _ in
                             Image(systemName: "star.fill")
-                                .font(.system(size: 8))
+                                .font(DS.Typography.glyph)
                         }
                     }
                     .foregroundStyle(Color.accent)
@@ -112,8 +112,6 @@ struct GameCard: View {
                 }
             }
         }
-        .scaleEffect(isPressed ? 0.95 : 1.0)
-        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(game.title), \(game.rating > 0 ? "\(game.rating) étoiles" : "non noté"), \(game.status.rawValue)")
         .accessibilityHint("Ouvre la fiche du jeu")
@@ -161,7 +159,7 @@ struct CompactGameCard: View {
                         HStack(spacing: 2) {
                             ForEach(1...game.rating, id: \.self) { _ in
                                 Image(systemName: "star.fill")
-                                    .font(.system(size: 8))
+                                    .font(DS.Typography.glyph)
                             }
                         }
                         .foregroundStyle(Color.accent)

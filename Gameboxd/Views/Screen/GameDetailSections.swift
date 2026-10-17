@@ -101,23 +101,32 @@ struct YourGameSection: View {
                         .accessibilityLabel("Progression")
                     }
 
-                    HStack(spacing: DS.Spacing.sm) {
-                        Button {
-                            timerManager.start(game: game)
-                            HapticManager.notification(.success)
-                        } label: {
-                            Label(isTimingThisGame ? "Chrono en cours" : "Lancer le chrono",
-                                  systemImage: isTimingThisGame ? "timer.circle.fill" : "timer")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(ShelfButtonStyle(prominent: true))
-                        .disabled(timerManager.isRunning)
+                    // Liquid Glass actions: coral-tinted for the main one, clear for the other.
+                    GlassEffectContainer(spacing: DS.Spacing.sm) {
+                        HStack(spacing: DS.Spacing.sm) {
+                            Button {
+                                timerManager.start(game: game)
+                                HapticManager.notification(.success)
+                            } label: {
+                                Label(isTimingThisGame ? "Chrono en cours" : "Lancer le chrono",
+                                      systemImage: isTimingThisGame ? "timer.circle.fill" : "timer")
+                                    .font(DS.Typography.bodyMedium)
+                                    .foregroundStyle(Color.gbDark)
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.glassProminent)
+                            .tint(Color.accent)
+                            .disabled(timerManager.isRunning)
 
-                        Button(action: onAddSession) {
-                            Label("Session", systemImage: "plus")
-                                .frame(maxWidth: .infinity)
+                            Button(action: onAddSession) {
+                                Label("Session", systemImage: "plus")
+                                    .font(DS.Typography.bodyMedium)
+                                    .foregroundStyle(Color.textPrimary)
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.glass)
                         }
-                        .buttonStyle(ShelfButtonStyle(prominent: false))
+                        .controlSize(.large)
                     }
                 }
                 .padding(DS.Spacing.md)
@@ -172,23 +181,6 @@ struct StatusStrip: View {
             }
         }
         .sensoryFeedback(.selection, trigger: selection)
-    }
-}
-
-struct ShelfButtonStyle: ButtonStyle {
-    let prominent: Bool
-    @Environment(\.isEnabled) private var isEnabled
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(DS.Typography.bodyMedium)
-            .foregroundStyle(prominent ? Color.gbDark : Color.textPrimary)
-            .frame(height: 46)
-            .background(prominent ? Color.accent : Color.gbSurface2,
-                        in: RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
-            .opacity(isEnabled ? (configuration.isPressed ? 0.8 : 1) : 0.5)
-            .scaleEffect(configuration.isPressed ? 0.98 : 1)
-            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
 
@@ -456,9 +448,11 @@ struct ScreenshotViewer: View {
                     Image(systemName: "xmark")
                         .font(DS.Typography.headline)
                         .foregroundStyle(.white)
-                        .frame(width: 44, height: 44)
-                        .background(.ultraThinMaterial, in: Circle())
+                        .frame(width: 30, height: 30)
                 }
+                .buttonStyle(.glass)
+                .buttonBorderShape(.circle)
+                .controlSize(.large)
                 .accessibilityLabel("Fermer")
             }
             .padding(.horizontal)

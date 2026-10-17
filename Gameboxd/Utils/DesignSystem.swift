@@ -55,6 +55,8 @@ enum DS {
         static var caption: Font { text(13, relativeTo: .caption) }
         static var captionMedium: Font { text(13, weight: .semibold, relativeTo: .caption) }
         static var micro: Font { text(11, relativeTo: .caption2) }
+        /// Tiny icons next to text (stars, status glyphs). 9 pt floor: 8 pt drops below legibility.
+        static var glyph: Font { text(9, weight: .semibold, relativeTo: .caption2) }
 
         /// Big numbers (hours, counts).
         static var stat: Font { display(32, relativeTo: .title) }
@@ -94,6 +96,15 @@ struct CardStyle: ViewModifier {
     }
 }
 
+
+/// Covers sink a little under the finger, then the zoom transition takes over.
+struct PressableCardStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: configuration.isPressed)
+    }
+}
 
 extension View {
     func cardStyle() -> some View {

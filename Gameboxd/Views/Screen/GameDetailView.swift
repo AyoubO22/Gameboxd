@@ -278,7 +278,8 @@ struct GameDetailHeader: View {
         .padding(.top, 8)
         .padding(.bottom, 12)
         .frame(maxWidth: .infinity)
-        .background(
+        // The glow runs up under the glass navigation bar instead of stopping at its edge.
+        .background {
             RadialGradient(
                 colors: [(glow ?? Shelf.wallTop).opacity(0.45), Color.gbDark],
                 center: .init(x: 0.5, y: 0.25),
@@ -286,7 +287,8 @@ struct GameDetailHeader: View {
                 endRadius: 360
             )
             .animation(.easeOut(duration: 0.4), value: glow)
-        )
+            .ignoresSafeArea(edges: .top)
+        }
         .task(id: game.artURL) {
             guard let url = game.artURL,
                   let color = await ImageCache.shared.dominantColor(for: url) else { return }

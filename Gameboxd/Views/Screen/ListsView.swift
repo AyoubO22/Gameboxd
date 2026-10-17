@@ -155,6 +155,7 @@ struct ListDetailView: View {
     let list: GameList
     @Environment(GameStore.self) private var store
     @State private var showingAddGame = false
+    @Namespace private var namespace
     
     var games: [Game] {
         store.gamesInList(list)
@@ -221,9 +222,14 @@ struct ListDetailView: View {
                 } else {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 16)], spacing: 16) {
                         ForEach(games) { game in
-                            NavigationLink(destination: GameDetailView(game: game)) {
+                            NavigationLink {
+                                GameDetailView(game: game)
+                                    .navigationTransition(.zoom(sourceID: game.id, in: namespace))
+                            } label: {
                                 GameCard(game: game)
                             }
+                            .buttonStyle(PressableCardStyle())
+                            .matchedTransitionSource(id: game.id, in: namespace)
                             .contextMenu {
                                 Button(role: .destructive, action: {
                                     store.removeGameFromList(game, list: list)

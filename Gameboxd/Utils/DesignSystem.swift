@@ -1,4 +1,5 @@
 import SwiftUI
+import CoreText
 
 // MARK: - Design Tokens
 // Single source of truth for all visual constants.
@@ -29,8 +30,9 @@ enum DS {
     // MARK: - Typography
     // System sans, heavy and tight for titles (launch-video look). Big Shoulders stays
     // only on box spines, the condensed face of game-case spines. Everything scales with
-    // Dynamic Type: sizes go through UIFontMetrics, and the presets are computed so a
-    // size change is picked up on the next render.
+    // Dynamic Type (sizes go through UIFontMetrics, and the presets are computed so a
+    // size change is picked up on the next render), except type printed on cases
+    // (spinePrint, PEGI): print is a fixed size.
     enum Typography {
         private static func scaled(_ size: CGFloat, _ style: Font.TextStyle) -> CGFloat {
             UIFontMetrics(forTextStyle: style.uiKit).scaledValue(for: size)
@@ -41,9 +43,25 @@ enum DS {
         static func text(_ size: CGFloat, weight: Font.Weight = .regular, relativeTo style: Font.TextStyle = .body) -> Font {
             .system(size: scaled(size, style), weight: weight)
         }
-        static func spine(_ size: CGFloat, weight: Font.Weight = .black, relativeTo style: Font.TextStyle = .headline) -> Font {
-            .custom("BigShouldersDisplay-Thin", size: size, relativeTo: style).weight(weight)
+        /// Type printed on a case spine: Big Shoulders at a fixed size (print doesn't follow
+        /// Dynamic Type), its weight axis set through Core Text since `.weight()` isn't
+        /// documented to drive a variable font's axis. 900 is Black.
+        static func spinePrint(_ size: CGFloat, weight: CGFloat = 900) -> Font {
+            let key = SpinePrintKey(size: size, weight: weight)
+            if let font = spinePrintFonts[key] { return font }
+            let attributes: [String: Any] = [
+                kCTFontNameAttribute as String: "BigShouldersDisplay-Thin",
+                kCTFontVariationAttribute as String: [NSNumber(value: 0x7767_6874): NSNumber(value: Double(weight))], // 'wght'
+            ]
+            let descriptor = CTFontDescriptorCreateWithAttributes(attributes as CFDictionary)
+            let font = Font(CTFontCreateWithFontDescriptor(descriptor, size, nil))
+            spinePrintFonts[key] = font
+            return font
         }
+
+        /// A shelf asks for a handful of sizes, once per spine built while scrolling: each
+        /// variable-font instance is made once, and spines share it.
+        private static var spinePrintFonts: [SpinePrintKey: Font] = [:]
 
         static var largeTitle: Font { display(34) }
         static var title: Font { display(24, relativeTo: .title2) }
@@ -329,4 +347,10 @@ private extension Font.TextStyle {
         default: return .body
         }
     }
+}
+
+/// A spine font's size and weight, to make each variable-font instance once (DS.Typography.spinePrint).
+private struct SpinePrintKey: Hashable {
+    let size: CGFloat
+    let weight: CGFloat
 }

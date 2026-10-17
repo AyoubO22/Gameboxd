@@ -141,7 +141,8 @@ struct StoreShelf<Sticker: View>: View {
     let namespace: Namespace.ID
     @ViewBuilder let sticker: (Game, Int) -> Sticker
 
-    private let coverWidth: CGFloat = 98
+    /// A PlayStation-size case is this wide (a Switch case narrower, a PC one taller).
+    private let coverWidth: CGFloat = 108
 
     var body: some View {
         VStack(alignment: .leading, spacing: DS.Spacing.sm) {
@@ -161,7 +162,7 @@ struct StoreShelf<Sticker: View>: View {
                         ForEach(0..<5, id: \.self) { _ in
                             RoundedRectangle(cornerRadius: 5, style: .continuous)
                                 .fill(Color.gbSurface2)
-                                .frame(width: coverWidth * 1.06, height: (coverWidth * 1.39).rounded())
+                                .frame(width: coverWidth, height: FaceOutCase.consoleHeight(coverWidth: coverWidth))
                         }
                     } else {
                         ForEach(Array(games.enumerated()), id: \.element.id) { index, game in
@@ -169,7 +170,7 @@ struct StoreShelf<Sticker: View>: View {
                                 GameDetailView(game: store.libraryGame(for: game) ?? game)
                                     .navigationTransition(.zoom(sourceID: game.id, in: namespace))
                             } label: {
-                                FaceOutCase(game: game, coverWidth: coverWidth, showsProgress: false)
+                                FaceOutCase(game: game, coverWidth: coverWidth, showsProgress: false, onShelf: true)
                                     .overlay(alignment: .topTrailing) {
                                         Group {
                                             if store.isInLibrary(game) {
@@ -189,9 +190,9 @@ struct StoreShelf<Sticker: View>: View {
                 }
                 .padding(.horizontal)
                 .padding(.top, DS.Spacing.sm)
+                .padding(.bottom, Shelf.faceOutSeat)
             }
-            ShelfPlank()
-                .padding(.horizontal, DS.Spacing.md)
+            .standingOnPlank()
         }
     }
 }
@@ -227,7 +228,7 @@ struct EndcapFeature: View {
                     GameDetailView(game: store.libraryGame(for: game) ?? game)
                         .navigationTransition(.zoom(sourceID: "endcap", in: namespace))
                 } label: {
-                    FaceOutCase(game: game, coverWidth: 118, showsProgress: false)
+                    FaceOutCase(game: game, coverWidth: 130, showsProgress: false)
                         .overlay(alignment: .topTrailing) {
                             StoreSticker(text: "N° 1").offset(x: 8, y: -8)
                         }
@@ -291,7 +292,7 @@ struct BacklogSuggestion: View {
                     .navigationTransition(.zoom(sourceID: "backlog-\(game.id)", in: namespace))
             } label: {
                 HStack(spacing: DS.Spacing.md) {
-                    FaceOutCase(game: game, coverWidth: 64, showsProgress: false)
+                    FaceOutCase(game: game, coverWidth: 70, showsProgress: false)
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Et si tu lançais")
                             .font(DS.Typography.caption)

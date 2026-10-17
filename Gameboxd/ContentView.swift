@@ -59,6 +59,11 @@ struct ContentView: View {
         // true and onChange never fires.
         .onAppear(perform: checkUsernameSetup)
         .task {
+            #if DEBUG
+            // The demo shelf stays offline: without the account restore nothing syncs or is
+            // shared, and switchAccount can't load the real collection over it.
+            if DemoShelf.isOn { return }
+            #endif
             LibrarySync.shared.store = store
             await AccountService.shared.restore()
             // Offline, the profile can't load: stay on the space the app opened with.

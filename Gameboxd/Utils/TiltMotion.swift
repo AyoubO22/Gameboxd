@@ -27,8 +27,12 @@ final class TiltMotion {
         manager.startDeviceMotionUpdates(to: .main) { [weak self] motion, _ in
             guard let self, let gravity = motion?.gravity else { return }
             // Held upright-ish, gravity.y sits around -0.7: centre on that.
-            self.x = max(-1, min(1, gravity.x * 2))
-            self.y = max(-1, min(1, (gravity.y + 0.7) * 2))
+            let x = max(-1, min(1, gravity.x * 2))
+            let y = max(-1, min(1, (gravity.y + 0.7) * 2))
+            // Only a real movement is published: sensor noise on a phone at rest would
+            // otherwise redraw every view reading the tilt 30 times a second.
+            if abs(x - self.x) > 0.01 { self.x = x }
+            if abs(y - self.y) > 0.01 { self.y = y }
         }
     }
 

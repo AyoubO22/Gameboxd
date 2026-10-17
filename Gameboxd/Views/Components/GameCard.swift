@@ -24,7 +24,6 @@ struct GameCard: View {
                         } placeholder: {
                             Rectangle()
                                 .fill(game.coverColor.gradient)
-                                .overlay(ProgressView().tint(.textSecondary))
                         }
                     } else {
                         Rectangle()
@@ -37,11 +36,17 @@ struct GameCard: View {
                     }
                 }
                 .aspectRatio(3/4, contentMode: .fit)
+                // Printed-sleeve sheen, a hairline edge and a soft drop: the cover reads as
+                // an object sitting on the page, not a flat tile.
+                .overlay(
+                    LinearGradient(colors: [.white.opacity(0.14), .clear], startPoint: .topLeading, endPoint: .center)
+                )
                 .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                        .stroke(Color.gbBorder, lineWidth: 1)
+                        .strokeBorder(.white.opacity(0.1), lineWidth: 0.5)
                 )
+                .shadow(color: .black.opacity(0.45), radius: 10, y: 6)
 
                 // Status and favorite float on the cover as Liquid Glass: the glass picks
                 // up the cover's colours, and the two drops merge instead of overlapping.

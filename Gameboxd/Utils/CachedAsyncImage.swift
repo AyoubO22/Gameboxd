@@ -16,12 +16,16 @@ final class ImageCache {
     static let shared = ImageCache()
     
     private let cache = NSCache<NSString, UIImage>()
+    /// Strips cut for spines and case fronts, kept apart from covers: a shelf of 300 spines
+    /// holds 300 small strips, not 300 decoded covers.
+    private let spineArts = NSCache<NSString, SpineArt>()
     private let fileManager = FileManager.default
     private let cacheDirectory: URL
     
     private init() {
         cache.countLimit = 200
         cache.totalCostLimit = 50 * 1024 * 1024 // 50 MB
+        spineArts.totalCostLimit = 24 * 1024 * 1024
         
         let paths = fileManager.urls(for: .cachesDirectory, in: .userDomainMask)
         cacheDirectory = paths[0].appendingPathComponent("GameboxdImageCache")
@@ -149,6 +153,43 @@ final class ImageCache {
         return UIColor(red: CGFloat(pixel[0]) / 255, green: CGFloat(pixel[1]) / 255, blue: CGFloat(pixel[2]) / 255, alpha: 1)
     }
 
+    // MARK: - Spine art (shelf spines, case fronts)
+
+    private func spineKey(_ url: URL, _ kind: PlatformBand.Kind) -> NSString {
+        "\(kind.rawValue)|\(url.absoluteString)" as NSString
+    }
+
+    /// Already cut: a case scrolling back into view prints at once, without a flash of flat colour.
+    func cachedSpineArt(for url: URL, kind: PlatformBand.Kind) -> SpineArt? {
+        spineArts.object(forKey: spineKey(url, kind))
+    }
+
+    /// Cuts under way. A spine scrolled out and back in mid-cut joins the cut it started: its
+    /// own task was cancelled, the cut wasn't.
+    private var spineArtCuts: [NSString: Task<SpineArt?, Never>] = [:]
+
+    /// The cover cut for this platform's sleeve, off the main thread, and cached.
+    func spineArt(for url: URL, kind: PlatformBand.Kind) async -> SpineArt? {
+        let key = spineKey(url, kind)
+        if let cached = spineArts.object(forKey: key) { return cached }
+        if let pending = spineArtCuts[key] { return await pending.value }
+        let task = Task { await cutSpineArt(from: url, kind: kind, key: key) }
+        spineArtCuts[key] = task
+        let art = await task.value
+        spineArtCuts[key] = nil
+        return art
+    }
+
+    private func cutSpineArt(from url: URL, kind: PlatformBand.Kind, key: NSString) async -> SpineArt? {
+        guard let cover = await load(url) else { return nil }
+        let sleeve = kind.sleeve
+        guard let cut = await Task.detached(priority: .utility, operation: { SpineCutter.cut(cover, sleeve: sleeve) }).value else { return nil }
+        // printed() runs on the main actor: here, not in the task.
+        let art = SpineArt(strip: cut.strip, ground: cut.average.printed(), banner: cut.banner)
+        spineArts.setObject(art, forKey: key, cost: art.cost)
+        return art
+    }
+
     /// Keeps the decoded image in memory and the downloaded bytes on disk, as they came
     /// (no re-encoding).
     private func store(_ image: UIImage, data: Data, for url: URL) {
@@ -164,7 +205,8 @@ final class ImageCache {
     }
 }
 
-nonisolated private let sharedCIContext = CIContext() // CIContext is thread-safe
+/// Shared by the cover sampler here and the spine cutter (SpineArt.swift).
+nonisolated let sharedCIContext = CIContext() // CIContext is thread-safe
 
 // MARK: - Cached Async Image View
 struct CachedAsyncImage<Content: View, Placeholder: View>: View {

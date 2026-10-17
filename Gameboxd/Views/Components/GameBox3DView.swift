@@ -193,6 +193,14 @@ enum GameBoxFactory {
         }
         let spineColor = cover.flatMap { ImageCache.averageColor(of: $0)?.printed() } ?? UIColor(game.coverColor)
         let platform = PlatformBand(platform: game.platform)
+        // The shelf's spine takes its ground from the art that wraps round (the cover's left
+        // edge), not the whole cover: the same colour here, so a spine keeps its ground and ink
+        // as it zooms into the box. The whole cover still prints the box's spine: the cut strip
+        // is too small for this texture.
+        var spineArt: SpineArt?
+        if let artURL {
+            spineArt = await ImageCache.shared.spineArt(for: artURL, kind: platform.kind)
+        }
         var screenshots: [UIImage] = []
         for string in game.screenshotURLs.prefix(2) {
             if let url = URL(string: string), let image = await ImageCache.shared.load(url) {
@@ -203,8 +211,8 @@ enum GameBoxFactory {
         guard let front = render(BoxFront(cover: cover, fallback: game.coverColor, band: platform)),
               let back = render(BoxBack(game: game, cover: cover, screenshots: screenshots,
                                         band: platform, background: Color(spineColor.darker(0.42)))),
-              let spine = render(SpineFace(title: game.title, band: platform, cover: cover, tint: spineColor,
-                                           pegi: game.pegi, width: 28, height: faceSize.height)),
+              let spine = render(SpineFace(title: game.title, band: platform, cover: cover, tint: spineArt?.ground ?? spineColor,
+                                           pegi: game.pegi, width: 28, height: faceSize.height, studio: game.developer)),
               let edge = render(Rectangle().fill(Color(spineColor.darker(0.25))).frame(width: 60, height: 60)) else {
             return nil
         }
@@ -245,41 +253,50 @@ enum GameBoxFactory {
 
 // MARK: - Printed faces (rendered to textures)
 
-/// The coloured band console cases carry on top.
+/// The platform's retail case and the header its sleeve carries (European editions).
 struct PlatformBand {
+    /// Which retail case it is: its size, its plastic and how its sleeve is printed (CaseModel.swift).
+    enum Kind: String {
+        case ps5, ps4, xboxSeries, xboxOne, switch1, switch2, pc, mac, mobile
+    }
+
+    let kind: Kind
     let label: String
-    /// The printed header band, as on the real sleeve.
+    /// The platform's colour: the header printed on the sleeve, and the platform chip.
     let color: Color
     /// Text printed on the band.
     let ink: Color
-    /// The case plastic, which shows as a thin rim around the sleeve.
-    let plastic: Color
 
     /// Platforms offered on the game page. RAWG's list is often incomplete (a PS5 release
     /// added after launch is missing), so the choice is never limited to it.
     static let choices = ["PlayStation 5", "PlayStation 4", "Xbox Series X|S", "Xbox One",
-                          "Nintendo Switch", "PC", "Mac", "iOS", "Android"]
+                          "Nintendo Switch", "Nintendo Switch 2", "PC", "Mac", "iOS", "Android"]
 
     init(platform: String) {
         let p = platform.lowercased()
         if p.contains("playstation") || p.hasPrefix("ps") {
             if p.contains("4") {
-                // PS4: blue band, white logo, translucent blue case.
-                label = "PS4"; color = Color(hex: "003791"); ink = .white; plastic = Color(hex: "16337A")
+                // PS4: blue band, white logo.
+                kind = .ps4; label = "PS4"; color = Color(hex: "003791"); ink = .white
             } else {
-                // PS5: white band, black logo, blue case.
-                label = "PS5"; color = Color(hex: "F4F5F7"); ink = Color(hex: "0B0B0C"); plastic = Color(hex: "1E3C8C")
+                // PS5: white band, black logo; the case is the PS4's blue plastic.
+                kind = .ps5; label = "PS5"; color = Color(hex: "F4F5F7"); ink = Color(hex: "0B0B0C")
             }
         } else if p.contains("xbox") {
-            label = "XBOX"; color = Color(hex: "107C10"); ink = .white; plastic = Color(hex: "0E5E12")
+            // Series X|S sleeves dropped the green band in 2021; the chip stays Xbox green.
+            kind = p.contains("series") ? .xboxSeries : .xboxOne
+            label = "XBOX"; color = Color(hex: "107C10"); ink = .white
         } else if p.contains("switch") || p.contains("nintendo") {
-            label = "SWITCH"; color = Color(hex: "E60012"); ink = .white; plastic = Color(hex: "B3000E")
+            // Switch 1 cases are clear plastic (the red is the printed spine); Switch 2 cases are red.
+            let second = p.contains("switch 2") || p.contains("switch2")
+            kind = second ? .switch2 : .switch1
+            label = second ? "SWITCH 2" : "SWITCH"; color = Color(hex: "E60012"); ink = .white
         } else if p.contains("ios") || p.contains("android") || p.contains("mobile") {
-            label = "MOBILE"; color = Color(hex: "5C6167"); ink = .white; plastic = Color(hex: "2A2D31")
+            kind = .mobile; label = "MOBILE"; color = Color(hex: "5C6167"); ink = .white
         } else if p.contains("mac") {
-            label = "MAC"; color = Color(hex: "8E8E93"); ink = .white; plastic = Color(hex: "2A2D31")
+            kind = .mac; label = "MAC"; color = Color(hex: "8E8E93"); ink = .white
         } else {
-            label = "PC"; color = Color(hex: "121212"); ink = .white; plastic = Color(hex: "0A0A0A")
+            kind = .pc; label = "PC"; color = Color(hex: "121212"); ink = .white
         }
     }
 }

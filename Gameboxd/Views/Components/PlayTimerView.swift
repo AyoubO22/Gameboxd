@@ -163,8 +163,8 @@ struct SessionAccessory: View {
                     .fixedSize()
                     .layoutPriority(1)
                     .foregroundStyle(Color.accent)
-                    .contentTransition(.numericText())
-                    .animation(.linear(duration: 0.3), value: timerManager.formattedTime)
+                    // No rolling-digit animation here: it fought the system's morph
+                    // animation each time the bar folded or unfolded.
 
                 Button {
                     if timerManager.isPaused {

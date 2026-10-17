@@ -23,18 +23,12 @@ struct ContentView: View {
         ZStack {
             Group {
                 if store.isLoggedIn {
-                    MainTabView()
+                    MainTabView(onStopSession: logTimedSession)
                 } else {
                     AuthView()
                 }
             }
             .animation(.easeInOut, value: store.isLoggedIn)
-
-            if store.isLoggedIn {
-                PlayTimerOverlay(timerManager: timerManager, onStop: logTimedSession)
-                    // ponytail: fixed offset to clear the tab bar; measure it if the tab bar changes
-                    .padding(.bottom, 56)
-            }
 
             // Achievement Toast Overlay
             VStack {

@@ -315,9 +315,14 @@ struct LibraryView: View {
                         if viewStyle == .grid {
                             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: DS.Spacing.sm)], spacing: DS.Spacing.md) {
                                 ForEach(games) { game in
-                                    NavigationLink(destination: GameDetailView(game: game)) {
+                                    NavigationLink {
+                                        GameDetailView(game: game)
+                                            .navigationTransition(.zoom(sourceID: game.id, in: shelfNamespace))
+                                    } label: {
                                         GameCard(game: game)
                                     }
+                                    .buttonStyle(PressableCardStyle())
+                                    .matchedTransitionSource(id: game.id, in: shelfNamespace)
                                     .contextMenu {
                                         GameContextMenu(game: game) { g in
                                             gameToDelete = g
@@ -330,9 +335,14 @@ struct LibraryView: View {
                         } else {
                             LazyVStack(spacing: 0) {
                                 ForEach(games) { game in
-                                    NavigationLink(destination: GameDetailView(game: game)) {
+                                    NavigationLink {
+                                        GameDetailView(game: game)
+                                            .navigationTransition(.zoom(sourceID: game.id, in: shelfNamespace))
+                                    } label: {
                                         GameListRow(game: game)
                                     }
+                                    .buttonStyle(PressableCardStyle())
+                                    .matchedTransitionSource(id: game.id, in: shelfNamespace)
                                     .contextMenu {
                                         GameContextMenu(game: game) { g in
                                             gameToDelete = g

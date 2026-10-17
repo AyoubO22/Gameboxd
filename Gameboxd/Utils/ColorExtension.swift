@@ -14,7 +14,7 @@ extension Color {
     static let accent = Color.gbCoral
     static let textPrimary = Color(hex: "F3F5F8")
     static let textSecondary = Color.gbTextSecondary
-    static let textTertiary = Color(hex: "646D78")
+    static let textTertiary = Color(hex: "7F8893")    // 5.2:1 on gbDark, 4.7:1 on gbCard (WCAG AA)
     static let surfacePrimary = Color.gbCard
     static let surfaceSecondary = Color.gbSurface2
     static let separator = Color.gbBorder

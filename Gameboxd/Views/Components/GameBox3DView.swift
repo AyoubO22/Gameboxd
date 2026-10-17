@@ -248,7 +248,12 @@ enum GameBoxFactory {
 /// The coloured band console cases carry on top.
 struct PlatformBand {
     let label: String
+    /// The printed header band, as on the real sleeve.
     let color: Color
+    /// Text printed on the band.
+    let ink: Color
+    /// The case plastic, which shows as a thin rim around the sleeve.
+    let plastic: Color
 
     /// Platforms offered on the game page. RAWG's list is often incomplete (a PS5 release
     /// added after launch is missing), so the choice is never limited to it.
@@ -257,25 +262,30 @@ struct PlatformBand {
 
     init(platform: String) {
         let p = platform.lowercased()
+        let spec: (String, Color, Color, Color)
         if p.contains("playstation") || p.hasPrefix("ps") {
-            label = p.contains("4") ? "PS4" : "PS5"
-            color = Color(hex: "1F4FD8")
+            if p.contains("4") {
+                // PS4: blue band, white logo, translucent blue case.
+                spec = ("PS4", Color(hex: "003791"), .white, Color(hex: "16337A"))
+            } else {
+                // PS5: white band, black logo, blue case.
+                spec = ("PS5", Color(hex: "F4F5F7"), Color(hex: "0B0B0C"), Color(hex: "1E3C8C"))
+            }
         } else if p.contains("xbox") {
-            label = "XBOX"
-            color = Color(hex: "107C10")
+            spec = ("XBOX", Color(hex: "107C10"), .white, Color(hex: "0E5E12"))
         } else if p.contains("switch") || p.contains("nintendo") {
-            label = "SWITCH"
-            color = Color(hex: "E60012")
+            spec = ("SWITCH", Color(hex: "E60012"), .white, Color(hex: "B3000E"))
         } else if p.contains("ios") || p.contains("android") || p.contains("mobile") {
-            label = "MOBILE"
-            color = Color(hex: "5C6167")
+            spec = ("MOBILE", Color(hex: "5C6167"), .white, Color(hex: "2A2D31"))
         } else if p.contains("mac") {
-            label = "MAC"
-            color = Color(hex: "8E8E93")
+            spec = ("MAC", Color(hex: "8E8E93"), .white, Color(hex: "2A2D31"))
         } else {
-            label = "PC"
-            color = Color(hex: "3A3A3A")
+            spec = ("PC", Color(hex: "121212"), .white, Color(hex: "0A0A0A"))
         }
+        label = spec.0
+        color = spec.1
+        ink = spec.2
+        plastic = spec.3
     }
 }
 
@@ -302,7 +312,7 @@ private struct BoxFront: View {
             // Printed over the top of the art, as on a real case.
             Text(band.label)
                 .font(.system(size: 13, weight: .heavy).width(.condensed))
-                .foregroundStyle(.white)
+                .foregroundStyle(band.ink)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.leading, 12)
                 .frame(height: 22)
@@ -344,7 +354,7 @@ private struct BoxBack: View {
         VStack(alignment: .leading, spacing: 0) {
             Text(band.label)
                 .font(.system(size: 13, weight: .heavy).width(.condensed))
-                .foregroundStyle(.white)
+                .foregroundStyle(band.ink)
                 .frame(maxWidth: .infinity, alignment: .trailing)
                 .padding(.trailing, 12)
                 .frame(height: 22)

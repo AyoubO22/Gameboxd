@@ -144,20 +144,24 @@ struct SessionAccessory: View {
 
     var body: some View {
         if let game = timerManager.activeGame {
+            // One view tree for both placements: inserting and removing the cover and title
+            // while the bar morphs on scroll made the accessory jump and reload its cover.
+            // Folded, the title just fades and gives up its width.
             HStack(spacing: DS.Spacing.sm) {
-                if placement != .inline {
-                    cover(for: game)
+                cover(for: game)
 
-                    Text(game.title)
-                        .font(DS.Typography.captionMedium)
-                        .foregroundStyle(Color.textPrimary)
-                        .lineLimit(1)
-                }
-
-                Spacer(minLength: 0)
+                Text(game.title)
+                    .font(DS.Typography.captionMedium)
+                    .foregroundStyle(Color.textPrimary)
+                    .lineLimit(1)
+                    .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+                    .opacity(placement == .inline ? 0 : 1)
+                    .accessibilityHidden(placement == .inline)
 
                 Text(timerManager.formattedTime)
                     .font(DS.Typography.headline.monospacedDigit())
+                    .fixedSize()
+                    .layoutPriority(1)
                     .foregroundStyle(Color.accent)
                     .contentTransition(.numericText())
                     .animation(.linear(duration: 0.3), value: timerManager.formattedTime)

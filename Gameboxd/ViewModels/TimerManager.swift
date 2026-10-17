@@ -6,12 +6,15 @@
 //
 
 import SwiftUI
+import ActivityKit
 
 /// Tracks a live play-session for a single game.
 ///
 /// Elapsed time is computed from timestamps, not by counting ticks, so time spent
 /// with the app in the background (or suspended while you play) still counts.
 /// The session is persisted, so it also survives the app being killed.
+/// While a session is active it is mirrored to a Live Activity (Lock Screen and
+/// Dynamic Island), which counts on its own and can pause/resume the session.
 @MainActor
 @Observable
 final class TimerManager {
@@ -46,8 +49,15 @@ final class TimerManager {
         let runningSince: Date?
     }
 
+    /// The Live Activity mirroring the current session, if one is showing.
+    @ObservationIgnored private var activity: Activity<PlaySessionAttributes>?
+
     init() {
         restore()
+        PlaySessionControl.togglePause = { [weak self] in
+            guard let self else { return }
+            if self.isPaused { self.resume() } else { self.pause() }
+        }
     }
 
     // MARK: - Computed Properties
@@ -77,6 +87,7 @@ final class TimerManager {
         refresh()
         startTimer()
         persist()
+        startActivity()
     }
 
     /// Pauses the running timer without discarding elapsed time.
@@ -88,6 +99,7 @@ final class TimerManager {
         stopTimer()
         refresh()
         persist()
+        updateActivity()
     }
 
     /// Resumes a paused timer, continuing from the current elapsed time.
@@ -97,6 +109,7 @@ final class TimerManager {
         isPaused = false
         startTimer()
         persist()
+        updateActivity()
     }
 
     /// Stops the session and returns the total elapsed minutes (minimum 1, so a
@@ -113,6 +126,7 @@ final class TimerManager {
         runningSince = nil
         activeGame = nil
         UserDefaults.standard.removeObject(forKey: Self.storageKey)
+        endActivities()
         return max(minutes, 1)
     }
 
@@ -149,7 +163,11 @@ final class TimerManager {
 
     private func restore() {
         guard let data = UserDefaults.standard.data(forKey: Self.storageKey),
-              let saved = try? JSONDecoder().decode(SavedSession.self, from: data) else { return }
+              let saved = try? JSONDecoder().decode(SavedSession.self, from: data) else {
+            // No session to show: clear any activity left over from a crash.
+            endActivities()
+            return
+        }
         activeGame = saved.game
         accumulatedSeconds = saved.accumulatedSeconds
         runningSince = saved.runningSince
@@ -157,5 +175,48 @@ final class TimerManager {
         isPaused = saved.runningSince == nil
         refresh()
         if !isPaused { startTimer() }
+        // Pick the activity back up after a relaunch, or recreate it if it was dismissed.
+        if let existing = Activity<PlaySessionAttributes>.activities.first(where: { $0.activityState == .active || $0.activityState == .stale }) {
+            activity = existing
+            updateActivity()
+        } else {
+            startActivity()
+        }
+    }
+
+    // MARK: - Live Activity
+
+    private var activityState: PlaySessionAttributes.ContentState {
+        if let runningSince {
+            return .init(startDate: runningSince.addingTimeInterval(-accumulatedSeconds), pausedElapsed: nil)
+        }
+        return .init(startDate: Date().addingTimeInterval(-accumulatedSeconds), pausedElapsed: Int(accumulatedSeconds))
+    }
+
+    private func startActivity() {
+        endActivities()
+        guard let activeGame, ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+        let attributes = PlaySessionAttributes(
+            gameTitle: activeGame.title,
+            platform: activeGame.platform,
+            coverColorHex: activeGame.coverColorHex
+        )
+        activity = try? Activity.request(
+            attributes: attributes,
+            content: .init(state: activityState, staleDate: nil)
+        )
+    }
+
+    private func updateActivity() {
+        guard let activity else { return }
+        let content = ActivityContent(state: activityState, staleDate: nil)
+        Task { await activity.update(content) }
+    }
+
+    private func endActivities() {
+        activity = nil
+        for running in Activity<PlaySessionAttributes>.activities {
+            Task { await running.end(nil, dismissalPolicy: .immediate) }
+        }
     }
 }

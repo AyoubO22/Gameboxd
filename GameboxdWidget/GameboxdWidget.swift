@@ -393,5 +393,8 @@ struct GameboxdWidgets: WidgetBundle {
         CurrentGameWidget()
         YearlyGoalWidget()
         BacklogPickWidget()
+        #if os(iOS)
+        PlaySessionLiveActivity()
+        #endif
     }
 }

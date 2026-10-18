@@ -6,6 +6,7 @@
 //  Import game libraries from connected platforms
 //
 
+import AuthenticationServices
 import SwiftUI
 
 struct LinkedAccountsView: View {
@@ -352,8 +353,12 @@ struct LinkPlatformSheet: View {
     let platform: GamingPlatform
     @Environment(GameStore.self) private var store
     @Environment(\.dismiss) var dismiss
+    @Environment(\.webAuthenticationSession) private var webAuthenticationSession
+    @Environment(\.openURL) private var openURL
     
     @State private var platformId = ""
+    @State private var npsso = ""
+    @State private var showsNPSSO = false
     @State private var isLinking = false
     @State private var errorMessage: String?
     @State private var linkSuccess = false
@@ -394,25 +399,29 @@ struct LinkPlatformSheet: View {
                     .background(Color.gbCard)
                     .cornerRadius(12)
                     
-                    // ID Input
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(platform == .steam ? "Steam ID ou URL de profil" : "PSN ID (Online ID)")
-                            .font(DS.Typography.body)
-                            .foregroundColor(.textSecondary)
-                        
-                        TextField(
-                            platform == .steam ? "Ex: 76561198000000000 ou nom_perso" : "Ex: MonPSN_ID",
-                            text: $platformId
-                        )
-                        .textFieldStyle(.plain)
-                        .padding()
-                        .background(Color.gbCard)
-                        .cornerRadius(12)
-                        .foregroundColor(.textPrimary)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
+                    if platform == .steam {
+                        // ID Input
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Steam ID ou URL de profil")
+                                .font(DS.Typography.body)
+                                .foregroundColor(.textSecondary)
+                            
+                            TextField(
+                                "Ex: 76561198000000000 ou nom_perso",
+                                text: $platformId
+                            )
+                            .textFieldStyle(.plain)
+                            .padding()
+                            .background(Color.gbCard)
+                            .cornerRadius(12)
+                            .foregroundColor(.textPrimary)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                        }
+                        .padding(.horizontal)
+                    } else {
+                        playStationSignIn
                     }
-                    .padding(.horizontal)
                     
                     if let error = errorMessage {
                         Label(error, systemImage: "exclamationmark.triangle.fill")
@@ -434,30 +443,32 @@ struct LinkPlatformSheet: View {
                         .padding()
                     }
                     
-                    // Link Button
-                    Button(action: linkAccount) {
-                        HStack {
-                            if isLinking {
-                                ProgressView()
-                                    .tint(.black)
-                            } else if linkSuccess {
-                                Image(systemName: "checkmark")
-                                Text("Terminé")
-                            } else {
-                                Image(systemName: "link")
-                                Text("Lier le compte")
+                    if platform == .steam {
+                        // Link Button
+                        Button(action: linkAccount) {
+                            HStack {
+                                if isLinking {
+                                    ProgressView()
+                                        .tint(.black)
+                                } else if linkSuccess {
+                                    Image(systemName: "checkmark")
+                                    Text("Terminé")
+                                } else {
+                                    Image(systemName: "link")
+                                    Text("Lier le compte")
+                                }
                             }
+                            .fontWeight(.semibold)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(linkSuccess ? Color.green : Color.gbCoral)
+                            .foregroundColor(.black)
+                            .cornerRadius(14)
                         }
-                        .fontWeight(.semibold)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(linkSuccess ? Color.green : Color.gbCoral)
-                        .foregroundColor(.black)
-                        .cornerRadius(14)
+                        .disabled(platformId.trimmingCharacters(in: .whitespaces).isEmpty || isLinking)
+                        .opacity(platformId.trimmingCharacters(in: .whitespaces).isEmpty ? 0.5 : 1)
+                        .padding(.horizontal)
                     }
-                    .disabled(platformId.trimmingCharacters(in: .whitespaces).isEmpty || isLinking)
-                    .opacity(platformId.trimmingCharacters(in: .whitespaces).isEmpty ? 0.5 : 1)
-                    .padding(.horizontal)
                 }
                 .padding()
             }
@@ -472,6 +483,109 @@ struct LinkPlatformSheet: View {
         }
     }
     
+    // MARK: PlayStation
+
+    /// Sony's own sign-in in a browser sheet (it reuses a Safari session when there is one);
+    /// a pasted NPSSO code as the way around it.
+    private var playStationSignIn: some View {
+        VStack(spacing: 14) {
+            Button {
+                Task { await linkPlayStation() }
+            } label: {
+                HStack {
+                    if isLinking {
+                        ProgressView().tint(.white)
+                    } else if linkSuccess {
+                        Image(systemName: "checkmark")
+                        Text("Terminé")
+                    } else {
+                        Image(systemName: "playstation.logo")
+                        Text("Se connecter avec PlayStation")
+                    }
+                }
+                .fontWeight(.semibold)
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(linkSuccess ? Color.green : platform.accentColor)
+                .foregroundColor(.white)
+                .cornerRadius(14)
+            }
+            .disabled(isLinking || linkSuccess)
+
+            DisclosureGroup(isExpanded: $showsNPSSO) {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("1. Connecte-toi sur playstation.com dans Safari.\n2. Ouvre la page du code et copie la valeur de « npsso ».\n3. Colle-la ici. Ce code donne accès à ton compte : ne le partage avec personne.")
+                        .font(DS.Typography.caption)
+                        .foregroundColor(.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Button("Ouvrir la page du code") { openURL(PlayStationConfig.npssoURL) }
+                        .font(DS.Typography.caption)
+                        .foregroundColor(.gbCoral)
+
+                    SecureField("Code NPSSO", text: $npsso)
+                        .textFieldStyle(.plain)
+                        .padding()
+                        .background(Color.gbDark)
+                        .cornerRadius(12)
+                        .foregroundColor(.textPrimary)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+
+                    Button {
+                        Task { await linkPlayStation(npsso: npsso) }
+                    } label: {
+                        Text("Lier avec ce code")
+                            .fontWeight(.semibold)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(Color.gbCoral)
+                            .foregroundColor(.black)
+                            .cornerRadius(12)
+                    }
+                    .disabled(npsso.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isLinking || linkSuccess)
+                    .opacity(npsso.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.5 : 1)
+                }
+                .padding(.top, 8)
+            } label: {
+                Text("La connexion ne s'ouvre pas ? Utilise un code NPSSO")
+                    .font(DS.Typography.caption)
+                    .foregroundColor(.textSecondary)
+            }
+            .tint(.textSecondary)
+            .padding()
+            .background(Color.gbCard)
+            .cornerRadius(12)
+        }
+        .padding(.horizontal)
+    }
+
+    private func linkPlayStation(npsso: String? = nil) async {
+        isLinking = true
+        errorMessage = nil
+        defer { isLinking = false }
+        do {
+            if let npsso {
+                try await store.linkPlayStation(npsso: npsso)
+            } else {
+                let callback = try await webAuthenticationSession.authenticate(
+                    using: PlayStationConfig.signInURL,
+                    callbackURLScheme: PlayStationConfig.callbackScheme,
+                    preferredBrowserSession: .shared
+                )
+                try await store.linkPlayStation(callback: callback)
+            }
+            linkSuccess = true
+            HapticManager.notification(.success)
+            try? await Task.sleep(for: .seconds(1.5))
+            dismiss()
+        } catch let authError as ASWebAuthenticationSessionError where authError.code == .canceledLogin {
+            return
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
     func linkAccount() {
         isLinking = true
         errorMessage = nil

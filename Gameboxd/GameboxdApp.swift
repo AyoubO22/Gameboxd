@@ -13,7 +13,7 @@ class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
 @main
 struct GameboxdApp: App {
     // On instancie le store ici pour qu'il vive pendant toute la durée de vie de l'app
-    @State private var store = GameStore()
+    @State private var store = GameboxdApp.makeStore()
     @State private var timerManager = TimerManager()
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @Environment(\.scenePhase) private var scenePhase
@@ -28,6 +28,13 @@ struct GameboxdApp: App {
 
         UNUserNotificationCenter.current().delegate = notificationDelegate
         Self.styleNavigationBars()
+    }
+
+    private static func makeStore() -> GameStore {
+        #if DEBUG
+        if DemoShelf.isOn { return DemoShelf.makeStore() } // launch argument `-debugDemoShelf 1`
+        #endif
+        return GameStore()
     }
 
     /// Navigation titles are UIKit: heavy system face, scaled for Dynamic Type.

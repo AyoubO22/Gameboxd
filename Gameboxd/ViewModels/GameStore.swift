@@ -117,6 +117,9 @@ final class GameStore {
     // MARK: - Auth Methods
     func setLoggedIn(_ value: Bool) {
         isLoggedIn = value
+        #if DEBUG
+        if DemoShelf.isOn { return } // the demo shelf never touches the real account or settings
+        #endif
         UserDefaults.standard.set(value, forKey: StorageKeys.isLoggedIn)
         if value {
             saveUserProfile()
@@ -124,6 +127,11 @@ final class GameStore {
     }
     
     func logout() {
+        #if DEBUG
+        // The demo shelf never touches the real account: signing out would revoke the session
+        // saved in the Keychain, and the sign-in screen behind it could upload the demo games.
+        if DemoShelf.isOn { return }
+        #endif
         Task { await AccountService.shared.signOut() }
         switchAccount(to: nil)
         

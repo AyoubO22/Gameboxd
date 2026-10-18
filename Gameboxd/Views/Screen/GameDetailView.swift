@@ -422,7 +422,7 @@ struct PlatformPicker: View {
                     .foregroundStyle(Color.textSecondary)
                 Text(band.label)
                     .font(DS.Typography.text(12, weight: .bold, relativeTo: .caption))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(band.ink)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)
                     .background(band.color, in: RoundedRectangle(cornerRadius: 3, style: .continuous))

@@ -12,7 +12,6 @@ struct LibraryView: View {
     @State private var selectedFilter: GameStatus = .playing
     @State private var showingStats = false
     @State private var sortOption: SortOption = .title
-    @State private var showingSortMenu = false
     @State private var viewStyle: ViewStyle = .shelf
     @Namespace private var shelfNamespace
     @State private var showingAdvancedFilters = false
@@ -36,8 +35,24 @@ struct LibraryView: View {
         case year = "Année"
     }
     
-    enum ViewStyle {
+    enum ViewStyle: CaseIterable {
         case shelf, grid, list
+
+        var label: String {
+            switch self {
+            case .shelf: return "Étagère"
+            case .grid: return "Grille"
+            case .list: return "Liste"
+            }
+        }
+
+        var icon: String {
+            switch self {
+            case .shelf: return "books.vertical"
+            case .grid: return "square.grid.2x2"
+            case .list: return "list.bullet"
+            }
+        }
     }
     
     // Get unique platforms
@@ -121,6 +136,11 @@ struct LibraryView: View {
         }
     }
     
+    private var gameCountLabel: String {
+        let count = viewStyle == .shelf ? shelfGames.count : filteredGames.count
+        return "\(count) jeu\(count > 1 ? "x" : "")"
+    }
+
     func clearAllFilters() {
         selectedPlatform = nil
         selectedGenre = nil
@@ -158,108 +178,6 @@ struct LibraryView: View {
                 }
                 }
                 
-                // Sort and View Options Bar
-                HStack {
-                    // Advanced Filters Button
-                    Button(action: { showingAdvancedFilters = true }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "line.3.horizontal.decrease.circle")
-                            Text("Filtres")
-                                .lineLimit(1)
-                                .fixedSize()
-                            if activeFiltersCount > 0 {
-                                Text("\(activeFiltersCount)")
-                                    .font(DS.Typography.label)
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(Color.accent)
-                                    .foregroundStyle(Color.gbDark)
-                                    .clipShape(Capsule())
-                            }
-                        }
-                        .font(DS.Typography.caption)
-                        .foregroundStyle(activeFiltersCount > 0 ? Color.accent : Color.textSecondary)
-                        .padding(.horizontal, DS.Spacing.sm)
-                        .padding(.vertical, DS.Spacing.xs)
-                        .background(Color.gbCard)
-                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
-                                .stroke(Color.gbBorder, lineWidth: 1)
-                        )
-                    }
-
-                    // Sort Menu
-                    Menu {
-                        ForEach(SortOption.allCases, id: \.self) { option in
-                            Button(action: { sortOption = option }) {
-                                HStack {
-                                    Text(option.rawValue)
-                                    if sortOption == option {
-                                        Image(systemName: "checkmark")
-                                    }
-                                }
-                            }
-                        }
-                    } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "arrow.up.arrow.down")
-                            Text(sortOption.rawValue)
-                        }
-                        .font(DS.Typography.caption)
-                        .foregroundStyle(Color.textSecondary)
-                        .padding(.horizontal, DS.Spacing.sm)
-                        .padding(.vertical, DS.Spacing.xs)
-                        .background(Color.gbCard)
-                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
-                                .stroke(Color.gbBorder, lineWidth: 1)
-                        )
-                    }
-
-                    Spacer()
-
-                    let count = viewStyle == .shelf ? shelfGames.count : filteredGames.count
-                    Text("\(count) jeu\(count > 1 ? "x" : "")")
-                        .font(DS.Typography.caption)
-                        .foregroundStyle(Color.textSecondary)
-
-                    Spacer()
-
-                    // View Style Toggle
-                    HStack(spacing: 0) {
-                        Button(action: { viewStyle = .shelf }) {
-                            Image(systemName: "books.vertical")
-                                .foregroundStyle(viewStyle == .shelf ? Color.accent : Color.textSecondary)
-                                .padding(8)
-                        }
-                        .accessibilityLabel("Affichage en étagère")
-
-                        Button(action: { viewStyle = .grid }) {
-                            Image(systemName: "square.grid.2x2")
-                                .foregroundStyle(viewStyle == .grid ? Color.accent : Color.textSecondary)
-                                .padding(8)
-                        }
-                        .accessibilityLabel("Affichage en grille")
-
-                        Button(action: { viewStyle = .list }) {
-                            Image(systemName: "list.bullet")
-                                .foregroundStyle(viewStyle == .list ? Color.accent : Color.textSecondary)
-                                .padding(8)
-                        }
-                        .accessibilityLabel("Affichage en liste")
-                    }
-                    .background(Color.gbCard)
-                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
-                            .stroke(Color.gbBorder, lineWidth: 1)
-                    )
-                }
-                .padding(.horizontal)
-                .padding(.vertical, 8)
-
                 // Active Filters Pills
                 if activeFiltersCount > 0 {
                     ScrollView(.horizontal, showsIndicators: false) {
@@ -363,25 +281,54 @@ struct LibraryView: View {
                 LinearGradient(colors: [Shelf.wallTop, Color.gbDark], startPoint: .top, endPoint: .center)
                     .ignoresSafeArea()
             )
+            .navigationSubtitle(gameCountLabel)
+            // Display, sort and filters live in the glass toolbar instead of a row of
+            // hand-made buttons above the covers.
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: { showingComparison = true }) {
-                        Image(systemName: "arrow.left.arrow.right")
-                            .foregroundStyle(Color.accent)
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    Button(action: { showingAdvancedFilters = true }) {
+                        Image(systemName: activeFiltersCount > 0
+                              ? "line.3.horizontal.decrease.circle.fill"
+                              : "line.3.horizontal.decrease.circle")
+                            .foregroundStyle(activeFiltersCount > 0 ? Color.accent : Color.textPrimary)
                     }
-                    .disabled(store.myGames.count < 2)
-                    .accessibilityLabel("Comparer deux jeux")
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: {
-                        withAnimation(.spring(response: 0.3)) {
-                            showingStats.toggle()
+                    .accessibilityLabel(activeFiltersCount > 0 ? "Filtres, \(activeFiltersCount) actifs" : "Filtres")
+
+                    Menu {
+                        Picker("Affichage", selection: $viewStyle.animation(.snappy)) {
+                            ForEach(ViewStyle.allCases, id: \.self) { style in
+                                Label(style.label, systemImage: style.icon).tag(style)
+                            }
                         }
-                    }) {
-                        Image(systemName: showingStats ? "chart.bar.fill" : "chart.bar")
-                            .foregroundStyle(Color.accent)
+                        .pickerStyle(.inline)
+
+                        Picker(selection: $sortOption) {
+                            ForEach(SortOption.allCases, id: \.self) { option in
+                                Text(option.rawValue).tag(option)
+                            }
+                        } label: {
+                            Label("Trier par", systemImage: "arrow.up.arrow.down")
+                        }
+                        .pickerStyle(.menu)
+
+                        Divider()
+
+                        Button {
+                            withAnimation(.spring(response: 0.3)) { showingStats.toggle() }
+                        } label: {
+                            Label(showingStats ? "Masquer les statistiques" : "Afficher les statistiques",
+                                  systemImage: "chart.bar")
+                        }
+
+                        Button { showingComparison = true } label: {
+                            Label("Comparer deux jeux", systemImage: "arrow.left.arrow.right")
+                        }
+                        .disabled(store.myGames.count < 2)
+                    } label: {
+                        Image(systemName: viewStyle.icon)
+                            .foregroundStyle(Color.textPrimary)
                     }
-                    .accessibilityLabel(showingStats ? "Masquer les statistiques" : "Afficher les statistiques")
+                    .accessibilityLabel("Affichage et tri")
                 }
             }
             .sheet(isPresented: $showingComparison) {

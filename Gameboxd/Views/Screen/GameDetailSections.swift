@@ -688,7 +688,8 @@ struct SimilarGamesShelf: View {
                     LazyHStack(alignment: .bottom, spacing: DS.Spacing.md) {
                         if games.isEmpty {
                             ForEach(0..<4, id: \.self) { _ in
-                                RoundedRectangle(cornerRadius: 5).fill(Color.gbSurface2).frame(width: 90, height: 118)
+                                RoundedRectangle(cornerRadius: 5).fill(Color.gbSurface2)
+                                    .frame(width: 94, height: FaceOutCase.consoleHeight(coverWidth: 94))
                             }
                         }
                         ForEach(games) { similar in
@@ -696,7 +697,7 @@ struct SimilarGamesShelf: View {
                                 GameDetailView(game: store.libraryGame(for: similar) ?? similar)
                                     .navigationTransition(.zoom(sourceID: "similar-\(similar.id)", in: namespace))
                             } label: {
-                                FaceOutCase(game: similar, coverWidth: 85, showsProgress: false)
+                                FaceOutCase(game: similar, coverWidth: 94, onShelf: true)
                             }
                             .buttonStyle(.plain)
                             .matchedTransitionSource(id: "similar-\(similar.id)", in: namespace)
@@ -705,8 +706,9 @@ struct SimilarGamesShelf: View {
                     }
                     .padding(.horizontal)
                     .padding(.top, DS.Spacing.xs)
+                    .padding(.bottom, Shelf.faceOutSeat)
                 }
-                ShelfPlank().padding(.horizontal, DS.Spacing.md)
+                .standingOnPlank()
             }
         }
     }

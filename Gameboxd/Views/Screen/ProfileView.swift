@@ -444,53 +444,52 @@ struct ShowcaseSection: View {
 
     var body: some View {
         let favorites = store.favoriteGames()
-        // Four cases fill the row: each slot is a quarter of it minus the gaps,
-        // and a case is its cover plus a spine of ~6 % of that width.
         let slotWidth = (rowWidth - gap * CGFloat(slots - 1)) / CGFloat(slots)
-        let coverWidth = (slotWidth / 1.06).rounded(.down)
+        // Four cases fill the row: a PlayStation-size case is exactly a slot wide (a Switch
+        // case stands narrower in it, a PC one taller).
+        let coverWidth = slotWidth.rounded(.down)
 
         VStack(alignment: .leading, spacing: DS.Spacing.sm) {
             ShelfLabel(title: "Ma vitrine", count: favorites.count)
 
-            VStack(spacing: 0) {
-                HStack(alignment: .bottom, spacing: gap) {
-                    ForEach(favorites) { game in
-                        NavigationLink {
-                            GameDetailView(game: game)
-                                .navigationTransition(.zoom(sourceID: game.id, in: namespace))
-                        } label: {
-                            FaceOutCase(game: game, coverWidth: coverWidth, showsProgress: false)
-                        }
-                        .buttonStyle(.plain)
-                        .matchedTransitionSource(id: game.id, in: namespace)
-                        .contextMenu {
-                            Button(role: .destructive) { store.removeFavoriteGame(game) } label: {
-                                Label("Retirer de la vitrine", systemImage: "xmark.circle")
-                            }
+            HStack(alignment: .bottom, spacing: gap) {
+                ForEach(favorites) { game in
+                    NavigationLink {
+                        GameDetailView(game: game)
+                            .navigationTransition(.zoom(sourceID: game.id, in: namespace))
+                    } label: {
+                        FaceOutCase(game: game, coverWidth: coverWidth, onShelf: true)
+                    }
+                    .buttonStyle(.plain)
+                    .matchedTransitionSource(id: game.id, in: namespace)
+                    .contextMenu {
+                        Button(role: .destructive) { store.removeFavoriteGame(game) } label: {
+                            Label("Retirer de la vitrine", systemImage: "xmark.circle")
                         }
                     }
-                    ForEach(favorites.count..<slots, id: \.self) { _ in
-                        Button { showingPicker = true } label: {
-                            RoundedRectangle(cornerRadius: 5, style: .continuous)
-                                .strokeBorder(Color.textTertiary.opacity(0.6), style: StrokeStyle(lineWidth: 1.2, dash: [4, 4]))
-                                .frame(width: slotWidth, height: (coverWidth * 1.39).rounded())
-                                .overlay(Image(systemName: "plus").foregroundStyle(Color.textTertiary))
-                        }
-                        .accessibilityLabel("Ajouter un jeu à la vitrine")
-                    }
-                    Spacer(minLength: 0)
                 }
-                .padding(.top, DS.Spacing.lg)
-                .padding(.horizontal, DS.Spacing.md)
-                // The display case: a soft spot from above on a slightly lighter back wall.
-                .background(
-                    ZStack {
-                        Shelf.wallTop
-                        RadialGradient(colors: [Color.white.opacity(0.10), .clear],
-                                       center: .top, startRadius: 0, endRadius: 220)
+                ForEach(favorites.count..<slots, id: \.self) { _ in
+                    Button { showingPicker = true } label: {
+                        RoundedRectangle(cornerRadius: 5, style: .continuous)
+                            .strokeBorder(Color.textTertiary.opacity(0.6), style: StrokeStyle(lineWidth: 1.2, dash: [4, 4]))
+                            .frame(width: slotWidth, height: FaceOutCase.consoleHeight(coverWidth: coverWidth))
+                            .overlay(Image(systemName: "plus").foregroundStyle(Color.textTertiary))
                     }
-                )
-                ShelfPlank().padding(.horizontal, DS.Spacing.md)
+                    .accessibilityLabel("Ajouter un jeu à la vitrine")
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.top, DS.Spacing.lg)
+            .padding(.horizontal, DS.Spacing.md)
+            .padding(.bottom, Shelf.faceOutSeat)
+            .standingOnPlank()
+            // The display case: a soft spot from above on a slightly lighter back wall.
+            .background {
+                ZStack {
+                    Shelf.wallTop
+                    RadialGradient(colors: [Color.white.opacity(0.10), .clear],
+                                   center: .top, startRadius: 0, endRadius: 220)
+                }
             }
             .clipShape(UnevenRoundedRectangle(topLeadingRadius: DS.Radius.md, topTrailingRadius: DS.Radius.md))
             .padding(.horizontal, -DS.Spacing.md)
@@ -521,7 +520,7 @@ struct ShowcasePicker: View {
                     dismiss()
                 } label: {
                     HStack(spacing: DS.Spacing.sm) {
-                        FaceOutCase(game: game, coverWidth: 36, showsProgress: false)
+                        FaceOutCase(game: game, coverWidth: 36)
                         Text(game.title)
                             .font(DS.Typography.bodyMedium)
                             .foregroundStyle(Color.textPrimary)

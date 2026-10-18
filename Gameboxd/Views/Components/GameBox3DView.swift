@@ -193,6 +193,14 @@ enum GameBoxFactory {
         }
         let spineColor = cover.flatMap { ImageCache.averageColor(of: $0)?.printed() } ?? UIColor(game.coverColor)
         let platform = PlatformBand(platform: game.platform)
+        // The shelf's spine takes its ground from the art that wraps round (the cover's left
+        // edge), not the whole cover: the same colour here, so a spine keeps its ground and ink
+        // as it zooms into the box. The whole cover still prints the box's spine: the cut strip
+        // is too small for this texture.
+        var spineArt: SpineArt?
+        if let artURL {
+            spineArt = await ImageCache.shared.spineArt(for: artURL, kind: platform.kind)
+        }
         var screenshots: [UIImage] = []
         for string in game.screenshotURLs.prefix(2) {
             if let url = URL(string: string), let image = await ImageCache.shared.load(url) {
@@ -203,8 +211,8 @@ enum GameBoxFactory {
         guard let front = render(BoxFront(cover: cover, fallback: game.coverColor, band: platform)),
               let back = render(BoxBack(game: game, cover: cover, screenshots: screenshots,
                                         band: platform, background: Color(spineColor.darker(0.42)))),
-              let spine = render(SpineFace(title: game.title, band: platform, cover: cover, tint: spineColor,
-                                           pegi: game.pegi, width: 28, height: faceSize.height)),
+              let spine = render(SpineFace(title: game.title, band: platform, cover: cover, tint: spineArt?.ground ?? spineColor,
+                                           pegi: game.pegi, width: 28, height: faceSize.height, studio: game.developer)),
               let edge = render(Rectangle().fill(Color(spineColor.darker(0.25))).frame(width: 60, height: 60)) else {
             return nil
         }
@@ -245,36 +253,50 @@ enum GameBoxFactory {
 
 // MARK: - Printed faces (rendered to textures)
 
-/// The coloured band console cases carry on top.
+/// The platform's retail case and the header its sleeve carries (European editions).
 struct PlatformBand {
+    /// Which retail case it is: its size, its plastic and how its sleeve is printed (CaseModel.swift).
+    enum Kind: String {
+        case ps5, ps4, xboxSeries, xboxOne, switch1, switch2, pc, mac, mobile
+    }
+
+    let kind: Kind
     let label: String
+    /// The platform's colour: the header printed on the sleeve, and the platform chip.
     let color: Color
+    /// Text printed on the band.
+    let ink: Color
 
     /// Platforms offered on the game page. RAWG's list is often incomplete (a PS5 release
     /// added after launch is missing), so the choice is never limited to it.
     static let choices = ["PlayStation 5", "PlayStation 4", "Xbox Series X|S", "Xbox One",
-                          "Nintendo Switch", "PC", "Mac", "iOS", "Android"]
+                          "Nintendo Switch", "Nintendo Switch 2", "PC", "Mac", "iOS", "Android"]
 
     init(platform: String) {
         let p = platform.lowercased()
         if p.contains("playstation") || p.hasPrefix("ps") {
-            label = p.contains("4") ? "PS4" : "PS5"
-            color = Color(hex: "1F4FD8")
+            if p.contains("4") {
+                // PS4: blue band, white logo.
+                kind = .ps4; label = "PS4"; color = Color(hex: "003791"); ink = .white
+            } else {
+                // PS5: white band, black logo; the case is the PS4's blue plastic.
+                kind = .ps5; label = "PS5"; color = Color(hex: "F4F5F7"); ink = Color(hex: "0B0B0C")
+            }
         } else if p.contains("xbox") {
-            label = "XBOX"
-            color = Color(hex: "107C10")
+            // Series X|S sleeves dropped the green band in 2021; the chip stays Xbox green.
+            kind = p.contains("series") ? .xboxSeries : .xboxOne
+            label = "XBOX"; color = Color(hex: "107C10"); ink = .white
         } else if p.contains("switch") || p.contains("nintendo") {
-            label = "SWITCH"
-            color = Color(hex: "E60012")
+            // Switch 1 cases are clear plastic (the red is the printed spine); Switch 2 cases are red.
+            let second = p.contains("switch 2") || p.contains("switch2")
+            kind = second ? .switch2 : .switch1
+            label = second ? "SWITCH 2" : "SWITCH"; color = Color(hex: "E60012"); ink = .white
         } else if p.contains("ios") || p.contains("android") || p.contains("mobile") {
-            label = "MOBILE"
-            color = Color(hex: "5C6167")
+            kind = .mobile; label = "MOBILE"; color = Color(hex: "5C6167"); ink = .white
         } else if p.contains("mac") {
-            label = "MAC"
-            color = Color(hex: "8E8E93")
+            kind = .mac; label = "MAC"; color = Color(hex: "8E8E93"); ink = .white
         } else {
-            label = "PC"
-            color = Color(hex: "3A3A3A")
+            kind = .pc; label = "PC"; color = Color(hex: "121212"); ink = .white
         }
     }
 }
@@ -302,7 +324,7 @@ private struct BoxFront: View {
             // Printed over the top of the art, as on a real case.
             Text(band.label)
                 .font(.system(size: 13, weight: .heavy).width(.condensed))
-                .foregroundStyle(.white)
+                .foregroundStyle(band.ink)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.leading, 12)
                 .frame(height: 22)
@@ -344,7 +366,7 @@ private struct BoxBack: View {
         VStack(alignment: .leading, spacing: 0) {
             Text(band.label)
                 .font(.system(size: 13, weight: .heavy).width(.condensed))
-                .foregroundStyle(.white)
+                .foregroundStyle(band.ink)
                 .frame(maxWidth: .infinity, alignment: .trailing)
                 .padding(.trailing, 12)
                 .frame(height: 22)
@@ -401,6 +423,14 @@ extension UIColor {
         var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
         getRed(&r, green: &g, blue: &b, alpha: &a)
         return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.6
+    }
+
+    /// WCAG relative luminance, from linearised channels: 0 for black, 1 for white.
+    var relativeLuminance: CGFloat {
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        getRed(&r, green: &g, blue: &b, alpha: &a)
+        func linear(_ c: CGFloat) -> CGFloat { c <= 0.04045 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4) }
+        return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b)
     }
 
     func darker(_ amount: CGFloat) -> UIColor {

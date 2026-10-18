@@ -142,7 +142,7 @@ extension View {
 
     /// Stands a row of face-out cases on a plank drawn behind it. The row must end with
     /// `Shelf.faceOutSeat` (over the plank's top face) then `Shelf.plankFront` (over its front
-    /// edge), where the cases' progress rings go, scrolling with them.
+    /// edge).
     func labelledPlankBehind() -> some View {
         background(alignment: .bottom) {
             VStack(spacing: 0) {
@@ -829,43 +829,6 @@ private struct FilmReflection: View {
     }
 }
 
-/// How far along a game is, on the plank's front edge under its face-out case (kept off the
-/// cover, so no logo hides behind it): a ring and the percentage on a glass capsule, as iOS shows
-/// progress, drawn round when the case scrolls into view.
-private struct ShelfProgress: View {
-    let percent: Int
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var drawn = false
-
-    var body: some View {
-        let share = CGFloat(min(max(percent, 0), 100)) / 100
-        HStack(spacing: 5) {
-            ZStack {
-                Circle().stroke(Color.white.opacity(0.18), lineWidth: 2.2)
-                Circle()
-                    .trim(from: 0, to: drawn || reduceMotion ? share : 0)
-                    .stroke(Color.accent, style: StrokeStyle(lineWidth: 2.2, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
-            }
-            .frame(width: 11, height: 11)
-            Text("\(min(percent, 100)) %")
-                .font(.system(size: 11, weight: .semibold, design: .rounded))
-                .monospacedDigit()
-                .foregroundStyle(.white)
-        }
-        .fixedSize() // its slot under the case has no width of its own
-        .padding(.leading, 5)
-        .padding(.trailing, 7)
-        .frame(height: 18)
-        .glassEffect(.regular, in: .capsule)
-        .onAppear {
-            guard !reduceMotion, !drawn else { return }
-            withAnimation(.spring(duration: 0.9, bounce: 0.15).delay(0.15)) { drawn = true }
-        }
-        .accessibilityHidden(true) // the case's own label already says it
-    }
-}
-
 struct ShelfLibrary<Menu: View>: View {
     let games: [Game]
     let namespace: Namespace.ID
@@ -913,21 +876,14 @@ struct ShelfLibrary<Menu: View>: View {
                 // edge to edge), so the back panel has no seam; the label stays crisp on top.
                 .background { ShelfLight(row: row) }
             if facesOut {
-                // The cases' progress rings sit on the plank's front edge and scroll with them, so the
-                // plank is drawn behind the row rather than under it.
+                // The plank is drawn behind the row rather than under it, its front edge left clear.
                 ScrollView(.horizontal, showsIndicators: false) {
                     LazyHStack(alignment: .bottom, spacing: Shelf.faceOutGap) {
                         ForEach(section.games) { game in
                             VStack(spacing: Shelf.faceOutSeat) {
                                 // 135 mm at the shelf's scale: the whole bookcase is drawn to one scale.
                                 caseLink(game) { FaceOutCase(game: game, coverWidth: 135 * Shelf.mm, onShelf: true) }
-                                Color.clear
-                                    .frame(height: Shelf.plankFront)
-                                    .overlay {
-                                        if game.completionPercentage > 0 {
-                                            ShelfProgress(percent: game.completionPercentage)
-                                        }
-                                    }
+                                Color.clear.frame(height: Shelf.plankFront)
                             }
                         }
                     }

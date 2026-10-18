@@ -142,7 +142,7 @@ extension View {
 
     /// Stands a row of face-out cases on a plank drawn behind it. The row must end with
     /// `Shelf.faceOutSeat` (over the plank's top face) then `Shelf.plankFront` (over its front
-    /// edge), where the cases' shelf-edge labels go, scrolling with them.
+    /// edge), where the cases' progress rings go, scrolling with them.
     func labelledPlankBehind() -> some View {
         background(alignment: .bottom) {
             VStack(spacing: 0) {
@@ -829,41 +829,43 @@ private struct FilmReflection: View {
     }
 }
 
-/// A shop's shelf-edge label, slid into the clear strip along the plank's front under a face-out
-/// case: how far along the game is, kept off the cover so no logo hides behind it.
-private struct ShelfTag: View {
+/// How far along a game is, on the plank's front edge under its face-out case (kept off the
+/// cover, so no logo hides behind it): a ring and the percentage on a glass capsule, as iOS shows
+/// progress, drawn round when the case scrolls into view.
+private struct ShelfProgress: View {
     let percent: Int
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var drawn = false
 
     var body: some View {
         let share = CGFloat(min(max(percent, 0), 100)) / 100
-        let bar: CGFloat = 22
         HStack(spacing: 5) {
+            ZStack {
+                Circle().stroke(Color.white.opacity(0.18), lineWidth: 2.2)
+                Circle()
+                    .trim(from: 0, to: drawn || reduceMotion ? share : 0)
+                    .stroke(Color.accent, style: StrokeStyle(lineWidth: 2.2, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+            }
+            .frame(width: 11, height: 11)
             Text("\(min(percent, 100)) %")
-                .font(.system(size: 9.5, weight: .heavy).width(.condensed))
+                .font(.system(size: 11, weight: .semibold, design: .rounded))
                 .monospacedDigit()
-                .foregroundStyle(Color(hex: "1A1A1A"))
-            Capsule().fill(Color(hex: "D8D2C4"))
-                .frame(width: bar, height: 2.5)
-                .overlay(alignment: .leading) {
-                    Capsule().fill(Color.accent).frame(width: bar * share)
-                }
+                .foregroundStyle(.white)
         }
         .fixedSize() // its slot under the case has no width of its own
-        .padding(.horizontal, 6)
-        .frame(height: 13)
-        .background(Color(hex: "F4F1EA"), in: RoundedRectangle(cornerRadius: 1, style: .continuous))
-        // The strip's plastic over the paper: a glint along its top edge, a faint sheen.
-        .overlay(alignment: .top) { Color.white.opacity(0.55).frame(height: 0.5) }
-        .overlay { RoundedRectangle(cornerRadius: 1, style: .continuous).fill(Color.white.opacity(0.06)) }
-        .shadow(color: .black.opacity(0.35), radius: 0.5, y: 0.5)
+        .padding(.leading, 5)
+        .padding(.trailing, 7)
+        .frame(height: 18)
+        .glassEffect(.regular, in: .capsule)
+        .onAppear {
+            guard !reduceMotion, !drawn else { return }
+            withAnimation(.spring(duration: 0.9, bounce: 0.15).delay(0.15)) { drawn = true }
+        }
         .accessibilityHidden(true) // the case's own label already says it
     }
 }
 
-// MARK: - The whole shelf
-
-/// The collection as a bookcase, one shelf per status that scrolls sideways, spines packed
-/// tight like real cases. Tapping a case opens the game's page.
 struct ShelfLibrary<Menu: View>: View {
     let games: [Game]
     let namespace: Namespace.ID
@@ -911,7 +913,7 @@ struct ShelfLibrary<Menu: View>: View {
                 // edge to edge), so the back panel has no seam; the label stays crisp on top.
                 .background { ShelfLight(row: row) }
             if facesOut {
-                // The cases' labels sit on the plank's front edge and scroll with them, so the
+                // The cases' progress rings sit on the plank's front edge and scroll with them, so the
                 // plank is drawn behind the row rather than under it.
                 ScrollView(.horizontal, showsIndicators: false) {
                     LazyHStack(alignment: .bottom, spacing: Shelf.faceOutGap) {
@@ -923,7 +925,7 @@ struct ShelfLibrary<Menu: View>: View {
                                     .frame(height: Shelf.plankFront)
                                     .overlay {
                                         if game.completionPercentage > 0 {
-                                            ShelfTag(percent: game.completionPercentage)
+                                            ShelfProgress(percent: game.completionPercentage)
                                         }
                                     }
                             }

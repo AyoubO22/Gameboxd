@@ -170,7 +170,7 @@ struct StoreShelf<Sticker: View>: View {
                                 GameDetailView(game: store.libraryGame(for: game) ?? game)
                                     .navigationTransition(.zoom(sourceID: game.id, in: namespace))
                             } label: {
-                                FaceOutCase(game: game, coverWidth: coverWidth, showsProgress: false, onShelf: true)
+                                FaceOutCase(game: game, coverWidth: coverWidth, onShelf: true)
                                     .overlay(alignment: .topTrailing) {
                                         Group {
                                             if store.isInLibrary(game) {
@@ -228,7 +228,7 @@ struct EndcapFeature: View {
                     GameDetailView(game: store.libraryGame(for: game) ?? game)
                         .navigationTransition(.zoom(sourceID: "endcap", in: namespace))
                 } label: {
-                    FaceOutCase(game: game, coverWidth: 130, showsProgress: false)
+                    FaceOutCase(game: game, coverWidth: 130)
                         .overlay(alignment: .topTrailing) {
                             StoreSticker(text: "N° 1").offset(x: 8, y: -8)
                         }
@@ -292,7 +292,7 @@ struct BacklogSuggestion: View {
                     .navigationTransition(.zoom(sourceID: "backlog-\(game.id)", in: namespace))
             } label: {
                 HStack(spacing: DS.Spacing.md) {
-                    FaceOutCase(game: game, coverWidth: 70, showsProgress: false)
+                    FaceOutCase(game: game, coverWidth: 70)
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Et si tu lançais")
                             .font(DS.Typography.caption)

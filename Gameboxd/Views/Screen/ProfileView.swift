@@ -458,7 +458,7 @@ struct ShowcaseSection: View {
                         GameDetailView(game: game)
                             .navigationTransition(.zoom(sourceID: game.id, in: namespace))
                     } label: {
-                        FaceOutCase(game: game, coverWidth: coverWidth, showsProgress: false, onShelf: true)
+                        FaceOutCase(game: game, coverWidth: coverWidth, onShelf: true)
                     }
                     .buttonStyle(.plain)
                     .matchedTransitionSource(id: game.id, in: namespace)
@@ -520,7 +520,7 @@ struct ShowcasePicker: View {
                     dismiss()
                 } label: {
                     HStack(spacing: DS.Spacing.sm) {
-                        FaceOutCase(game: game, coverWidth: 36, showsProgress: false)
+                        FaceOutCase(game: game, coverWidth: 36)
                         Text(game.title)
                             .font(DS.Typography.bodyMedium)
                             .foregroundStyle(Color.textPrimary)

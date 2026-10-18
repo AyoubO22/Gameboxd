@@ -697,7 +697,7 @@ struct SimilarGamesShelf: View {
                                 GameDetailView(game: store.libraryGame(for: similar) ?? similar)
                                     .navigationTransition(.zoom(sourceID: "similar-\(similar.id)", in: namespace))
                             } label: {
-                                FaceOutCase(game: similar, coverWidth: 94, showsProgress: false, onShelf: true)
+                                FaceOutCase(game: similar, coverWidth: 94, onShelf: true)
                             }
                             .buttonStyle(.plain)
                             .matchedTransitionSource(id: "similar-\(similar.id)", in: namespace)

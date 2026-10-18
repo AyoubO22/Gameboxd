@@ -139,6 +139,19 @@ extension View {
                 .padding(.horizontal, DS.Spacing.md) // ShelfPlank bleeds by md on its own
         }
     }
+
+    /// Stands a row of face-out cases on a plank drawn behind it. The row must end with
+    /// `Shelf.faceOutSeat` (over the plank's top face) then `Shelf.plankFront` (over its front
+    /// edge), where the cases' shelf-edge labels go, scrolling with them.
+    func labelledPlankBehind() -> some View {
+        background(alignment: .bottom) {
+            VStack(spacing: 0) {
+                PlankTop().frame(height: Shelf.plankTopDepth)
+                ShelfPlank()
+                    .padding(.horizontal, DS.Spacing.md) // ShelfPlank bleeds by md on its own
+            }
+        }
+    }
 }
 
 /// The small title above a shelf, like a label pinned to the plank.
@@ -547,15 +560,13 @@ struct FaceOutCase: View {
     /// points per millimetre, and every case keeps its real shape at it (a Switch case comes out
     /// narrower, a PC DVD case taller).
     let coverWidth: CGFloat
-    let showsProgress: Bool
     /// Standing on a plank: it leans back on the wall, which takes its shadow, over a contact shadow.
     let onShelf: Bool
     @State private var art: SpineArt?
 
-    init(game: Game, coverWidth: CGFloat = 115, showsProgress: Bool = true, onShelf: Bool = false) {
+    init(game: Game, coverWidth: CGFloat = 115, onShelf: Bool = false) {
         self.game = game
         self.coverWidth = coverWidth
-        self.showsProgress = showsProgress
         self.onShelf = onShelf
         let kind = PlatformBand(platform: game.platform).kind
         _art = State(initialValue: game.artURL.flatMap { ImageCache.shared.cachedSpineArt(for: $0, kind: kind) })
@@ -609,14 +620,6 @@ struct FaceOutCase: View {
                 .init(color: .black.opacity(0.35), location: 1),
             ], startPoint: .top, endPoint: .bottom), lineWidth: max(0.5, 0.6 * front.mm))
         }
-        // Progress isn't printed on a case: it's a shop's label stuck on the film.
-        .overlay(alignment: .topTrailing) {
-            if showsProgress && details && game.completionPercentage > 0 {
-                ProgressSticker(percent: game.completionPercentage, width: (front.size.width * 0.3).rounded())
-                    .padding(.top, front.cap + CaseHeader.height(for: kind, mm: front.mm) + (3 * front.mm).rounded())
-                    .padding(.trailing, front.rim + (3 * front.mm).rounded())
-            }
-        }
         .background {
             if onShelf {
                 // It leans on the wall: a tight shadow there, thrown right and down by the lamp.
@@ -643,7 +646,7 @@ struct FaceOutCase: View {
             art = await ImageCache.shared.spineArt(for: url, kind: kind)
         }
         .accessibilityElement()
-        .accessibilityLabel("\(game.title), \(game.completionPercentage) % terminé")
+        .accessibilityLabel(game.completionPercentage > 0 ? "\(game.title), \(game.completionPercentage) % terminé" : game.title)
     }
 }
 
@@ -659,18 +662,21 @@ private struct CaseInsert: View {
 
     var body: some View {
         let tint = UIColor(game.coverColor)
-        let ground = Color(art?.ground ?? tint)
         // The spine's print rolling round onto the front: its own ground (all red on a Switch case).
         let spine = Color(SpineFace.paper(title: game.title, kind: band.kind, art: art, tint: tint))
         // A box scan already carries the platform header and ratings: print nothing over it.
         let scanned = (art?.banner ?? 0) > 0
+        let printsHeader = !scanned && front.mm >= 0.3
+        let blank = BlankFront(title: game.title, ground: art?.ground ?? tint, kind: band.kind, size: front.panel,
+                               header: printsHeader ? CaseHeader.height(for: band.kind, mm: front.mm) : 0,
+                               showsTitle: details)
         HStack(spacing: 0) {
             spine.frame(width: front.fold)
             Group {
                 if let url = game.artURL {
-                    CachedAsyncImage(url: url) { $0.resizable().scaledToFill() } placeholder: { ground }
+                    CachedAsyncImage(url: url) { $0.resizable().scaledToFill() } placeholder: { blank }
                 } else {
-                    ground
+                    blank
                 }
             }
             .frame(width: front.panel.width, height: front.panel.height)
@@ -678,7 +684,7 @@ private struct CaseInsert: View {
         }
         .frame(width: front.insert.width, height: front.insert.height)
         .overlay(alignment: .top) {
-            if !scanned && front.mm >= 0.3 {
+            if printsHeader {
                 CaseHeader(band: band, mm: front.mm, showsMarks: details, studio: game.developer)
             }
         }
@@ -691,6 +697,46 @@ private struct CaseInsert: View {
         }
         .overlay { Rectangle().fill(ImagePaint(image: PrintGrain.tile)).opacity(0.05) }
         .overlay { Rectangle().strokeBorder(Color.black.opacity(0.22), lineWidth: 0.5) } // the card's cut edge
+    }
+}
+
+/// A front with no art to show (still loading, or none at all): the title set like a logo on the
+/// cover's colour, lit from the middle, so the case still reads as a printed sleeve, not a blank.
+private struct BlankFront: View {
+    let title: String
+    let ground: UIColor
+    let kind: PlatformBand.Kind
+    let size: CGSize
+    /// Room the platform header takes across the top.
+    let header: CGFloat
+    /// Small cases keep only the colour: lettering there would be a smudge.
+    let showsTitle: Bool
+
+    var body: some View {
+        let face = SpineFont.pick(seed: Shelf.printSeed(title), kind: kind)
+        // Measured luminance rather than `isLight`: a mid-tone cover takes the dark ink, which
+        // reads better on it once the bloom behind the title lifts it.
+        let ink = ground.relativeLuminance > 0.16 ? Color(hex: "151515") : Color(hex: "F2F3F5")
+        let type = face.size(for: size.width * 0.25).rounded()
+        ZStack(alignment: .top) {
+            Color(ground)
+            RadialGradient(colors: [.white.opacity(0.14), .white.opacity(0)], center: UnitPoint(x: 0.5, y: 0.4),
+                           startRadius: 0, endRadius: size.height * 0.6)
+            LinearGradient(colors: [.black.opacity(0), .black.opacity(0.3)],
+                           startPoint: UnitPoint(x: 0.5, y: 0.55), endPoint: .bottom)
+            if showsTitle {
+                Text(face.cased(title))
+                    .font(face.font(size: type))
+                    .tracking(type * face.tracking)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(3)
+                    .minimumScaleFactor(0.5)
+                    .foregroundStyle(ink)
+                    .padding(.horizontal, (size.width * 0.1).rounded())
+                    .padding(.top, header + (size.width * 0.1).rounded())
+            }
+        }
+        .frame(width: size.width, height: size.height)
     }
 }
 
@@ -783,29 +829,34 @@ private struct FilmReflection: View {
     }
 }
 
-/// Progress on a shop's price label stuck to the film, where a real case would carry one.
-private struct ProgressSticker: View {
+/// A shop's shelf-edge label, slid into the clear strip along the plank's front under a face-out
+/// case: how far along the game is, kept off the cover so no logo hides behind it.
+private struct ShelfTag: View {
     let percent: Int
-    let width: CGFloat
 
     var body: some View {
-        let height = (width * 0.42).rounded()
         let share = CGFloat(min(max(percent, 0), 100)) / 100
-        VStack(spacing: height * 0.1) {
+        let bar: CGFloat = 22
+        HStack(spacing: 5) {
             Text("\(min(percent, 100)) %")
-                .font(.system(size: height * 0.46, weight: .heavy).width(.condensed))
+                .font(.system(size: 9.5, weight: .heavy).width(.condensed))
                 .monospacedDigit()
                 .foregroundStyle(Color(hex: "1A1A1A"))
             Capsule().fill(Color(hex: "D8D2C4"))
-                .frame(width: width * 0.76, height: max(1.5, height * 0.1))
+                .frame(width: bar, height: 2.5)
                 .overlay(alignment: .leading) {
-                    Capsule().fill(Color.accent).frame(width: width * 0.76 * share)
+                    Capsule().fill(Color.accent).frame(width: bar * share)
                 }
         }
-        .frame(width: width, height: height)
-        .background(Color(hex: "F4F1EA"), in: RoundedRectangle(cornerRadius: 1.5, style: .continuous))
-        .shadow(color: .black.opacity(0.3), radius: 0.6, y: 0.5)
-        .rotationEffect(.degrees(-2))
+        .fixedSize() // its slot under the case has no width of its own
+        .padding(.horizontal, 6)
+        .frame(height: 13)
+        .background(Color(hex: "F4F1EA"), in: RoundedRectangle(cornerRadius: 1, style: .continuous))
+        // The strip's plastic over the paper: a glint along its top edge, a faint sheen.
+        .overlay(alignment: .top) { Color.white.opacity(0.55).frame(height: 0.5) }
+        .overlay { RoundedRectangle(cornerRadius: 1, style: .continuous).fill(Color.white.opacity(0.06)) }
+        .shadow(color: .black.opacity(0.35), radius: 0.5, y: 0.5)
+        .accessibilityHidden(true) // the case's own label already says it
     }
 }
 
@@ -850,8 +901,6 @@ struct ShelfLibrary<Menu: View>: View {
         // From every game, not only those the lazy row has built: a PC case further along
         // mustn't make the row jump when it scrolls in.
         let tallest = section.games.map { PlatformBand(platform: $0.platform).caseHeight }.max() ?? 204
-        let leaning: UUID? = facesOut || section.games.count < 2 ? nil : section.games.last?.id
-        let gap = Self.leanGap(section.games)
         return VStack(alignment: .leading, spacing: 0) {
             ShelfLabel(title: section.title, count: section.games.count)
                 .accessibilityAddTraits(.isHeader)
@@ -861,37 +910,68 @@ struct ShelfLibrary<Menu: View>: View {
                 // The same light on the wall behind the label as on the shelf below (both run
                 // edge to edge), so the back panel has no seam; the label stays crisp on top.
                 .background { ShelfLight(row: row) }
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(alignment: .bottom, spacing: facesOut ? Shelf.faceOutGap : 0) {
-                    ForEach(section.games) { game in
-                        let leans = game.id == leaning
-                        NavigationLink {
-                            GameDetailView(game: game)
-                                .navigationTransition(.zoom(sourceID: game.id, in: namespace))
-                        } label: {
-                            if facesOut {
+            if facesOut {
+                // The cases' labels sit on the plank's front edge and scroll with them, so the
+                // plank is drawn behind the row rather than under it.
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(alignment: .bottom, spacing: Shelf.faceOutGap) {
+                        ForEach(section.games) { game in
+                            VStack(spacing: Shelf.faceOutSeat) {
                                 // 135 mm at the shelf's scale: the whole bookcase is drawn to one scale.
-                                FaceOutCase(game: game, coverWidth: 135 * Shelf.mm, onShelf: true)
-                            } else {
+                                caseLink(game) { FaceOutCase(game: game, coverWidth: 135 * Shelf.mm, onShelf: true) }
+                                Color.clear
+                                    .frame(height: Shelf.plankFront)
+                                    .overlay {
+                                        if game.completionPercentage > 0 {
+                                            ShelfTag(percent: game.completionPercentage)
+                                        }
+                                    }
+                            }
+                        }
+                    }
+                    .frame(height: tallest + Shelf.faceOutSeat + Shelf.plankFront, alignment: .bottom)
+                    .padding(.horizontal, DS.Spacing.md)
+                    .padding(.top, Shelf.headroom)
+                }
+                .labelledPlankBehind()
+                .overlay { ShelfLight(row: row) }
+            } else {
+                let leaning: UUID? = section.games.count < 2 ? nil : section.games.last?.id
+                let gap = Self.leanGap(section.games)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(alignment: .bottom, spacing: 0) {
+                        ForEach(section.games) { game in
+                            let leans = game.id == leaning
+                            caseLink(game) {
                                 // The last case has room to fall: it pivots on its foot onto its neighbour.
                                 GameSpine(game: game, lean: leans ? Shelf.lastCaseLean : 0)
                                     .padding(.leading, leans ? gap : 0)
                             }
                         }
-                        .buttonStyle(PressableCardStyle())
-                        .matchedTransitionSource(id: game.id, in: namespace)
-                        .contextMenu { contextMenu(game) }
                     }
+                    .frame(height: tallest, alignment: .bottom)
+                    .padding(.horizontal, DS.Spacing.md)
+                    .padding(.top, Shelf.headroom)
+                    .padding(.bottom, Shelf.spineSeat)
                 }
-                .frame(height: tallest, alignment: .bottom)
-                .padding(.horizontal, DS.Spacing.md)
-                .padding(.top, Shelf.headroom)
-                .padding(.bottom, facesOut ? Shelf.faceOutSeat : Shelf.spineSeat)
+                .standingOnPlank()
+                .overlay { ShelfLight(row: row) }
             }
-            .standingOnPlank()
-            .overlay { ShelfLight(row: row) }
         }
         .background { ShelfWall() }
+    }
+
+    /// A case on the shelf: it opens the game's page, zooming out of the case.
+    private func caseLink<Label: View>(_ game: Game, @ViewBuilder label: () -> Label) -> some View {
+        NavigationLink {
+            GameDetailView(game: game)
+                .navigationTransition(.zoom(sourceID: game.id, in: namespace))
+        } label: {
+            label()
+        }
+        .buttonStyle(PressableCardStyle())
+        .matchedTransitionSource(id: game.id, in: namespace)
+        .contextMenu { contextMenu(game) }
     }
 
     /// How far the leaning last case's foot stands from its neighbour: it pivots on its

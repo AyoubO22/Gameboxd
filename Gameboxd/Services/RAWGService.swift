@@ -233,7 +233,7 @@ class RAWGService: ObservableObject {
     func getTrendingGames(page: Int = 1) async throws -> [RAWGGame] {
         guard hasValidAPIKey,
               let start = Calendar.current.date(byAdding: .month, value: -1, to: Date()) else { return [] }
-        let response: RAWGGameResponse = try await fetch("/games", ["dates": dateRange(from: start, to: Date()), "ordering": "-added", "page": "\(page)", "page_size": "10"])
+        let response: RAWGGameResponse = try await fetch("/games", ["dates": dateRange(from: start, to: Date()), "ordering": "-added", "page": "\(page)", "page_size": "20", "exclude_additions": "true"])
         return response.results
     }
     
@@ -241,14 +241,14 @@ class RAWGService: ObservableObject {
     func getNewReleases(page: Int = 1) async throws -> [RAWGGame] {
         guard hasValidAPIKey,
               let start = Calendar.current.date(byAdding: .month, value: -2, to: Date()) else { return [] }
-        let response: RAWGGameResponse = try await fetch("/games", ["dates": dateRange(from: start, to: Date()), "ordering": "-released", "page": "\(page)", "page_size": "10"])
+        let response: RAWGGameResponse = try await fetch("/games", ["dates": dateRange(from: start, to: Date()), "ordering": "-released", "page": "\(page)", "page_size": "20", "exclude_additions": "true"])
         return response.results
     }
     
     // MARK: - Get Top Rated
     func getTopRated(page: Int = 1) async throws -> [RAWGGame] {
         guard hasValidAPIKey else { return [] }
-        let response: RAWGGameResponse = try await fetch("/games", ["ordering": "-rating", "page": "\(page)", "page_size": "10", "metacritic": "80,100"])
+        let response: RAWGGameResponse = try await fetch("/games", ["ordering": "-rating", "page": "\(page)", "page_size": "20", "exclude_additions": "true", "metacritic": "80,100"])
         return response.results
     }
     
@@ -256,10 +256,42 @@ class RAWGService: ObservableObject {
     func getUpcomingGames(page: Int = 1) async throws -> [RAWGGame] {
         guard hasValidAPIKey,
               let end = Calendar.current.date(byAdding: .year, value: 1, to: Date()) else { return [] }
-        let response: RAWGGameResponse = try await fetch("/games", ["dates": dateRange(from: Date(), to: end), "ordering": "released", "page": "\(page)", "page_size": "10"])
+        let response: RAWGGameResponse = try await fetch("/games", ["dates": dateRange(from: Date(), to: end), "ordering": "released", "page": "\(page)", "page_size": "20", "exclude_additions": "true"])
         return response.results
     }
     
+    // MARK: - One entry per game
+    // RAWG lists editions as games of their own: "The Witcher 3: Wild Hunt" and
+    // "…: Complete Edition" would fill a shelf with one game (DLC is dropped by
+    // `exclude_additions`). Discover asks for 20 and keeps the first of each game, up to `limit`.
+
+    static func distinct(_ games: [Game], limit: Int = 10) -> [Game] {
+        var seen = Set<String>()
+        return Array(games.filter { seen.insert(baseTitle($0.title)).inserted }.prefix(limit))
+    }
+
+    private static let separators = [":", " - ", " – ", " — "]
+    private static let editionWords = ["edition", "goty", "game of the year", "director's cut", "directors cut"]
+
+    /// The title without an edition suffix: "The Witcher 3: Wild Hunt – Game of the Year Edition"
+    /// and "The Witcher 3: Wild Hunt (GOTY)" both become "the witcher 3 wild hunt".
+    static func baseTitle(_ title: String) -> String {
+        var base = title
+        if let open = base.lastIndex(of: "("), isEdition(String(base[open...])) {
+            base = String(base[..<open])
+        }
+        while let cut = separators.compactMap({ base.range(of: $0, options: .backwards) }).max(by: { $0.lowerBound < $1.lowerBound }),
+              isEdition(String(base[cut.upperBound...])) {
+            base = String(base[..<cut.lowerBound])
+        }
+        return IGDBService.normalize(base).lowercased()
+    }
+
+    private static func isEdition(_ suffix: String) -> Bool {
+        let suffix = suffix.lowercased()
+        return editionWords.contains { suffix.contains($0) }
+    }
+
     // MARK: - Get Similar Games
     func getSimilarGames(gameId: Int) async throws -> [RAWGGame] {
         guard hasValidAPIKey else { return [] }

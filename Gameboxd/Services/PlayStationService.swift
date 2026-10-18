@@ -60,14 +60,48 @@ struct PSNTrophyCounts: Codable, Equatable {
     let gold: Int
     let platinum: Int
 
+    init(bronze: Int, silver: Int, gold: Int, platinum: Int) {
+        self.bronze = bronze
+        self.silver = silver
+        self.gold = gold
+        self.platinum = platinum
+    }
+
+    /// A missing count is zero (Sony leaves some out, e.g. platinum on sets without one).
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        bronze = (try? c.decode(Int.self, forKey: .bronze)) ?? 0
+        silver = (try? c.decode(Int.self, forKey: .silver)) ?? 0
+        gold = (try? c.decode(Int.self, forKey: .gold)) ?? 0
+        platinum = (try? c.decode(Int.self, forKey: .platinum)) ?? 0
+    }
+
     var total: Int { bronze + silver + gold + platinum }
 }
 
 /// `GET /trophy/v1/users/me/trophySummary`
-struct PSNTrophySummaryResponse: Codable {
+struct PSNTrophySummaryResponse: Decodable {
     let accountId: String
-    let trophyLevel: String?
+    let trophyLevel: Int?
     let earnedTrophies: PSNTrophyCounts?
+
+    private enum CodingKeys: String, CodingKey { case accountId, trophyLevel, earnedTrophies }
+
+    init(accountId: String, trophyLevel: Int?, earnedTrophies: PSNTrophyCounts?) {
+        self.accountId = accountId
+        self.trophyLevel = trophyLevel
+        self.earnedTrophies = earnedTrophies
+    }
+
+    // Sony has sent the level both as a number and as a string ("451"): take either,
+    // and don't fail the whole link over the level or the counts.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        accountId = try c.decode(String.self, forKey: .accountId)
+        trophyLevel = (try? c.decode(Int.self, forKey: .trophyLevel))
+            ?? (try? c.decode(String.self, forKey: .trophyLevel)).flatMap { Int($0) }
+        earnedTrophies = try? c.decode(PSNTrophyCounts.self, forKey: .earnedTrophies)
+    }
 }
 
 /// `GET /userProfile/v1/internal/users/{accountId}/profiles`
@@ -439,7 +473,7 @@ final class PlayStationService {
                 do {
                     return try JSONDecoder().decode(T.self, from: data)
                 } catch {
-                    throw PlayStationServiceError.decodingError(String(describing: T.self))
+                    throw PlayStationServiceError.decodingError("\(T.self) \(Self.describe(error))")
                 }
             case 401 where !retried:
                 retried = true // the token can be revoked before its expiry: refresh once
@@ -453,6 +487,18 @@ final class PlayStationService {
         }
     }
 
+    /// Which field didn't match, so a report from the app says what to fix.
+    private static func describe(_ error: Error) -> String {
+        guard let decodingError = error as? DecodingError else { return "" }
+        let path: (DecodingError.Context) -> String = { $0.codingPath.map(\.stringValue).joined(separator: ".") }
+        switch decodingError {
+        case .keyNotFound(let key, let context): return "(\(path(context)).\(key.stringValue) manquant)"
+        case .typeMismatch(_, let context), .valueNotFound(_, let context): return "(\(path(context)) : type inattendu)"
+        case .dataCorrupted(let context): return "(\(path(context)) illisible)"
+        @unknown default: return ""
+        }
+    }
+
     func profile() async throws -> PSNProfileResponse {
         let summary = try await get("/trophy/v1/users/me/trophySummary", as: PSNTrophySummaryResponse.self)
         let user = try? await get("/userProfile/v1/internal/users/\(summary.accountId)/profiles", as: PSNUserProfileResponse.self)
@@ -460,7 +506,7 @@ final class PlayStationService {
         return PSNProfileResponse(
             onlineId: user?.onlineId ?? "PlayStation",
             avatarUrl: avatar,
-            trophyLevel: summary.trophyLevel.flatMap { Int($0) },
+            trophyLevel: summary.trophyLevel,
             earnedTrophies: summary.earnedTrophies
         )
     }

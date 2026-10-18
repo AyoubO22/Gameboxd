@@ -61,4 +61,15 @@ final class PSNLibraryTests: XCTestCase {
         XCTAssertEqual(items.first { $0.name == "response_type" }?.value, "code")
         XCTAssertEqual(items.first { $0.name == "redirect_uri" }?.value, "com.scee.psxandroid.scecompcall://redirect")
     }
+    func testTrophySummaryLevelAsNumberOrString() throws {
+        let number = #"{"accountId":"123","trophyLevel":433,"progress":12,"tier":5,"earnedTrophies":{"bronze":10,"silver":3,"gold":1,"platinum":1}}"#
+        let summary = try JSONDecoder().decode(PSNTrophySummaryResponse.self, from: Data(number.utf8))
+        XCTAssertEqual(summary.trophyLevel, 433)
+        XCTAssertEqual(summary.earnedTrophies?.total, 15)
+
+        let string = #"{"accountId":"123","trophyLevel":"433","earnedTrophies":{"bronze":10}}"#
+        let older = try JSONDecoder().decode(PSNTrophySummaryResponse.self, from: Data(string.utf8))
+        XCTAssertEqual(older.trophyLevel, 433)
+        XCTAssertEqual(older.earnedTrophies?.total, 10)
+    }
 }

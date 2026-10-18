@@ -437,6 +437,43 @@ struct SpineHeader: View {
     }
 }
 
+/// What a European front prints over its art: the platform's header and the PEGI label. A box
+/// scan already carries both, so nothing goes over it. The shelf's face-out cases and the game
+/// page's 3D case share it.
+struct FrontPrint: ViewModifier {
+    let band: PlatformBand
+    /// Points per millimetre of the case it's printed on.
+    let mm: CGFloat
+    let pegi: Int?
+    /// The art is a box scan (SpineArt.banner > 0).
+    let scanned: Bool
+    /// Small cases get the header's colour without lettering.
+    let details: Bool
+    let studio: String
+    /// Print before the front proper, on the left: the spine's, rolling round the hinge.
+    var hinge: CGFloat = 0
+
+    static func printsHeader(scanned: Bool, mm: CGFloat) -> Bool { !scanned && mm >= 0.3 }
+
+    func body(content: Content) -> some View {
+        content
+            .overlay(alignment: .top) {
+                if Self.printsHeader(scanned: scanned, mm: mm) {
+                    CaseHeader(band: band, mm: mm, showsMarks: details, studio: studio)
+                }
+            }
+            .overlay(alignment: .bottomLeading) {
+                if let pegi, !scanned, mm >= 0.6 {
+                    PEGIBadge(age: pegi, size: (12.5 * mm).rounded())
+                        .padding(.leading, hinge + (4 * mm).rounded())
+                        .padding(.bottom, (4 * mm).rounded())
+                }
+            }
+            // Printed card isn't flat colour.
+            .overlay { Rectangle().fill(ImagePaint(image: PrintGrain.tile)).opacity(0.05) }
+    }
+}
+
 /// The platform's header across the top of a case front, as European sleeves print it.
 struct CaseHeader: View {
     let band: PlatformBand

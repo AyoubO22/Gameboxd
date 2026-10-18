@@ -666,9 +666,9 @@ private struct CaseInsert: View {
         let spine = Color(SpineFace.paper(title: game.title, kind: band.kind, art: art, tint: tint))
         // A box scan already carries the platform header and ratings: print nothing over it.
         let scanned = (art?.banner ?? 0) > 0
-        let printsHeader = !scanned && front.mm >= 0.3
         let blank = BlankFront(title: game.title, ground: art?.ground ?? tint, kind: band.kind, size: front.panel,
-                               header: printsHeader ? CaseHeader.height(for: band.kind, mm: front.mm) : 0,
+                               header: FrontPrint.printsHeader(scanned: scanned, mm: front.mm)
+                                   ? CaseHeader.height(for: band.kind, mm: front.mm) : 0,
                                showsTitle: details)
         HStack(spacing: 0) {
             spine.frame(width: front.fold)
@@ -683,26 +683,15 @@ private struct CaseInsert: View {
             .clipped()
         }
         .frame(width: front.insert.width, height: front.insert.height)
-        .overlay(alignment: .top) {
-            if printsHeader {
-                CaseHeader(band: band, mm: front.mm, showsMarks: details, studio: game.developer)
-            }
-        }
-        .overlay(alignment: .bottomLeading) {
-            if let pegi = game.pegi, !scanned, front.mm >= 0.6 {
-                PEGIBadge(age: pegi, size: (12.5 * front.mm).rounded())
-                    .padding(.leading, front.fold + (4 * front.mm).rounded())
-                    .padding(.bottom, (4 * front.mm).rounded())
-            }
-        }
-        .overlay { Rectangle().fill(ImagePaint(image: PrintGrain.tile)).opacity(0.05) }
+        .modifier(FrontPrint(band: band, mm: front.mm, pegi: game.pegi, scanned: scanned, details: details,
+                             studio: game.developer, hinge: front.fold))
         .overlay { Rectangle().strokeBorder(Color.black.opacity(0.22), lineWidth: 0.5) } // the card's cut edge
     }
 }
 
 /// A front with no art to show (still loading, or none at all): the title set like a logo on the
 /// cover's colour, lit from the middle, so the case still reads as a printed sleeve, not a blank.
-private struct BlankFront: View {
+struct BlankFront: View {
     let title: String
     let ground: UIColor
     let kind: PlatformBand.Kind

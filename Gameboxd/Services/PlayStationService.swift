@@ -507,7 +507,8 @@ final class PlayStationService {
 /// Keeps Sony's redirect to the app scheme as a response instead of following it.
 private nonisolated final class NoRedirects: NSObject, URLSessionTaskDelegate, Sendable {
     func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
-                    newRequest request: URLRequest) async -> URLRequest? {
-        nil
+                    newRequest request: URLRequest, completionHandler: @escaping @Sendable (URLRequest?) -> Void) {
+        // The completion-handler form: the async one crashes the compiler (Xcode 26/27, SILGen).
+        completionHandler(nil)
     }
 }

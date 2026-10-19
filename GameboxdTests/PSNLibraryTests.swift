@@ -104,4 +104,40 @@ final class PSNLibraryTests: XCTestCase {
         XCTAssertEqual(store.myGames.first { $0.title == "Recent" }?.status, .playing)
         XCTAssertEqual(store.myGames.first { $0.title == "Old" }?.status, .shelved)
     }
+
+    func testOldPlayStationGamesWithoutPlayTimeArriveShelved() {
+        let store = makeIsolatedStore()
+        store.myGames = []
+        let day: TimeInterval = 86_400
+        store.importedGames = [
+            ImportedGame(platform: .playstation, platformGameId: "a", title: "Years ago", lastPlayed: Date().addingTimeInterval(-1_000 * day)),
+            ImportedGame(platform: .playstation, platformGameId: "b", title: "No date", playtimeMinutes: 300),
+            ImportedGame(platform: .playstation, platformGameId: "c", title: "Last week", lastPlayed: Date().addingTimeInterval(-7 * day)),
+            ImportedGame(platform: .steam, platformGameId: "10", title: "Never launched")
+        ]
+        store.addImportedGamesToLibrary(store.importableGames())
+        XCTAssertEqual(store.myGames.first { $0.title == "Years ago" }?.status, .shelved)
+        XCTAssertEqual(store.myGames.first { $0.title == "No date" }?.status, .shelved)
+        XCTAssertEqual(store.myGames.first { $0.title == "Last week" }?.status, .playing)
+        XCTAssertEqual(store.myGames.first { $0.title == "Never launched" }?.status, .wantToPlay)
+    }
+
+    func testBacklogFixSortsOnlyPlayStationGamesStillToPlay() {
+        let store = makeIsolatedStore()
+        let old = Date().addingTimeInterval(-400 * 86_400)
+        let stuck = Game(title: "Stuck", developer: "", platform: "PlayStation 4", releaseYear: "", coverColor: .indigo, status: .wantToPlay)
+        let chosen = Game(title: "Chosen", developer: "", platform: "PlayStation 4", releaseYear: "", coverColor: .indigo, status: .completed)
+        let unlinked = Game(title: "Mine", developer: "", platform: "PlayStation 4", releaseYear: "", coverColor: .indigo, status: .wantToPlay)
+        store.myGames = [stuck, chosen, unlinked]
+        store.importedGames = [
+            ImportedGame(platform: .playstation, platformGameId: "a", title: "Stuck", lastPlayed: old,
+                         isImportedToLibrary: true, linkedGameId: stuck.id),
+            ImportedGame(platform: .playstation, platformGameId: "b", title: "Chosen", lastPlayed: old,
+                         isImportedToLibrary: true, linkedGameId: chosen.id)
+        ]
+        store.fixPlayStationBacklog()
+        XCTAssertEqual(store.myGames.first { $0.title == "Stuck" }?.status, .shelved)
+        XCTAssertEqual(store.myGames.first { $0.title == "Chosen" }?.status, .completed)
+        XCTAssertEqual(store.myGames.first { $0.title == "Mine" }?.status, .wantToPlay)
+    }
 }

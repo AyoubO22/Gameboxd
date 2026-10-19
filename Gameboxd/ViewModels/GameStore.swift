@@ -368,6 +368,10 @@ final class GameStore {
                   let index = myGames.firstIndex(where: { $0.id == gameId }), myGames[index].steamAppId == nil else { continue }
             myGames[index].steamAppId = appId
         }
+        if !UserDefaults.standard.bool(forKey: "gameboxd_psn_backlog_fixed") {
+            fixPlayStationBacklog()
+            UserDefaults.standard.set(true, forKey: "gameboxd_psn_backlog_fixed")
+        }
     }
     
     private func saveImportedGames() {
@@ -548,6 +552,39 @@ final class GameStore {
         saveImportedGames()
     }
 
+    /// Every trophy earned is a platinum on PlayStation. Otherwise only a game played in the
+    /// last month is in progress; one left longer, or with no date at all, is shelved.
+    /// Everything Sony lists was launched at least once (old PS4 games often report no play
+    /// time and no trophy), so a PSN game is never "À jouer". Steam lists owned games too.
+    private func importedStatus(_ importedGame: ImportedGame) -> GameStatus {
+        let played = importedGame.platform == .playstation
+            || importedGame.playtimeMinutes > 0 || importedGame.achievementsEarned > 0
+        let monthAgo = Calendar.current.date(byAdding: .month, value: -1, to: Date()) ?? Date()
+        if importedGame.completionPercentage >= 100 {
+            return importedGame.platform == .playstation ? .platinum : .completed
+        } else if !played {
+            return .wantToPlay
+        } else if let lastPlayed = importedGame.lastPlayed, lastPlayed >= monthAgo {
+            return .playing
+        } else {
+            return .shelved
+        }
+    }
+
+    /// PSN games added before importedStatus knew they were all played came in as "À jouer":
+    /// sort those again. Games moved to another status by hand are left alone.
+    func fixPlayStationBacklog() {
+        var changed = false
+        for imported in importedGames where imported.platform == .playstation {
+            guard let gameId = imported.linkedGameId,
+                  let index = myGames.firstIndex(where: { $0.id == gameId }),
+                  myGames[index].status == .wantToPlay else { continue }
+            myGames[index].status = importedStatus(imported)
+            changed = true
+        }
+        if changed { saveGames() }
+    }
+
     private func libraryGame(from importedGame: ImportedGame) -> Game {
         let platformName: String
         switch importedGame.platform {
@@ -555,21 +592,7 @@ final class GameStore {
         case .playstation: platformName = importedGame.console ?? "PlayStation 5"
         }
 
-        // Every trophy earned is a platinum on PlayStation. Otherwise a game played in the last
-        // month is in progress, and one left longer than that is shelved.
-        let status: GameStatus
-        let played = importedGame.playtimeMinutes > 0 || importedGame.achievementsEarned > 0
-        let monthAgo = Calendar.current.date(byAdding: .month, value: -1, to: Date()) ?? Date()
-        if importedGame.completionPercentage >= 100 {
-            status = importedGame.platform == .playstation ? .platinum : .completed
-        } else if !played {
-            status = .wantToPlay
-        } else if let lastPlayed = importedGame.lastPlayed, lastPlayed < monthAgo {
-            status = .shelved
-        } else {
-            status = .playing
-        }
-
+        let status = importedStatus(importedGame)
         var game = Game(
             title: importedGame.title,
             developer: "",

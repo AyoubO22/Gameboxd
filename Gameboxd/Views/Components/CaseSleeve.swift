@@ -147,11 +147,15 @@ private struct SleeveBack: View {
                         .minimumScaleFactor(0.7)
                         .foregroundStyle(.white)
                 }
-                pictures
-                    .overlay(alignment: .topTrailing) {
-                        PlaySticker(game: game, mm: mm)
-                            .offset(x: 2 * mm, y: -2.5 * mm)
-                    }
+                // With no screenshots the art is the back's backdrop (below), so the sticker gets
+                // the open space instead of a picture's corner.
+                Group {
+                    if screenshots.isEmpty { Color.clear.frame(minHeight: 20 * mm, maxHeight: .infinity) } else { pictures }
+                }
+                .overlay(alignment: .topTrailing) {
+                    PlaySticker(game: game, mm: mm)
+                        .offset(x: 2 * mm, y: screenshots.isEmpty ? 2 * mm : -2.5 * mm)
+                }
                 if !features.isEmpty {
                     HStack(spacing: 1.5 * mm) {
                         ForEach(features, id: \.label) { $0.tile(mm: mm) }
@@ -172,28 +176,34 @@ private struct SleeveBack: View {
             smallPrint
         }
         .frame(width: size.width, height: size.height)
-        .background {
-            LinearGradient(colors: [Color(ground.darker(0.3)), Color(ground.darker(0.5))], startPoint: .top, endPoint: .bottom)
-        }
+        .background { backdrop }
         .clipped()
     }
 
-    /// Screenshots: a wide one over two small ones, as backs lay them out; the cover's art only when
-    /// there are none, since its logo would repeat the printed title. The wide one grows into
+    /// The cover's colour, darkening downwards. With no screenshots, the cover's art fills the
+    /// whole back behind it, blurred past reading so its logo never repeats the printed title.
+    private var backdrop: some View {
+        let shade = LinearGradient(colors: [Color(ground.darker(0.3)), Color(ground.darker(0.5))], startPoint: .top, endPoint: .bottom)
+        return ZStack {
+            if screenshots.isEmpty, let cover {
+                Image(uiImage: cover).resizable().scaledToFill()
+                    .frame(width: size.width, height: size.height)
+                    .blur(radius: 9 * mm, opaque: true)
+                    .clipped()
+                shade.opacity(0.55)
+            } else {
+                shade
+            }
+        }
+    }
+
+    /// Screenshots: a wide one over two small ones, as backs lay them out. The wide one grows into
     /// whatever the blurb leaves, so a game with little text still has a full back.
     @ViewBuilder private var pictures: some View {
-        let fromCover = screenshots.isEmpty
-        let shots = Array((fromCover ? [cover].compactMap { $0 } : screenshots).prefix(3))
+        let shots = Array(screenshots.prefix(3))
         if let first = shots.first {
             VStack(spacing: 1.5 * mm) {
-                // The cover's logo can sit anywhere on its art: with no screenshots, the cover only
-                // lends its colours, blurred past reading and faded into the sleeve at the top.
-                picture(first, height: 36 * mm, grows: true, blur: fromCover ? 5 * mm : 0)
-                    .mask {
-                        LinearGradient(stops: [.init(color: fromCover ? .clear : .black, location: 0),
-                                               .init(color: .black, location: fromCover ? 0.35 : 0)],
-                                       startPoint: .top, endPoint: .bottom)
-                    }
+                picture(first, height: 36 * mm, grows: true)
                 if shots.count == 3 {
                     HStack(spacing: 1.5 * mm) {
                         picture(shots[1], height: 19 * mm)
@@ -206,10 +216,8 @@ private struct SleeveBack: View {
         }
     }
 
-    private func picture(_ image: UIImage, height: CGFloat, grows: Bool = false, blur: CGFloat = 0) -> some View {
+    private func picture(_ image: UIImage, height: CGFloat, grows: Bool = false) -> some View {
         Image(uiImage: image).resizable().scaledToFill()
-            .blur(radius: blur, opaque: true)
-            .overlay { if blur > 0 { Color.black.opacity(0.2) } }
             .frame(minWidth: 0, maxWidth: .infinity, minHeight: height, maxHeight: grows ? .infinity : height)
             .clipped()
             .overlay { Rectangle().strokeBorder(Color.white.opacity(0.5), lineWidth: 0.25 * mm) }
@@ -304,7 +312,7 @@ private struct PlaySticker: View {
                     .overlay { RoundedRectangle(cornerRadius: 1.6 * mm).strokeBorder(Color.white.opacity(0.7), lineWidth: 0.35 * mm) }
                     .shadow(color: .black.opacity(0.35), radius: 0.8 * mm, y: 0.4 * mm)
             }
-            .rotationEffect(.degrees(-9))
+            .rotationEffect(.degrees(-12))
         }
     }
 }

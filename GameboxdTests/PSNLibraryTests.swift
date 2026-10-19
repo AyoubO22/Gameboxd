@@ -169,4 +169,16 @@ final class PSNLibraryTests: XCTestCase {
         XCTAssertEqual(store.myGames.first { $0.title == "Old Story" }?.status, .completed)
         XCTAssertEqual(store.myGames.first { $0.title == "Unfinished" }?.status, .shelved)
     }
+
+    func testLostLinksAreFoundAgainByTitle() {
+        let store = makeIsolatedStore()
+        let shelved = Game(title: "Stray", developer: "", platform: "PlayStation 5", releaseYear: "", coverColor: .indigo, status: .wantToPlay)
+        store.myGames = [shelved]
+        store.importedGames = [ImportedGame(platform: .playstation, platformGameId: "a", title: "Stray",
+                                            lastPlayed: Date().addingTimeInterval(-400 * 86_400), storyCompleted: true)]
+        store.fixPlayStationBacklog()
+        XCTAssertEqual(store.myGames.first?.status, .completed)
+        XCTAssertEqual(store.importedGames.first?.linkedGameId, shelved.id)
+        XCTAssertTrue(store.importableGames().isEmpty)
+    }
 }

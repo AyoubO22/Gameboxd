@@ -504,7 +504,8 @@ final class GameStore {
                 isImportedToLibrary: old.isImportedToLibrary, linkedGameId: old.linkedGameId, console: new.console,
                 storyCompleted: new.storyCompleted
             )
-            guard let gameId = old.linkedGameId, let gameIndex = myGames.firstIndex(where: { $0.id == gameId }) else { continue }
+            guard let gameIndex = libraryIndex(forImportedAt: index) else { continue }
+            let gameId = myGames[gameIndex].id
             // The story trophy says it's finished: out of "À jouer" or "Abandonné".
             if new.storyCompleted == true, [.wantToPlay, .shelved].contains(myGames[gameIndex].status) {
                 myGames[gameIndex].status = importedStatus(new)
@@ -590,18 +591,29 @@ final class GameStore {
         }
     }
 
+    /// The collection game an imported game stands for. A lost link (seen on imports made by
+    /// older builds) is found again by title, and repaired so the game isn't offered again.
+    private func libraryIndex(forImportedAt importedIndex: Int) -> Int? {
+        let imported = importedGames[importedIndex]
+        if let gameId = imported.linkedGameId, let index = myGames.firstIndex(where: { $0.id == gameId }) { return index }
+        let key = PSNLibrary.key(imported.title)
+        guard !key.isEmpty, let index = myGames.firstIndex(where: { PSNLibrary.key($0.title) == key }) else { return nil }
+        importedGames[importedIndex].linkedGameId = myGames[index].id
+        importedGames[importedIndex].isImportedToLibrary = true
+        return index
+    }
+
     /// PSN games added before importedStatus knew they were all played came in as "À jouer":
     /// sort those again. Games moved to another status by hand are left alone.
     func fixPlayStationBacklog() {
         var changed = false
-        for imported in importedGames where imported.platform == .playstation {
-            guard let gameId = imported.linkedGameId,
-                  let index = myGames.firstIndex(where: { $0.id == gameId }),
-                  myGames[index].status == .wantToPlay else { continue }
-            myGames[index].status = importedStatus(imported)
+        for importedIndex in importedGames.indices where importedGames[importedIndex].platform == .playstation {
+            guard let index = libraryIndex(forImportedAt: importedIndex), myGames[index].status == .wantToPlay else { continue }
+            myGames[index].status = importedStatus(importedGames[importedIndex])
             changed = true
         }
         if changed { saveGames() }
+        saveImportedGames()
     }
 
     private func libraryGame(from importedGame: ImportedGame) -> Game {

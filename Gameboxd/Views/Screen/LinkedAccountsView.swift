@@ -16,6 +16,7 @@ struct LinkedAccountsView: View {
     @State private var showingSyncResult = false
     @State private var syncResultMessage = ""
     @State private var isSyncing = false
+    @State private var confirmsAddAll = false
     
     var body: some View {
         ScrollView {
@@ -148,6 +149,13 @@ struct LinkedAccountsView: View {
                     .foregroundColor(.textSecondary)
             }
             .padding(.horizontal)
+
+            AddAllImportedButton(count: store.importableGames().count) { confirmsAddAll = true }
+                .padding(.horizontal)
+                .confirmationDialog(addAllTitle(store.importableGames().count), isPresented: $confirmsAddAll, titleVisibility: .visible) {
+                    Button("Tout ajouter") { store.addImportedGamesToLibrary(store.importableGames()) }
+                    Button("Annuler", role: .cancel) {}
+                }
             
             ForEach(store.importedGames.prefix(10)) { game in
                 ImportedGameRow(game: game) {
@@ -695,6 +703,7 @@ struct AllImportedGamesView: View {
     @Environment(GameStore.self) private var store
     @State private var searchText = ""
     @State private var selectedPlatform: GamingPlatform?
+    @State private var confirmsAddAll = false
     
     var filteredGames: [ImportedGame] {
         var games = store.importedGames
@@ -752,6 +761,48 @@ struct AllImportedGamesView: View {
         .navigationTitle("Jeux importés (\(filteredGames.count))")
         .navigationBarTitleDisplayMode(.inline)
         .searchable(text: $searchText, prompt: "Rechercher un jeu...")
+        .toolbar {
+            if !store.importableGames(platform: selectedPlatform).isEmpty {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Tout ajouter") { confirmsAddAll = true }
+                        .foregroundColor(.gbCoral)
+                }
+            }
+        }
+        .confirmationDialog(addAllTitle(store.importableGames(platform: selectedPlatform).count),
+                            isPresented: $confirmsAddAll, titleVisibility: .visible) {
+            Button("Tout ajouter") { store.addImportedGamesToLibrary(store.importableGames(platform: selectedPlatform)) }
+            Button("Annuler", role: .cancel) {}
+        }
+    }
+}
+
+private func addAllTitle(_ count: Int) -> String {
+    count == 1 ? "Ajouter 1 jeu à ta collection ?" : "Ajouter \(count) jeux à ta collection ?"
+}
+
+// MARK: - Add All Button
+/// One tap for the whole import list instead of 200 "Ajouter".
+private struct AddAllImportedButton: View {
+    let count: Int
+    let action: () -> Void
+
+    var body: some View {
+        if count > 0 {
+            Button(action: action) {
+                HStack(spacing: 8) {
+                    Image(systemName: "square.and.arrow.down.on.square")
+                    Text(count == 1 ? "Ajouter 1 jeu à ma collection" : "Tout ajouter à ma collection (\(count))")
+                        .fontWeight(.semibold)
+                }
+                .font(DS.Typography.body)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(Color.gbCoral)
+                .foregroundColor(.black)
+                .cornerRadius(12)
+            }
+        }
     }
 }
 

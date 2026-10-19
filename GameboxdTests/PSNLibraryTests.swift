@@ -72,4 +72,24 @@ final class PSNLibraryTests: XCTestCase {
         XCTAssertEqual(older.trophyLevel, 433)
         XCTAssertEqual(older.earnedTrophies?.total, 10)
     }
+    func testAddAllImportsEveryGameOnceAndLinksExistingTitles() {
+        let store = makeIsolatedStore()
+        store.myGames = [Game(title: "Astro Bot", developer: "", platform: "PlayStation 5", releaseYear: "2024", coverColor: .blue)]
+        store.importedGames = [
+            ImportedGame(platform: .playstation, platformGameId: "concept-1", title: "Astro Bot™", playtimeMinutes: 300, console: "PlayStation 5"),
+            ImportedGame(platform: .playstation, platformGameId: "concept-2", title: "Bloodborne", playtimeMinutes: 600,
+                         achievementsEarned: 40, achievementsTotal: 40, console: "PlayStation 4"),
+            ImportedGame(platform: .playstation, platformGameId: "NPWR3", title: "Demon's Souls")
+        ]
+
+        store.addImportedGamesToLibrary(store.importableGames(platform: .playstation))
+        XCTAssertEqual(store.myGames.count, 3)                       // Astro Bot linked, not doubled
+        XCTAssertTrue(store.importableGames().isEmpty)
+        XCTAssertEqual(store.myGames.first { $0.title == "Bloodborne" }?.status, .platinum)
+        XCTAssertEqual(store.myGames.first { $0.title == "Bloodborne" }?.platform, "PlayStation 4")
+        XCTAssertEqual(store.myGames.first { $0.title == "Demon's Souls" }?.status, .wantToPlay)
+
+        store.addImportedGamesToLibrary(store.importedGames)         // a second tap adds nothing
+        XCTAssertEqual(store.myGames.count, 3)
+    }
 }

@@ -513,13 +513,56 @@ final class GameStore {
     
     /// Add an imported game to the main Gameboxd library
     func addImportedGameToLibrary(_ importedGame: ImportedGame) {
-        // Create a Game from ImportedGame
+        addImportedGamesToLibrary([importedGame])
+    }
+
+    /// Games of the import list not in the collection yet ("Tout ajouter").
+    func importableGames(platform: GamingPlatform? = nil) -> [ImportedGame] {
+        importedGames.filter { !$0.isImportedToLibrary && (platform == nil || $0.platform == platform) }
+    }
+
+    /// Adds imported games to the collection in one save. A game already in the collection
+    /// under the same title is linked to it instead of added twice.
+    func addImportedGamesToLibrary(_ games: [ImportedGame]) {
+        guard !games.isEmpty else { return }
+        var existingByTitle: [String: UUID] = [:]
+        for game in myGames { existingByTitle[PSNLibrary.key(game.title)] = existingByTitle[PSNLibrary.key(game.title)] ?? game.id }
+
+        for importedGame in games {
+            guard let index = importedGames.firstIndex(where: { $0.id == importedGame.id }),
+                  !importedGames[index].isImportedToLibrary else { continue }
+            let key = PSNLibrary.key(importedGame.title)
+            let gameId: UUID
+            if let existing = existingByTitle[key] {
+                gameId = existing
+            } else {
+                let game = libraryGame(from: importedGame)
+                myGames.append(game)
+                existingByTitle[key] = game.id
+                gameId = game.id
+            }
+            importedGames[index].isImportedToLibrary = true
+            importedGames[index].linkedGameId = gameId
+        }
+        saveGames()
+        saveImportedGames()
+    }
+
+    private func libraryGame(from importedGame: ImportedGame) -> Game {
         let platformName: String
         switch importedGame.platform {
         case .steam: platformName = "PC"
         case .playstation: platformName = importedGame.console ?? "PlayStation 5"
         }
-        
+
+        // Every trophy earned is a platinum on PlayStation; otherwise played means in progress.
+        let status: GameStatus
+        if importedGame.completionPercentage >= 100 {
+            status = importedGame.platform == .playstation ? .platinum : .completed
+        } else {
+            status = importedGame.playtimeMinutes > 0 || importedGame.achievementsEarned > 0 ? .playing : .wantToPlay
+        }
+
         var game = Game(
             title: importedGame.title,
             developer: "",
@@ -527,21 +570,12 @@ final class GameStore {
             releaseYear: "",
             coverImageURL: importedGame.coverImageURL,
             coverColor: importedGame.platform == .steam ? .blue : .indigo,
-            status: importedGame.playtimeMinutes > 0 ? .playing : .wantToPlay,
+            status: status,
             playTimeMinutes: importedGame.playtimeMinutes,
             completionPercentage: importedGame.completionPercentage
         )
         if importedGame.platform == .steam { game.steamAppId = Int(importedGame.platformGameId) }
-        
-        myGames.append(game)
-        saveGames()
-        
-        // Mark as imported
-        if let index = importedGames.firstIndex(where: { $0.id == importedGame.id }) {
-            importedGames[index].isImportedToLibrary = true
-            importedGames[index].linkedGameId = game.id
-            saveImportedGames()
-        }
+        return game
     }
     
     // MARK: - API Methods

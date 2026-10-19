@@ -140,10 +140,18 @@ private struct SleeveBack: View {
     /// there are none, since its logo would repeat the printed title. The wide one grows into
     /// whatever the blurb leaves, so a game with little text still has a full back.
     @ViewBuilder private var pictures: some View {
-        let shots = Array((screenshots.isEmpty ? [cover].compactMap { $0 } : screenshots).prefix(3))
+        let fromCover = screenshots.isEmpty
+        let shots = Array((fromCover ? [cover].compactMap { $0 } : screenshots).prefix(3))
         if let first = shots.first {
             VStack(spacing: 1.5 * mm) {
-                picture(first, height: 36 * mm, grows: true)
+                // The cover's logo sits near its top: crop from the bottom of the art and fade the
+                // cut edge into the sleeve, so no half logo shows under the printed title.
+                picture(first, height: 36 * mm, grows: true, anchor: fromCover ? .bottom : .center)
+                    .mask {
+                        LinearGradient(stops: [.init(color: fromCover ? .clear : .black, location: 0),
+                                               .init(color: .black, location: fromCover ? 0.35 : 0)],
+                                       startPoint: .top, endPoint: .bottom)
+                    }
                 if shots.count == 3 {
                     HStack(spacing: 1.5 * mm) {
                         picture(shots[1], height: 19 * mm)
@@ -156,10 +164,9 @@ private struct SleeveBack: View {
         }
     }
 
-    private func picture(_ image: UIImage, height: CGFloat, grows: Bool = false) -> some View {
+    private func picture(_ image: UIImage, height: CGFloat, grows: Bool = false, anchor: Alignment = .center) -> some View {
         Image(uiImage: image).resizable().scaledToFill()
-            .frame(maxWidth: .infinity)
-            .frame(minHeight: height, maxHeight: grows ? .infinity : height)
+            .frame(minWidth: 0, maxWidth: .infinity, minHeight: height, maxHeight: grows ? .infinity : height, alignment: anchor)
             .clipped()
             .overlay { Rectangle().strokeBorder(Color.white.opacity(0.5), lineWidth: 0.25 * mm) }
     }

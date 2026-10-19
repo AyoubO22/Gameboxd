@@ -125,7 +125,8 @@ private struct SleeveBack: View {
             }
             .padding(.horizontal, 6 * mm)
             .padding(.top, 4 * mm)
-            Spacer(minLength: 2 * mm)
+            .padding(.bottom, 3 * mm)
+            .frame(maxHeight: .infinity, alignment: .top)
             smallPrint
         }
         .frame(width: size.width, height: size.height)
@@ -135,27 +136,30 @@ private struct SleeveBack: View {
         .clipped()
     }
 
-    /// Screenshots: a wide one over two small ones, as backs lay them out. The cover's art when
-    /// there are none.
+    /// Screenshots: a wide one over two small ones, as backs lay them out, topped up with the
+    /// cover's art when there are fewer. The wide one grows into whatever the blurb leaves, so a
+    /// game with little text still has a full back rather than an empty one.
     @ViewBuilder private var pictures: some View {
-        let shots = screenshots.isEmpty ? [cover].compactMap { $0 } : screenshots
+        let shots = Array((screenshots.count < 3 ? screenshots + [cover].compactMap { $0 } : screenshots).prefix(3))
         if let first = shots.first {
             VStack(spacing: 1.5 * mm) {
-                picture(first, height: 36 * mm)
-                if shots.count > 2 {
+                picture(first, height: 36 * mm, grows: true)
+                if shots.count == 3 {
                     HStack(spacing: 1.5 * mm) {
                         picture(shots[1], height: 19 * mm)
                         picture(shots[2], height: 19 * mm)
                     }
+                } else if shots.count == 2 {
+                    picture(shots[1], height: 24 * mm)
                 }
             }
         }
     }
 
-    private func picture(_ image: UIImage, height: CGFloat) -> some View {
+    private func picture(_ image: UIImage, height: CGFloat, grows: Bool = false) -> some View {
         Image(uiImage: image).resizable().scaledToFill()
             .frame(maxWidth: .infinity)
-            .frame(height: height)
+            .frame(minHeight: height, maxHeight: grows ? .infinity : height)
             .clipped()
             .overlay { Rectangle().strokeBorder(Color.white.opacity(0.5), lineWidth: 0.25 * mm) }
     }

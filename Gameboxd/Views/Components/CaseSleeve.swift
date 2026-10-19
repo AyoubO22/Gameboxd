@@ -75,19 +75,44 @@ private struct SleeveBack: View {
     let size: CGSize
     let mm: CGFloat
 
-    /// As much of the description as the back holds, cut on the last sentence end before the
-    /// limit so it never stops mid-word.
-    private var blurb: String? {
+    private var text: String? {
         guard let text = game.description?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else { return nil }
-        let joined = text.components(separatedBy: "\n")
+        return text.components(separatedBy: "\n")
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty }
             .joined(separator: "\n")
-        let limit = 460
-        guard joined.count > limit else { return joined }
-        let cut = joined.prefix(limit)
+    }
+
+    /// The description's opening sentence, set large like the slogan on a back, when it is short
+    /// enough to read as one.
+    private var tagline: String? {
+        guard let text, let end = text.firstIndex(where: { ".!?".contains($0) }) else { return nil }
+        let sentence = String(text[...end])
+        return (12...110).contains(sentence.count) ? sentence : nil
+    }
+
+    /// As much of the rest of the description as the back holds, cut on the last sentence end
+    /// before the limit so it never stops mid-word.
+    private var blurb: String? {
+        guard var rest = text else { return nil }
+        if let tagline { rest = String(rest.dropFirst(tagline.count)).trimmingCharacters(in: .whitespacesAndNewlines) }
+        guard !rest.isEmpty else { return nil }
+        let limit = 340
+        guard rest.count > limit else { return rest }
+        let cut = rest.prefix(limit)
         if let end = cut.lastIndex(where: { ".!?".contains($0) }) { return String(cut[...end]) }
         return cut + "…"
+    }
+
+    /// The facts a back lists as pictograms: genres, the usual length, the critics' score, the year.
+    private var features: [BackFeature] {
+        var list: [BackFeature] = []
+        let genres = game.genres.prefix(2).joined(separator: " · ")
+        if !genres.isEmpty { list.append(BackFeature(icon: "gamecontroller.fill", label: genres)) }
+        if let hours = game.estimatedPlaytime, hours > 0 { list.append(BackFeature(icon: "clock.fill", label: "≈ \(hours) h")) }
+        if let score = game.metacriticScore, score > 0 { list.append(BackFeature(icon: "star.fill", label: "Metacritic \(score)")) }
+        if let year { list.append(BackFeature(icon: "calendar", label: year)) }
+        return list
     }
 
     private var year: String? {
@@ -114,7 +139,24 @@ private struct SleeveBack: View {
                     .minimumScaleFactor(0.5)
                     .foregroundStyle(.white)
                     .shadow(color: .black.opacity(0.4), radius: 0.6 * mm, y: 0.3 * mm)
+                if let tagline {
+                    Text(tagline)
+                        .font(.system(size: 4.6 * mm, weight: .heavy).italic())
+                        .multilineTextAlignment(.center)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.7)
+                        .foregroundStyle(.white)
+                }
                 pictures
+                    .overlay(alignment: .topTrailing) {
+                        PlaySticker(game: game, mm: mm)
+                            .offset(x: 2 * mm, y: -2.5 * mm)
+                    }
+                if !features.isEmpty {
+                    HStack(spacing: 1.5 * mm) {
+                        ForEach(features, id: \.label) { $0.tile(mm: mm) }
+                    }
+                }
                 if let blurb {
                     Text(blurb)
                         .font(.system(size: 3.7 * mm))
@@ -194,6 +236,74 @@ private struct SleeveBack: View {
         .padding(.vertical, 3.5 * mm)
         .frame(maxWidth: .infinity)
         .background(Color.white)
+    }
+}
+
+/// One pictogram of the back's facts row: an icon over a short label, in a hairline frame.
+private struct BackFeature {
+    let icon: String
+    let label: String
+
+    func tile(mm: CGFloat) -> some View {
+        VStack(spacing: 0.8 * mm) {
+            Image(systemName: icon).font(.system(size: 3.6 * mm, weight: .bold))
+            Text(label)
+                .font(.system(size: 2.5 * mm, weight: .bold).width(.condensed))
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+        }
+        .foregroundStyle(.white)
+        .padding(.vertical, 1.4 * mm)
+        .padding(.horizontal, 1 * mm)
+        .frame(maxWidth: .infinity)
+        .overlay { RoundedRectangle(cornerRadius: 1.2 * mm).strokeBorder(Color.white.opacity(0.6), lineWidth: 0.25 * mm) }
+    }
+}
+
+/// The player's own label, stuck on the case like a shop's price sticker: where they are with the
+/// game and what they made of it. Only once they have started it or rated it.
+private struct PlaySticker: View {
+    let game: Game
+    let mm: CGFloat
+
+    private var shows: Bool {
+        game.rating > 0 || [.playing, .completed, .platinum, .shelved].contains(game.status)
+    }
+
+    var body: some View {
+        if shows {
+            VStack(spacing: 0.6 * mm) {
+                Text("TA PARTIE")
+                    .font(.system(size: 1.9 * mm, weight: .heavy).width(.expanded))
+                    .opacity(0.85)
+                if game.status != .none {
+                    Label(game.status.rawValue, systemImage: game.status.icon)
+                        .font(.system(size: 2.9 * mm, weight: .heavy))
+                }
+                if game.rating > 0 {
+                    HStack(spacing: 0.3 * mm) {
+                        ForEach(0..<5, id: \.self) { star in
+                            Image(systemName: star < game.rating ? "star.fill" : "star")
+                        }
+                    }
+                    .font(.system(size: 2.4 * mm, weight: .bold))
+                }
+                if game.playTimeMinutes > 0 {
+                    Text(formatDuration(minutes: game.playTimeMinutes) + " jouées")
+                        .font(.system(size: 2.2 * mm, weight: .semibold))
+                }
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 2.4 * mm)
+            .padding(.vertical, 1.8 * mm)
+            .background {
+                RoundedRectangle(cornerRadius: 1.6 * mm)
+                    .fill(game.status == .none ? Color(hex: "5B7CFA") : game.status.color)
+                    .overlay { RoundedRectangle(cornerRadius: 1.6 * mm).strokeBorder(Color.white.opacity(0.7), lineWidth: 0.35 * mm) }
+                    .shadow(color: .black.opacity(0.35), radius: 0.8 * mm, y: 0.4 * mm)
+            }
+            .rotationEffect(.degrees(-6))
+        }
     }
 }
 

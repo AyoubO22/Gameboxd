@@ -136,11 +136,11 @@ private struct SleeveBack: View {
         .clipped()
     }
 
-    /// Screenshots: a wide one over two small ones, as backs lay them out, topped up with the
-    /// cover's art when there are fewer. The wide one grows into whatever the blurb leaves, so a
-    /// game with little text still has a full back rather than an empty one.
+    /// Screenshots: a wide one over two small ones, as backs lay them out; the cover's art only when
+    /// there are none, since its logo would repeat the printed title. The wide one grows into
+    /// whatever the blurb leaves, so a game with little text still has a full back.
     @ViewBuilder private var pictures: some View {
-        let shots = Array((screenshots.count < 3 ? screenshots + [cover].compactMap { $0 } : screenshots).prefix(3))
+        let shots = Array((screenshots.isEmpty ? [cover].compactMap { $0 } : screenshots).prefix(3))
         if let first = shots.first {
             VStack(spacing: 1.5 * mm) {
                 picture(first, height: 36 * mm, grows: true)

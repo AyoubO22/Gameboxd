@@ -142,7 +142,7 @@ extension View {
 
     /// Stands a row of face-out cases on a plank drawn behind it. The row must end with
     /// `Shelf.faceOutSeat` (over the plank's top face) then `Shelf.plankFront` (over its front
-    /// edge), where the cases' shelf-edge labels go, scrolling with them.
+    /// edge).
     func labelledPlankBehind() -> some View {
         background(alignment: .bottom) {
             VStack(spacing: 0) {
@@ -829,41 +829,6 @@ private struct FilmReflection: View {
     }
 }
 
-/// A shop's shelf-edge label, slid into the clear strip along the plank's front under a face-out
-/// case: how far along the game is, kept off the cover so no logo hides behind it.
-private struct ShelfTag: View {
-    let percent: Int
-
-    var body: some View {
-        let share = CGFloat(min(max(percent, 0), 100)) / 100
-        let bar: CGFloat = 22
-        HStack(spacing: 5) {
-            Text("\(min(percent, 100)) %")
-                .font(.system(size: 9.5, weight: .heavy).width(.condensed))
-                .monospacedDigit()
-                .foregroundStyle(Color(hex: "1A1A1A"))
-            Capsule().fill(Color(hex: "D8D2C4"))
-                .frame(width: bar, height: 2.5)
-                .overlay(alignment: .leading) {
-                    Capsule().fill(Color.accent).frame(width: bar * share)
-                }
-        }
-        .fixedSize() // its slot under the case has no width of its own
-        .padding(.horizontal, 6)
-        .frame(height: 13)
-        .background(Color(hex: "F4F1EA"), in: RoundedRectangle(cornerRadius: 1, style: .continuous))
-        // The strip's plastic over the paper: a glint along its top edge, a faint sheen.
-        .overlay(alignment: .top) { Color.white.opacity(0.55).frame(height: 0.5) }
-        .overlay { RoundedRectangle(cornerRadius: 1, style: .continuous).fill(Color.white.opacity(0.06)) }
-        .shadow(color: .black.opacity(0.35), radius: 0.5, y: 0.5)
-        .accessibilityHidden(true) // the case's own label already says it
-    }
-}
-
-// MARK: - The whole shelf
-
-/// The collection as a bookcase, one shelf per status that scrolls sideways, spines packed
-/// tight like real cases. Tapping a case opens the game's page.
 struct ShelfLibrary<Menu: View>: View {
     let games: [Game]
     let namespace: Namespace.ID
@@ -911,21 +876,14 @@ struct ShelfLibrary<Menu: View>: View {
                 // edge to edge), so the back panel has no seam; the label stays crisp on top.
                 .background { ShelfLight(row: row) }
             if facesOut {
-                // The cases' labels sit on the plank's front edge and scroll with them, so the
-                // plank is drawn behind the row rather than under it.
+                // The plank is drawn behind the row rather than under it, its front edge left clear.
                 ScrollView(.horizontal, showsIndicators: false) {
                     LazyHStack(alignment: .bottom, spacing: Shelf.faceOutGap) {
                         ForEach(section.games) { game in
                             VStack(spacing: Shelf.faceOutSeat) {
                                 // 135 mm at the shelf's scale: the whole bookcase is drawn to one scale.
                                 caseLink(game) { FaceOutCase(game: game, coverWidth: 135 * Shelf.mm, onShelf: true) }
-                                Color.clear
-                                    .frame(height: Shelf.plankFront)
-                                    .overlay {
-                                        if game.completionPercentage > 0 {
-                                            ShelfTag(percent: game.completionPercentage)
-                                        }
-                                    }
+                                Color.clear.frame(height: Shelf.plankFront)
                             }
                         }
                     }

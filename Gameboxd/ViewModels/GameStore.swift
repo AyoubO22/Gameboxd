@@ -76,7 +76,7 @@ final class GameStore {
         static let completedGoals = "gameboxd_completed_goals"
         static let linkedAccounts = "gameboxd_linked_accounts"
         static let importedGames = "gameboxd_imported_games"
-        static let discoverCache = "gameboxd_discover_cache"
+        static let discoverCache = "gameboxd_discover_cache_v2" // v2: lists without editions and DLC
         static let stickers = "gameboxd_stickers"
         static let steamSuggestions = "gameboxd_steam_suggestions"
     }
@@ -673,7 +673,7 @@ final class GameStore {
         isLoadingTrending = trendingGames.isEmpty // keep showing the cached list while refreshing
         do {
             let games = try await rawgService.getTrendingGames()
-            trendingGames = games.map { $0.toGame() }
+            trendingGames = RAWGService.distinct(games.map { $0.toGame() })
         } catch {
             print("Error fetching trending: \(error)")
         }
@@ -684,7 +684,7 @@ final class GameStore {
         isLoadingNewReleases = newReleases.isEmpty // keep showing the cached list while refreshing
         do {
             let games = try await rawgService.getNewReleases()
-            newReleases = games.map { $0.toGame() }
+            newReleases = RAWGService.distinct(games.map { $0.toGame() })
         } catch {
             print("Error fetching new releases: \(error)")
         }
@@ -695,7 +695,7 @@ final class GameStore {
         isLoadingTopRated = topRated.isEmpty // keep showing the cached list while refreshing
         do {
             let games = try await rawgService.getTopRated()
-            topRated = games.map { $0.toGame() }
+            topRated = RAWGService.distinct(games.map { $0.toGame() })
         } catch {
             print("Error fetching top rated: \(error)")
         }
@@ -706,7 +706,7 @@ final class GameStore {
         isLoadingUpcoming = upcomingGames.isEmpty // keep showing the cached list while refreshing
         do {
             let games = try await rawgService.getUpcomingGames()
-            upcomingGames = games.map { $0.toGame() }
+            upcomingGames = RAWGService.distinct(games.map { $0.toGame() })
         } catch {
             print("Error fetching upcoming: \(error)")
         }

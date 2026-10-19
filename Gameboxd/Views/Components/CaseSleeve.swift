@@ -186,9 +186,9 @@ private struct SleeveBack: View {
         let shots = Array((fromCover ? [cover].compactMap { $0 } : screenshots).prefix(3))
         if let first = shots.first {
             VStack(spacing: 1.5 * mm) {
-                // The cover's logo sits near its top: crop from the bottom of the art and fade the
-                // cut edge into the sleeve, so no half logo shows under the printed title.
-                picture(first, height: 36 * mm, grows: true, anchor: fromCover ? .bottom : .center)
+                // The cover's logo can sit anywhere on its art: with no screenshots, the cover only
+                // lends its colours, blurred past reading and faded into the sleeve at the top.
+                picture(first, height: 36 * mm, grows: true, blur: fromCover ? 5 * mm : 0)
                     .mask {
                         LinearGradient(stops: [.init(color: fromCover ? .clear : .black, location: 0),
                                                .init(color: .black, location: fromCover ? 0.35 : 0)],
@@ -206,9 +206,11 @@ private struct SleeveBack: View {
         }
     }
 
-    private func picture(_ image: UIImage, height: CGFloat, grows: Bool = false, anchor: Alignment = .center) -> some View {
+    private func picture(_ image: UIImage, height: CGFloat, grows: Bool = false, blur: CGFloat = 0) -> some View {
         Image(uiImage: image).resizable().scaledToFill()
-            .frame(minWidth: 0, maxWidth: .infinity, minHeight: height, maxHeight: grows ? .infinity : height, alignment: anchor)
+            .blur(radius: blur, opaque: true)
+            .overlay { if blur > 0 { Color.black.opacity(0.2) } }
+            .frame(minWidth: 0, maxWidth: .infinity, minHeight: height, maxHeight: grows ? .infinity : height)
             .clipped()
             .overlay { Rectangle().strokeBorder(Color.white.opacity(0.5), lineWidth: 0.25 * mm) }
     }
@@ -302,7 +304,7 @@ private struct PlaySticker: View {
                     .overlay { RoundedRectangle(cornerRadius: 1.6 * mm).strokeBorder(Color.white.opacity(0.7), lineWidth: 0.35 * mm) }
                     .shadow(color: .black.opacity(0.35), radius: 0.8 * mm, y: 0.4 * mm)
             }
-            .rotationEffect(.degrees(-6))
+            .rotationEffect(.degrees(-9))
         }
     }
 }

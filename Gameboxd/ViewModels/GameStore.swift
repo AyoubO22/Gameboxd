@@ -502,12 +502,15 @@ final class GameStore {
                 coverImageURL: new.coverImageURL, playtimeMinutes: new.playtimeMinutes, lastPlayed: new.lastPlayed,
                 achievementsEarned: new.achievementsEarned, achievementsTotal: new.achievementsTotal,
                 isImportedToLibrary: old.isImportedToLibrary, linkedGameId: old.linkedGameId, console: new.console,
-                storyCompleted: new.storyCompleted
+                storyCompleted: new.storyCompleted, platinumEarned: new.platinumEarned
             )
             guard let gameIndex = libraryIndex(forImportedAt: index) else { continue }
             let gameId = myGames[gameIndex].id
-            // The story trophy says it's finished: out of "À jouer" or "Abandonné".
-            if new.storyCompleted == true, [.wantToPlay, .shelved].contains(myGames[gameIndex].status) {
+            // The platinum is the last word; the story trophy moves it out of "À jouer" or "Abandonné".
+            if new.platinumEarned == true, myGames[gameIndex].status != .platinum {
+                myGames[gameIndex].status = .platinum
+                changedGames.insert(gameId)
+            } else if new.storyCompleted == true, [.wantToPlay, .shelved].contains(myGames[gameIndex].status) {
                 myGames[gameIndex].status = importedStatus(new)
                 changedGames.insert(gameId)
             }
@@ -578,7 +581,9 @@ final class GameStore {
         let played = importedGame.platform == .playstation
             || importedGame.playtimeMinutes > 0 || importedGame.achievementsEarned > 0
         let monthAgo = Calendar.current.date(byAdding: .month, value: -1, to: Date()) ?? Date()
-        if importedGame.completionPercentage >= 100 {
+        if importedGame.platinumEarned == true {
+            return .platinum
+        } else if importedGame.completionPercentage >= 100 {
             return importedGame.platform == .playstation ? .platinum : .completed
         } else if importedGame.storyCompleted == true {
             return .completed

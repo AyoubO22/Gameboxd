@@ -181,4 +181,25 @@ final class PSNLibraryTests: XCTestCase {
         XCTAssertEqual(store.importedGames.first?.linkedGameId, shelved.id)
         XCTAssertTrue(store.importableGames().isEmpty)
     }
+
+    func testPlatinumWithDLCLeftIsStillPlatinum() {
+        let set = PSNGameTitle(npCommunicationId: "NPWR9", trophyTitleName: "Bloodborne", trophyTitleIconUrl: nil, trophyTitlePlatform: "PS4",
+                               definedTrophies: PSNTrophyCounts(bronze: 50, silver: 10, gold: 5, platinum: 1),
+                               earnedTrophies: PSNTrophyCounts(bronze: 30, silver: 8, gold: 4, platinum: 1),
+                               progress: 80, lastUpdatedDateTime: "2019-03-01T10:00:00Z")
+        let games = PSNLibrary.games(played: [], trophies: [set])
+        XCTAssertEqual(games.first?.platinumEarned, true)
+
+        let store = makeIsolatedStore()
+        let shelved = Game(title: "Bloodborne", developer: "", platform: "PlayStation 4", releaseYear: "", coverColor: .indigo, status: .wantToPlay)
+        store.myGames = [shelved]
+        store.importedGames = games
+        store.fixPlayStationBacklog()
+        XCTAssertEqual(store.myGames.first?.status, .platinum)
+
+        store.myGames = []
+        store.importedGames = games
+        store.addImportedGamesToLibrary(store.importableGames())
+        XCTAssertEqual(store.myGames.first?.status, .platinum)
+    }
 }

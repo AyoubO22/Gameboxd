@@ -92,4 +92,16 @@ final class PSNLibraryTests: XCTestCase {
         store.addImportedGamesToLibrary(store.importedGames)         // a second tap adds nothing
         XCTAssertEqual(store.myGames.count, 3)
     }
+    func testGamesLeftForOverAMonthArriveShelved() {
+        let store = makeIsolatedStore()
+        store.myGames = []
+        let day: TimeInterval = 86_400
+        store.importedGames = [
+            ImportedGame(platform: .playstation, platformGameId: "a", title: "Recent", playtimeMinutes: 60, lastPlayed: Date().addingTimeInterval(-3 * day)),
+            ImportedGame(platform: .playstation, platformGameId: "b", title: "Old", playtimeMinutes: 60, lastPlayed: Date().addingTimeInterval(-60 * day))
+        ]
+        store.addImportedGamesToLibrary(store.importableGames())
+        XCTAssertEqual(store.myGames.first { $0.title == "Recent" }?.status, .playing)
+        XCTAssertEqual(store.myGames.first { $0.title == "Old" }?.status, .shelved)
+    }
 }

@@ -555,12 +555,19 @@ final class GameStore {
         case .playstation: platformName = importedGame.console ?? "PlayStation 5"
         }
 
-        // Every trophy earned is a platinum on PlayStation; otherwise played means in progress.
+        // Every trophy earned is a platinum on PlayStation. Otherwise a game played in the last
+        // month is in progress, and one left longer than that is shelved.
         let status: GameStatus
+        let played = importedGame.playtimeMinutes > 0 || importedGame.achievementsEarned > 0
+        let monthAgo = Calendar.current.date(byAdding: .month, value: -1, to: Date()) ?? Date()
         if importedGame.completionPercentage >= 100 {
             status = importedGame.platform == .playstation ? .platinum : .completed
+        } else if !played {
+            status = .wantToPlay
+        } else if let lastPlayed = importedGame.lastPlayed, lastPlayed < monthAgo {
+            status = .shelved
         } else {
-            status = importedGame.playtimeMinutes > 0 || importedGame.achievementsEarned > 0 ? .playing : .wantToPlay
+            status = .playing
         }
 
         var game = Game(

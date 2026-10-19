@@ -87,7 +87,7 @@ final class PSNLibraryTests: XCTestCase {
         XCTAssertTrue(store.importableGames().isEmpty)
         XCTAssertEqual(store.myGames.first { $0.title == "Bloodborne" }?.status, .platinum)
         XCTAssertEqual(store.myGames.first { $0.title == "Bloodborne" }?.platform, "PlayStation 4")
-        XCTAssertEqual(store.myGames.first { $0.title == "Demon's Souls" }?.status, .wantToPlay)
+        XCTAssertEqual(store.myGames.first { $0.title == "Demon's Souls" }?.status, .shelved)
 
         store.addImportedGamesToLibrary(store.importedGames)         // a second tap adds nothing
         XCTAssertEqual(store.myGames.count, 3)

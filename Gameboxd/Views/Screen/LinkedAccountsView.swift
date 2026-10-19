@@ -763,7 +763,7 @@ struct AllImportedGamesView: View {
                     Button("Tout ajouter") {
                         store.addImportedGamesToLibrary(store.importableGames(platform: selectedPlatform))
                     }
-                        .foregroundColor(.gbCoral)
+                    .foregroundColor(.gbCoral)
                 }
             }
         }

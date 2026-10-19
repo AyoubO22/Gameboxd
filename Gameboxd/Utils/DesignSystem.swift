@@ -169,6 +169,10 @@ struct EmptyState: View {
     let icon: String
     let title: String
     var message: String? = nil
+    /// The one thing to do about it, as a button (a sentence telling where to go is not enough).
+    var actionTitle: String? = nil
+    var actionIcon = "magnifyingglass"
+    var action: (() -> Void)? = nil
 
     var body: some View {
         VStack(spacing: DS.Spacing.md) {
@@ -188,6 +192,18 @@ struct EmptyState: View {
                     .foregroundStyle(Color.textTertiary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, DS.Spacing.xl)
+            }
+
+            if let actionTitle, let action {
+                Button(action: action) {
+                    Label(actionTitle, systemImage: actionIcon)
+                        .font(DS.Typography.headline)
+                        .padding(.horizontal, DS.Spacing.md)
+                        .frame(height: 44)
+                }
+                .buttonStyle(.glassProminent)
+                .tint(.gbCoral)
+                .padding(.top, DS.Spacing.xs)
             }
 
             Spacer()

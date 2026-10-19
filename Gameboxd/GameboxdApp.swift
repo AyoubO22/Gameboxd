@@ -1,4 +1,5 @@
 import SwiftUI
+import TipKit
 import UserNotifications
 
 // Allow notifications to show even when app is in foreground
@@ -28,6 +29,7 @@ struct GameboxdApp: App {
 
         UNUserNotificationCenter.current().delegate = notificationDelegate
         Self.styleNavigationBars()
+        try? Tips.configure([.displayFrequency(.immediate)])
     }
 
     private static func makeStore() -> GameStore {

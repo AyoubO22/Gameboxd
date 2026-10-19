@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import TipKit
 
 struct GameDetailView: View {
     @Environment(GameStore.self) private var store
@@ -256,6 +257,7 @@ struct GameDetailHeader: View {
     var body: some View {
         VStack(spacing: 18) {
             GameBox3DView(game: game, height: 340)
+                .popoverTip(SpinCaseTip(), arrowEdge: .bottom)
                 // Rebuild the box when what's printed on it changes (not on every edit).
                 .id("\(game.platform)|\(game.description?.count ?? 0)|\(game.screenshotURLs.count)|\(game.boxArtURL ?? "")|\(game.ageRating ?? "")")
 

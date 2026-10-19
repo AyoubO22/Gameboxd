@@ -439,6 +439,8 @@ final class GameStore {
     /// Sync an existing linked account to fetch new games
     func syncLinkedAccount(_ account: LinkedAccount) async throws -> PlatformSyncResult {
         var newGames: [ImportedGame] = []
+        var updated = 0
+        var note: String?
         let existingIds = Set(importedGames.filter { $0.platform == account.platform }.map { $0.platformGameId })
         
         switch account.platform {
@@ -449,7 +451,11 @@ final class GameStore {
         case .playstation:
             let (games, profile) = try await psnService.syncLibrary()
             newGames = games.filter { !existingIds.contains($0.platformGameId) }
-            refreshPlayStationGames(games)
+            updated = refreshPlayStationGames(games)
+            let check = psnService.lastStoryCheck
+            let finished = games.filter { $0.storyCompleted == true }.count
+            note = "Trophées de fin : \(check.checked) jeux lus, \(finished) jeux finis repérés"
+                + (check.failed > 0 ? ", \(check.failed) échecs (\(check.firstError ?? "?"))" : "")
             if let index = linkedAccounts.firstIndex(where: { $0.id == account.id }) {
                 linkedAccounts[index].trophyCount = profile.earnedTrophies?.total
                 linkedAccounts[index].level = profile.trophyLevel
@@ -460,9 +466,10 @@ final class GameStore {
             platform: account.platform,
             gamesFound: existingIds.count + newGames.count,
             newGames: newGames.count,
-            updatedGames: 0,
+            updatedGames: updated,
             errors: [],
-            syncDate: Date()
+            syncDate: Date(),
+            note: note
         )
         
         // Add new games
@@ -482,9 +489,11 @@ final class GameStore {
     
     /// PlayStation knows more than the app about games already imported: newer play time
     /// and trophies, for the import list and the games added to the collection.
-    private func refreshPlayStationGames(_ games: [ImportedGame]) {
+    /// Returns how many games of the collection it changed.
+    @discardableResult
+    private func refreshPlayStationGames(_ games: [ImportedGame]) -> Int {
         let fresh = Dictionary(games.map { ($0.platformGameId, $0) }, uniquingKeysWith: { first, _ in first })
-        var libraryChanged = false
+        var changedGames = Set<UUID>()
         for index in importedGames.indices where importedGames[index].platform == .playstation {
             let old = importedGames[index]
             guard let new = fresh[old.platformGameId] else { continue }
@@ -499,18 +508,19 @@ final class GameStore {
             // The story trophy says it's finished: out of "À jouer" or "Abandonné".
             if new.storyCompleted == true, [.wantToPlay, .shelved].contains(myGames[gameIndex].status) {
                 myGames[gameIndex].status = importedStatus(new)
-                libraryChanged = true
+                changedGames.insert(gameId)
             }
             if new.playtimeMinutes > myGames[gameIndex].playTimeMinutes {
                 myGames[gameIndex].playTimeMinutes = new.playtimeMinutes
-                libraryChanged = true
+                changedGames.insert(gameId)
             }
             if new.completionPercentage > myGames[gameIndex].completionPercentage {
                 myGames[gameIndex].completionPercentage = new.completionPercentage
-                libraryChanged = true
+                changedGames.insert(gameId)
             }
         }
-        if libraryChanged { saveGames() }
+        if !changedGames.isEmpty { saveGames() }
+        return changedGames.count
     }
 
     /// Unlink a platform account

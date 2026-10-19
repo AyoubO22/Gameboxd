@@ -178,12 +178,15 @@ struct PlatformSyncResult {
     let updatedGames: Int
     let errors: [String]
     let syncDate: Date
+    /// Extra line for the person, e.g. what the trophy check found.
+    var note: String? = nil
     
     var isSuccess: Bool { errors.isEmpty }
     
     var summary: String {
         if isSuccess {
-            return "\(gamesFound) jeux trouvés, \(newGames) nouveaux, \(updatedGames) mis à jour"
+            let line = "\(gamesFound) jeux trouvés, \(newGames) nouveaux, \(updatedGames) mis à jour"
+            return note.map { "\(line)\n\($0)" } ?? line
         } else {
             return "Erreurs : \(errors.joined(separator: ", "))"
         }

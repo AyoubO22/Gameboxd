@@ -266,12 +266,18 @@ enum PSNLibrary {
     /// A trophy for finishing the story or the campaign, read from its (English) name and
     /// description. Sony doesn't mark these, so a set without such wording says nothing.
     static func isStoryTrophy(name: String?, detail: String?) -> Bool {
-        let text = "\(name ?? "") \(detail ?? "")".lowercased()
-        let verbs = ["complete", "completed", "finish", "finished", "beat", "clear", "cleared"]
-        let objects = ["the game", "the story", "the main story", "the campaign", "the main campaign", "story mode", "campaign mode"]
+        let text = "\(name ?? "") \(detail ?? "")".lowercased().replacingOccurrences(of: "’", with: "'")
+        let verbs = ["complete", "completed", "finish", "finished", "beat", "clear", "cleared", "end", "conclude", "concluded"]
+        let objects = ["the game", "the story", "the main story", "the campaign", "the main campaign", "story mode",
+                       "campaign mode", "the main quest", "the main game", "the journey", "the adventure",
+                       "the final chapter", "the last chapter", "the final mission", "the last mission", "the final act"]
         if verbs.contains(where: { verb in objects.contains { text.contains("\(verb) \($0)") } }) { return true }
-        let phrases = ["see the credits", "watch the credits", "roll the credits", "reach the credits",
-                       "see the ending", "reach the ending", "reach an ending", "see an ending", "see the end of"]
+        let phrases = ["see the credits", "watch the credits", "roll the credits", "credits roll", "reach the credits",
+                       "see the ending", "reach the ending", "reach an ending", "see an ending", "see the end of",
+                       "main story complete", "story completed",
+                       // In case Sony answers in French despite the en-US request.
+                       "terminer l'histoire", "terminez l'histoire", "terminer le jeu", "terminez le jeu", "finir le jeu",
+                       "finissez le jeu", "terminer la campagne", "terminez la campagne", "le générique"]
         return phrases.contains { text.contains($0) }
     }
 
@@ -586,8 +592,11 @@ final class PlayStationService {
         return try await mine.trophies?.contains { story.contains($0.trophyId) && $0.earned == true } ?? false
     }
 
+    /// What the last story check did, shown after a sync (sets read, finished, failures).
+    private(set) var lastStoryCheck = (checked: 0, failed: 0, firstError: String?.none)
+
     /// Answers kept per set and trophy count: a set only gets asked again once a trophy is won.
-    private static let storyCacheKey = "gameboxd_psn_story_trophies"
+    private static let storyCacheKey = "gameboxd_psn_story_trophies_v2"
     private nonisolated static func storyCacheKey(_ set: PSNGameTitle) -> String {
         "\(set.npCommunicationId)-\(set.earnedTrophies?.total ?? 0)"
     }
@@ -597,21 +606,32 @@ final class PlayStationService {
     func finishedSets(_ sets: [PSNGameTitle]) async -> Set<String> {
         var cache = UserDefaults.standard.dictionary(forKey: Self.storyCacheKey) as? [String: Bool] ?? [:]
         let toCheck = sets.filter { PSNLibrary.needsStoryCheck($0) && cache[Self.storyCacheKey($0)] == nil }
+        var failed = 0
+        var firstError: String?
 
         for chunk in stride(from: 0, to: toCheck.count, by: 6).map({ Array(toCheck[$0..<min($0 + 6, toCheck.count)]) }) {
-            let answers = await withTaskGroup(of: (String, Bool)?.self) { group in
+            let answers = await withTaskGroup(of: (String, Result<Bool, Error>).self) { group in
                 for set in chunk {
                     group.addTask { @MainActor in
-                        do { return (Self.storyCacheKey(set), try await self.storyCompleted(set) ?? false) } catch { return nil }
+                        do { return (Self.storyCacheKey(set), .success(try await self.storyCompleted(set) ?? false)) }
+                        catch { return (Self.storyCacheKey(set), .failure(error)) }
                     }
                 }
-                var answers: [(String, Bool)] = []
-                for await answer in group { if let answer { answers.append(answer) } }
+                var answers: [(String, Result<Bool, Error>)] = []
+                for await answer in group { answers.append(answer) }
                 return answers
             }
-            for (key, finished) in answers { cache[key] = finished }
+            for (key, answer) in answers {
+                switch answer {
+                case .success(let finished): cache[key] = finished
+                case .failure(let error):
+                    failed += 1
+                    if firstError == nil { firstError = error.localizedDescription }
+                }
+            }
         }
         UserDefaults.standard.set(cache, forKey: Self.storyCacheKey)
+        lastStoryCheck = (toCheck.count, failed, firstError)
         return Set(sets.filter { cache[Self.storyCacheKey($0)] == true }.map(\.npCommunicationId))
     }
 

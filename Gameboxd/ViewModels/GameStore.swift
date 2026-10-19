@@ -395,21 +395,30 @@ final class GameStore {
             SteamSync.shared.resetBaseline(steamId: steamId)
             
         case .playstation:
-            let (games, profile) = try await psnService.syncLibrary(psnId: platformId)
-            
-            let account = LinkedAccount(
-                platform: .playstation,
-                platformUserId: platformId,
-                platformUsername: profile.onlineId,
-                avatarURL: profile.avatarUrl,
-                lastSyncDate: Date(),
-                importedGameCount: games.count,
-                trophyCount: profile.trophySummary?.earnedTrophies.total,
-                level: profile.trophySummary?.level
-            )
-            
-            storeLinkedAccount(account, games: games)
+            // PlayStation links by signing in with Sony: see linkPlayStation.
+            throw PlayStationServiceError.notSignedIn
         }
+    }
+
+    /// Links PlayStation once Sony's sign-in succeeded (a sign-in callback or a pasted NPSSO).
+    func linkPlayStation(callback: URL? = nil, npsso: String? = nil) async throws {
+        if let callback {
+            try await psnService.signIn(callback: callback)
+        } else if let npsso {
+            try await psnService.signIn(npsso: npsso)
+        }
+        let (games, profile) = try await psnService.syncLibrary()
+        let account = LinkedAccount(
+            platform: .playstation,
+            platformUserId: profile.onlineId,
+            platformUsername: profile.onlineId,
+            avatarURL: profile.avatarUrl,
+            lastSyncDate: Date(),
+            importedGameCount: games.count,
+            trophyCount: profile.earnedTrophies?.total,
+            level: profile.trophyLevel
+        )
+        storeLinkedAccount(account, games: games)
     }
 
     /// Replaces any existing account for the same platform and only adds imported
@@ -434,8 +443,13 @@ final class GameStore {
             newGames = games.filter { !existingIds.contains($0.platformGameId) }
             
         case .playstation:
-            let (games, _) = try await psnService.syncLibrary(psnId: account.platformUserId)
+            let (games, profile) = try await psnService.syncLibrary()
             newGames = games.filter { !existingIds.contains($0.platformGameId) }
+            refreshPlayStationGames(games)
+            if let index = linkedAccounts.firstIndex(where: { $0.id == account.id }) {
+                linkedAccounts[index].trophyCount = profile.earnedTrophies?.total
+                linkedAccounts[index].level = profile.trophyLevel
+            }
         }
         
         let result = PlatformSyncResult(
@@ -462,8 +476,36 @@ final class GameStore {
         return result
     }
     
+    /// PlayStation knows more than the app about games already imported: newer play time
+    /// and trophies, for the import list and the games added to the collection.
+    private func refreshPlayStationGames(_ games: [ImportedGame]) {
+        let fresh = Dictionary(games.map { ($0.platformGameId, $0) }, uniquingKeysWith: { first, _ in first })
+        var libraryChanged = false
+        for index in importedGames.indices where importedGames[index].platform == .playstation {
+            let old = importedGames[index]
+            guard let new = fresh[old.platformGameId] else { continue }
+            importedGames[index] = ImportedGame(
+                id: old.id, platform: .playstation, platformGameId: new.platformGameId, title: new.title,
+                coverImageURL: new.coverImageURL, playtimeMinutes: new.playtimeMinutes, lastPlayed: new.lastPlayed,
+                achievementsEarned: new.achievementsEarned, achievementsTotal: new.achievementsTotal,
+                isImportedToLibrary: old.isImportedToLibrary, linkedGameId: old.linkedGameId, console: new.console
+            )
+            guard let gameId = old.linkedGameId, let gameIndex = myGames.firstIndex(where: { $0.id == gameId }) else { continue }
+            if new.playtimeMinutes > myGames[gameIndex].playTimeMinutes {
+                myGames[gameIndex].playTimeMinutes = new.playtimeMinutes
+                libraryChanged = true
+            }
+            if new.completionPercentage > myGames[gameIndex].completionPercentage {
+                myGames[gameIndex].completionPercentage = new.completionPercentage
+                libraryChanged = true
+            }
+        }
+        if libraryChanged { saveGames() }
+    }
+
     /// Unlink a platform account
     func unlinkAccount(_ account: LinkedAccount) {
+        if account.platform == .playstation { psnService.signOut() }
         linkedAccounts.removeAll { $0.id == account.id }
         // Keep imported games — user might want to keep them
         saveLinkedAccounts()
@@ -471,13 +513,63 @@ final class GameStore {
     
     /// Add an imported game to the main Gameboxd library
     func addImportedGameToLibrary(_ importedGame: ImportedGame) {
-        // Create a Game from ImportedGame
+        addImportedGamesToLibrary([importedGame])
+    }
+
+    /// Games of the import list not in the collection yet ("Tout ajouter").
+    func importableGames(platform: GamingPlatform? = nil) -> [ImportedGame] {
+        importedGames.filter { !$0.isImportedToLibrary && (platform == nil || $0.platform == platform) }
+    }
+
+    /// Adds imported games to the collection in one save. A game already in the collection
+    /// under the same title is linked to it instead of added twice.
+    func addImportedGamesToLibrary(_ games: [ImportedGame]) {
+        guard !games.isEmpty else { return }
+        var existingByTitle: [String: UUID] = [:]
+        for game in myGames { existingByTitle[PSNLibrary.key(game.title)] = existingByTitle[PSNLibrary.key(game.title)] ?? game.id }
+
+        for importedGame in games {
+            guard let index = importedGames.firstIndex(where: { $0.id == importedGame.id }),
+                  !importedGames[index].isImportedToLibrary else { continue }
+            let key = PSNLibrary.key(importedGame.title)
+            let gameId: UUID
+            if let existing = existingByTitle[key] {
+                gameId = existing
+            } else {
+                let game = libraryGame(from: importedGame)
+                myGames.append(game)
+                existingByTitle[key] = game.id
+                gameId = game.id
+            }
+            importedGames[index].isImportedToLibrary = true
+            importedGames[index].linkedGameId = gameId
+        }
+        saveGames()
+        saveImportedGames()
+    }
+
+    private func libraryGame(from importedGame: ImportedGame) -> Game {
         let platformName: String
         switch importedGame.platform {
         case .steam: platformName = "PC"
-        case .playstation: platformName = "PlayStation"
+        case .playstation: platformName = importedGame.console ?? "PlayStation 5"
         }
-        
+
+        // Every trophy earned is a platinum on PlayStation. Otherwise a game played in the last
+        // month is in progress, and one left longer than that is shelved.
+        let status: GameStatus
+        let played = importedGame.playtimeMinutes > 0 || importedGame.achievementsEarned > 0
+        let monthAgo = Calendar.current.date(byAdding: .month, value: -1, to: Date()) ?? Date()
+        if importedGame.completionPercentage >= 100 {
+            status = importedGame.platform == .playstation ? .platinum : .completed
+        } else if !played {
+            status = .wantToPlay
+        } else if let lastPlayed = importedGame.lastPlayed, lastPlayed < monthAgo {
+            status = .shelved
+        } else {
+            status = .playing
+        }
+
         var game = Game(
             title: importedGame.title,
             developer: "",
@@ -485,21 +577,12 @@ final class GameStore {
             releaseYear: "",
             coverImageURL: importedGame.coverImageURL,
             coverColor: importedGame.platform == .steam ? .blue : .indigo,
-            status: importedGame.playtimeMinutes > 0 ? .playing : .wantToPlay,
+            status: status,
             playTimeMinutes: importedGame.playtimeMinutes,
             completionPercentage: importedGame.completionPercentage
         )
         if importedGame.platform == .steam { game.steamAppId = Int(importedGame.platformGameId) }
-        
-        myGames.append(game)
-        saveGames()
-        
-        // Mark as imported
-        if let index = importedGames.firstIndex(where: { $0.id == importedGame.id }) {
-            importedGames[index].isImportedToLibrary = true
-            importedGames[index].linkedGameId = game.id
-            saveImportedGames()
-        }
+        return game
     }
     
     // MARK: - API Methods

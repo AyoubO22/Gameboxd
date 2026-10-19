@@ -87,7 +87,7 @@ final class PSNLibraryTests: XCTestCase {
         XCTAssertTrue(store.importableGames().isEmpty)
         XCTAssertEqual(store.myGames.first { $0.title == "Bloodborne" }?.status, .platinum)
         XCTAssertEqual(store.myGames.first { $0.title == "Bloodborne" }?.platform, "PlayStation 4")
-        XCTAssertEqual(store.myGames.first { $0.title == "Demon's Souls" }?.status, .wantToPlay)
+        XCTAssertEqual(store.myGames.first { $0.title == "Demon's Souls" }?.status, .shelved)
 
         store.addImportedGamesToLibrary(store.importedGames)         // a second tap adds nothing
         XCTAssertEqual(store.myGames.count, 3)
@@ -103,5 +103,82 @@ final class PSNLibraryTests: XCTestCase {
         store.addImportedGamesToLibrary(store.importableGames())
         XCTAssertEqual(store.myGames.first { $0.title == "Recent" }?.status, .playing)
         XCTAssertEqual(store.myGames.first { $0.title == "Old" }?.status, .shelved)
+    }
+
+    func testOldPlayStationGamesWithoutPlayTimeArriveShelved() {
+        let store = makeIsolatedStore()
+        store.myGames = []
+        let day: TimeInterval = 86_400
+        store.importedGames = [
+            ImportedGame(platform: .playstation, platformGameId: "a", title: "Years ago", lastPlayed: Date().addingTimeInterval(-1_000 * day)),
+            ImportedGame(platform: .playstation, platformGameId: "b", title: "No date", playtimeMinutes: 300),
+            ImportedGame(platform: .playstation, platformGameId: "c", title: "Last week", lastPlayed: Date().addingTimeInterval(-7 * day)),
+            ImportedGame(platform: .steam, platformGameId: "10", title: "Never launched")
+        ]
+        store.addImportedGamesToLibrary(store.importableGames())
+        XCTAssertEqual(store.myGames.first { $0.title == "Years ago" }?.status, .shelved)
+        XCTAssertEqual(store.myGames.first { $0.title == "No date" }?.status, .shelved)
+        XCTAssertEqual(store.myGames.first { $0.title == "Last week" }?.status, .playing)
+        XCTAssertEqual(store.myGames.first { $0.title == "Never launched" }?.status, .wantToPlay)
+    }
+
+    func testBacklogFixSortsOnlyPlayStationGamesStillToPlay() {
+        let store = makeIsolatedStore()
+        let old = Date().addingTimeInterval(-400 * 86_400)
+        let stuck = Game(title: "Stuck", developer: "", platform: "PlayStation 4", releaseYear: "", coverColor: .indigo, status: .wantToPlay)
+        let chosen = Game(title: "Chosen", developer: "", platform: "PlayStation 4", releaseYear: "", coverColor: .indigo, status: .completed)
+        let unlinked = Game(title: "Mine", developer: "", platform: "PlayStation 4", releaseYear: "", coverColor: .indigo, status: .wantToPlay)
+        store.myGames = [stuck, chosen, unlinked]
+        store.importedGames = [
+            ImportedGame(platform: .playstation, platformGameId: "a", title: "Stuck", lastPlayed: old,
+                         isImportedToLibrary: true, linkedGameId: stuck.id),
+            ImportedGame(platform: .playstation, platformGameId: "b", title: "Chosen", lastPlayed: old,
+                         isImportedToLibrary: true, linkedGameId: chosen.id)
+        ]
+        store.fixPlayStationBacklog()
+        XCTAssertEqual(store.myGames.first { $0.title == "Stuck" }?.status, .shelved)
+        XCTAssertEqual(store.myGames.first { $0.title == "Chosen" }?.status, .completed)
+        XCTAssertEqual(store.myGames.first { $0.title == "Mine" }?.status, .wantToPlay)
+    }
+
+    func testStoryTrophiesAreRecognised() {
+        XCTAssertTrue(PSNLibrary.isStoryTrophy(name: "The End", detail: "Complete the story"))
+        XCTAssertTrue(PSNLibrary.isStoryTrophy(name: "Ascension", detail: "Finished the game on any difficulty."))
+        XCTAssertTrue(PSNLibrary.isStoryTrophy(name: "Fin", detail: "See the credits roll"))
+        XCTAssertTrue(PSNLibrary.isStoryTrophy(name: "Veteran", detail: "Beat the main campaign on Hard"))
+        XCTAssertFalse(PSNLibrary.isStoryTrophy(name: "Chapter 3", detail: "Complete chapter 3"))
+        XCTAssertFalse(PSNLibrary.isStoryTrophy(name: "Collector", detail: "Collect every relic in the game"))
+    }
+
+    func testStoryTrophyMakesAGameFinished() {
+        func set(_ id: String, _ name: String, platform: String) -> PSNGameTitle {
+            PSNGameTitle(npCommunicationId: id, trophyTitleName: name, trophyTitleIconUrl: nil, trophyTitlePlatform: platform,
+                         definedTrophies: PSNTrophyCounts(bronze: 40, silver: 5, gold: 2, platinum: 1),
+                         earnedTrophies: PSNTrophyCounts(bronze: 10, silver: 1, gold: 1, platinum: 0),
+                         progress: 30, lastUpdatedDateTime: "2020-03-01T10:00:00Z")
+        }
+        let games = PSNLibrary.games(played: [], trophies: [set("NPWR1", "Old Story", platform: "PS4"), set("NPWR2", "Unfinished", platform: "PS4")],
+                                     finishedSets: ["NPWR1"])
+        XCTAssertEqual(games.first { $0.title == "Old Story" }?.storyCompleted, true)
+        XCTAssertNil(games.first { $0.title == "Unfinished" }?.storyCompleted)
+
+        let store = makeIsolatedStore()
+        store.myGames = []
+        store.importedGames = games
+        store.addImportedGamesToLibrary(store.importableGames())
+        XCTAssertEqual(store.myGames.first { $0.title == "Old Story" }?.status, .completed)
+        XCTAssertEqual(store.myGames.first { $0.title == "Unfinished" }?.status, .shelved)
+    }
+
+    func testLostLinksAreFoundAgainByTitle() {
+        let store = makeIsolatedStore()
+        let shelved = Game(title: "Stray", developer: "", platform: "PlayStation 5", releaseYear: "", coverColor: .indigo, status: .wantToPlay)
+        store.myGames = [shelved]
+        store.importedGames = [ImportedGame(platform: .playstation, platformGameId: "a", title: "Stray",
+                                            lastPlayed: Date().addingTimeInterval(-400 * 86_400), storyCompleted: true)]
+        store.fixPlayStationBacklog()
+        XCTAssertEqual(store.myGames.first?.status, .completed)
+        XCTAssertEqual(store.importedGames.first?.linkedGameId, shelved.id)
+        XCTAssertTrue(store.importableGames().isEmpty)
     }
 }

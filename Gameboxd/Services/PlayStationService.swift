@@ -149,6 +149,18 @@ struct PSNPlayedTitle: Codable, Equatable {
     let playDuration: String?              // ISO 8601 duration, "PT228H56M33S"
 }
 
+/// `GET /trophy/v1/npCommunicationIds/{id}/trophyGroups/all/trophies` (what each trophy is)
+/// and `/trophy/v1/users/me/npCommunicationIds/{id}/…` (which ones are earned).
+struct PSNTrophyListResponse: Decodable {
+    struct Trophy: Decodable {
+        let trophyId: Int
+        let trophyName: String?
+        let trophyDetail: String?
+        let earned: Bool?
+    }
+    let trophies: [Trophy]?
+}
+
 struct PSNTokens: Codable, Equatable {
     var accessToken: String
     var refreshToken: String
@@ -246,7 +258,33 @@ enum PSNLibrary {
     /// One game per title: the PS4 and PS5 versions of a game add up their play time,
     /// trophies come from the matching trophy set, and trophy sets with no play record
     /// (PS3, Vita, games played before Sony kept play time) are kept too.
-    static func games(played: [PSNPlayedTitle], trophies: [PSNGameTitle]) -> [ImportedGame] {
+    /// Sets worth asking about the story trophy: started, but not every trophy earned.
+    static func needsStoryCheck(_ set: PSNGameTitle) -> Bool {
+        (set.earnedTrophies?.total ?? 0) > 0 && (set.progress ?? 0) < 100
+    }
+
+    /// A trophy for finishing the story or the campaign, read from its (English) name and
+    /// description. Sony doesn't mark these, so a set without such wording says nothing.
+    static func isStoryTrophy(name: String?, detail: String?) -> Bool {
+        let text = "\(name ?? "") \(detail ?? "")".lowercased().replacingOccurrences(of: "’", with: "'")
+        let verbs = ["complete", "completed", "finish", "finished", "beat", "clear", "cleared", "end", "conclude", "concluded"]
+        let objects = ["the game", "the story", "the main story", "the campaign", "the main campaign", "story mode",
+                       "campaign mode", "the main quest", "the main game", "the journey", "the adventure",
+                       "the final chapter", "the last chapter", "the final mission", "the last mission", "the final act"]
+        if verbs.contains(where: { verb in objects.contains { text.contains("\(verb) \($0)") } }) { return true }
+        let phrases = ["see the credits", "watch the credits", "roll the credits", "credits roll", "reach the credits",
+                       "see the ending", "reach the ending", "reach an ending", "see an ending", "see the end of",
+                       "main story complete", "story completed",
+                       // In case Sony answers in French despite the en-US request.
+                       "terminer l'histoire", "terminez l'histoire", "terminer le jeu", "terminez le jeu", "finir le jeu",
+                       "finissez le jeu", "terminer la campagne", "terminez la campagne", "le générique"]
+        return phrases.contains { text.contains($0) }
+    }
+
+    static func games(played: [PSNPlayedTitle], trophies: [PSNGameTitle], finishedSets: Set<String> = []) -> [ImportedGame] {
+        // A game counts as finished if any of its sets (PS4 or PS5) has its story trophy.
+        let finishedKeys = Set(trophies.filter { finishedSets.contains($0.npCommunicationId) }.map { Self.key($0.trophyTitleName) })
+
         var trophiesByKey: [String: PSNGameTitle] = [:]
         for set in trophies {
             let key = Self.key(set.trophyTitleName)
@@ -277,7 +315,8 @@ enum PSNLibrary {
                 lastPlayed: versions.compactMap { date($0.lastPlayedDateTime) }.max(),
                 achievementsEarned: trophySet?.earnedTrophies?.total ?? 0,
                 achievementsTotal: trophySet?.definedTrophies?.total ?? 0,
-                console: consoles.contains("PlayStation 5") ? "PlayStation 5" : consoles.first
+                console: consoles.contains("PlayStation 5") ? "PlayStation 5" : consoles.first,
+                storyCompleted: finishedKeys.contains(key) ? true : nil
             )
         }
 
@@ -294,7 +333,8 @@ enum PSNLibrary {
                 lastPlayed: date(best.lastUpdatedDateTime),
                 achievementsEarned: best.earnedTrophies?.total ?? 0,
                 achievementsTotal: best.definedTrophies?.total ?? 0,
-                console: console(trophyPlatform: best.trophyTitlePlatform)
+                console: console(trophyPlatform: best.trophyTitlePlatform),
+                storyCompleted: finishedKeys.contains(key) ? true : nil
             ))
         }
         return games
@@ -451,7 +491,8 @@ final class PlayStationService {
 
     // MARK: API
 
-    private func get<T: Decodable>(_ path: String, _ query: [String: String] = [:], as type: T.Type) async throws -> T {
+    private func get<T: Decodable>(_ path: String, _ query: [String: String] = [:], language: String? = nil,
+                                   as type: T.Type) async throws -> T {
         var components = URLComponents(string: PlayStationConfig.apiURL + path)!
         if !query.isEmpty { components.queryItems = query.sorted { $0.key < $1.key }.map { URLQueryItem(name: $0.key, value: $0.value) } }
         guard let url = components.url else { throw PlayStationServiceError.networkError("URL") }
@@ -460,6 +501,7 @@ final class PlayStationService {
         while true {
             var request = URLRequest(url: url)
             request.setValue("Bearer \(try await accessToken(forceRefresh: retried))", forHTTPHeaderField: "Authorization")
+            if let language { request.setValue(language, forHTTPHeaderField: "Accept-Language") }
             let data: Data
             let response: URLResponse
             do {
@@ -538,6 +580,61 @@ final class PlayStationService {
         return all
     }
 
+    /// Whether the story trophy of a set is earned: nil when the set has none.
+    private func storyCompleted(_ set: PSNGameTitle) async throws -> Bool? {
+        let path = "/npCommunicationIds/\(set.npCommunicationId)/trophyGroups/all/trophies"
+        let service = ["npServiceName": (set.trophyTitlePlatform ?? "").contains("PS5") ? "trophy2" : "trophy"]
+        async let defined = get("/trophy/v1" + path, service, language: "en-US", as: PSNTrophyListResponse.self)
+        async let mine = get("/trophy/v1/users/me" + path, service, as: PSNTrophyListResponse.self)
+        let story = Set((try await defined.trophies ?? [])
+            .filter { PSNLibrary.isStoryTrophy(name: $0.trophyName, detail: $0.trophyDetail) }.map(\.trophyId))
+        guard !story.isEmpty else { return nil }
+        return try await mine.trophies?.contains { story.contains($0.trophyId) && $0.earned == true } ?? false
+    }
+
+    /// What the last story check did, shown after a sync (sets read, finished, failures).
+    private(set) var lastStoryCheck = (checked: 0, failed: 0, firstError: String?.none)
+
+    /// Answers kept per set and trophy count: a set only gets asked again once a trophy is won.
+    private static let storyCacheKey = "gameboxd_psn_story_trophies_v2"
+    private nonisolated static func storyCacheKey(_ set: PSNGameTitle) -> String {
+        "\(set.npCommunicationId)-\(set.earnedTrophies?.total ?? 0)"
+    }
+
+    /// Sets whose story trophy is earned. Two requests per set the first time, a few at once;
+    /// a set Sony won't answer for (rate limit, odd set) is simply not counted.
+    func finishedSets(_ sets: [PSNGameTitle]) async -> Set<String> {
+        var cache = UserDefaults.standard.dictionary(forKey: Self.storyCacheKey) as? [String: Bool] ?? [:]
+        let toCheck = sets.filter { PSNLibrary.needsStoryCheck($0) && cache[Self.storyCacheKey($0)] == nil }
+        var failed = 0
+        var firstError: String?
+
+        for chunk in stride(from: 0, to: toCheck.count, by: 6).map({ Array(toCheck[$0..<min($0 + 6, toCheck.count)]) }) {
+            let answers = await withTaskGroup(of: (String, Result<Bool, Error>).self) { group in
+                for set in chunk {
+                    group.addTask { @MainActor in
+                        do { return (Self.storyCacheKey(set), .success(try await self.storyCompleted(set) ?? false)) }
+                        catch { return (Self.storyCacheKey(set), .failure(error)) }
+                    }
+                }
+                var answers: [(String, Result<Bool, Error>)] = []
+                for await answer in group { answers.append(answer) }
+                return answers
+            }
+            for (key, answer) in answers {
+                switch answer {
+                case .success(let finished): cache[key] = finished
+                case .failure(let error):
+                    failed += 1
+                    if firstError == nil { firstError = error.localizedDescription }
+                }
+            }
+        }
+        UserDefaults.standard.set(cache, forKey: Self.storyCacheKey)
+        lastStoryCheck = (toCheck.count, failed, firstError)
+        return Set(sets.filter { cache[Self.storyCacheKey($0)] == true }.map(\.npCommunicationId))
+    }
+
     // MARK: - Full Library Sync
 
     /// Profile, played games and trophies of the signed-in account.
@@ -546,7 +643,9 @@ final class PlayStationService {
         async let played = playedTitles()
         // Trophies are a bonus: a hiccup there shouldn't stop the import.
         async let trophies = (try? trophyTitles()) ?? []
-        return (PSNLibrary.games(played: try await played, trophies: await trophies), profile)
+        let trophySets = await trophies
+        let finished = await finishedSets(trophySets)
+        return (PSNLibrary.games(played: try await played, trophies: trophySets, finishedSets: finished), profile)
     }
 }
 

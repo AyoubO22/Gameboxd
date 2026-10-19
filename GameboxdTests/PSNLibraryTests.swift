@@ -140,4 +140,33 @@ final class PSNLibraryTests: XCTestCase {
         XCTAssertEqual(store.myGames.first { $0.title == "Chosen" }?.status, .completed)
         XCTAssertEqual(store.myGames.first { $0.title == "Mine" }?.status, .wantToPlay)
     }
+
+    func testStoryTrophiesAreRecognised() {
+        XCTAssertTrue(PSNLibrary.isStoryTrophy(name: "The End", detail: "Complete the story"))
+        XCTAssertTrue(PSNLibrary.isStoryTrophy(name: "Ascension", detail: "Finished the game on any difficulty."))
+        XCTAssertTrue(PSNLibrary.isStoryTrophy(name: "Fin", detail: "See the credits roll"))
+        XCTAssertTrue(PSNLibrary.isStoryTrophy(name: "Veteran", detail: "Beat the main campaign on Hard"))
+        XCTAssertFalse(PSNLibrary.isStoryTrophy(name: "Chapter 3", detail: "Complete chapter 3"))
+        XCTAssertFalse(PSNLibrary.isStoryTrophy(name: "Collector", detail: "Collect every relic in the game"))
+    }
+
+    func testStoryTrophyMakesAGameFinished() {
+        func set(_ id: String, _ name: String, platform: String) -> PSNGameTitle {
+            PSNGameTitle(npCommunicationId: id, trophyTitleName: name, trophyTitleIconUrl: nil, trophyTitlePlatform: platform,
+                         definedTrophies: PSNTrophyCounts(bronze: 40, silver: 5, gold: 2, platinum: 1),
+                         earnedTrophies: PSNTrophyCounts(bronze: 10, silver: 1, gold: 1, platinum: 0),
+                         progress: 30, lastUpdatedDateTime: "2020-03-01T10:00:00Z")
+        }
+        let games = PSNLibrary.games(played: [], trophies: [set("NPWR1", "Old Story", platform: "PS4"), set("NPWR2", "Unfinished", platform: "PS4")],
+                                     finishedSets: ["NPWR1"])
+        XCTAssertEqual(games.first { $0.title == "Old Story" }?.storyCompleted, true)
+        XCTAssertNil(games.first { $0.title == "Unfinished" }?.storyCompleted)
+
+        let store = makeIsolatedStore()
+        store.myGames = []
+        store.importedGames = games
+        store.addImportedGamesToLibrary(store.importableGames())
+        XCTAssertEqual(store.myGames.first { $0.title == "Old Story" }?.status, .completed)
+        XCTAssertEqual(store.myGames.first { $0.title == "Unfinished" }?.status, .shelved)
+    }
 }

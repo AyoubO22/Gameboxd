@@ -492,9 +492,15 @@ final class GameStore {
                 id: old.id, platform: .playstation, platformGameId: new.platformGameId, title: new.title,
                 coverImageURL: new.coverImageURL, playtimeMinutes: new.playtimeMinutes, lastPlayed: new.lastPlayed,
                 achievementsEarned: new.achievementsEarned, achievementsTotal: new.achievementsTotal,
-                isImportedToLibrary: old.isImportedToLibrary, linkedGameId: old.linkedGameId, console: new.console
+                isImportedToLibrary: old.isImportedToLibrary, linkedGameId: old.linkedGameId, console: new.console,
+                storyCompleted: new.storyCompleted
             )
             guard let gameId = old.linkedGameId, let gameIndex = myGames.firstIndex(where: { $0.id == gameId }) else { continue }
+            // The story trophy says it's finished: out of "À jouer" or "Abandonné".
+            if new.storyCompleted == true, [.wantToPlay, .shelved].contains(myGames[gameIndex].status) {
+                myGames[gameIndex].status = importedStatus(new)
+                libraryChanged = true
+            }
             if new.playtimeMinutes > myGames[gameIndex].playTimeMinutes {
                 myGames[gameIndex].playTimeMinutes = new.playtimeMinutes
                 libraryChanged = true
@@ -552,8 +558,9 @@ final class GameStore {
         saveImportedGames()
     }
 
-    /// Every trophy earned is a platinum on PlayStation. Otherwise only a game played in the
-    /// last month is in progress; one left longer, or with no date at all, is shelved.
+    /// Every trophy earned is a platinum on PlayStation, and the story trophy makes it finished.
+    /// Otherwise only a game played in the last month is in progress; one left longer, or with
+    /// no date at all, is shelved.
     /// Everything Sony lists was launched at least once (old PS4 games often report no play
     /// time and no trophy), so a PSN game is never "À jouer". Steam lists owned games too.
     private func importedStatus(_ importedGame: ImportedGame) -> GameStatus {
@@ -562,6 +569,8 @@ final class GameStore {
         let monthAgo = Calendar.current.date(byAdding: .month, value: -1, to: Date()) ?? Date()
         if importedGame.completionPercentage >= 100 {
             return importedGame.platform == .playstation ? .platinum : .completed
+        } else if importedGame.storyCompleted == true {
+            return .completed
         } else if !played {
             return .wantToPlay
         } else if let lastPlayed = importedGame.lastPlayed, lastPlayed >= monthAgo {

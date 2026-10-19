@@ -127,6 +127,8 @@ struct ImportedGame: Identifiable, Codable, Hashable {
     var linkedGameId: UUID?          // Reference to Gameboxd Game if imported
     /// Console it was played on ("PlayStation 5"), when the platform says.
     var console: String?
+    /// The trophy for finishing the story is earned (PlayStation), when the set has one.
+    var storyCompleted: Bool?
     
     init(
         id: UUID = UUID(),
@@ -140,7 +142,8 @@ struct ImportedGame: Identifiable, Codable, Hashable {
         achievementsTotal: Int = 0,
         isImportedToLibrary: Bool = false,
         linkedGameId: UUID? = nil,
-        console: String? = nil
+        console: String? = nil,
+        storyCompleted: Bool? = nil
     ) {
         self.id = id
         self.platform = platform
@@ -154,6 +157,7 @@ struct ImportedGame: Identifiable, Codable, Hashable {
         self.isImportedToLibrary = isImportedToLibrary
         self.linkedGameId = linkedGameId
         self.console = console
+        self.storyCompleted = storyCompleted
     }
     
     var formattedPlaytime: String {

@@ -54,10 +54,8 @@ enum GamingPlatform: String, CaseIterable, Codable, Identifiable {
         switch self {
         case .playstation:
             return """
-            Pour lier ton compte PlayStation :
-            1. Va dans les paramètres PSN (account.sonyentertainmentnetwork.com)
-            2. Active les paramètres de confidentialité "N'importe qui" pour Jeux
-            3. Copie ton PSN ID ci-dessous
+            Connecte-toi avec ton compte PlayStation : Gameboxd importe les jeux auxquels tu as joué sur PS4 et PS5, avec ton temps de jeu, et tes trophées (PS3 et Vita compris).
+            Ta connexion reste sur ce téléphone, même si ton profil PSN est privé.
             """
         case .steam:
             return """
@@ -127,6 +125,8 @@ struct ImportedGame: Identifiable, Codable, Hashable {
     let achievementsTotal: Int
     var isImportedToLibrary: Bool   // Whether user has added it to Gameboxd library
     var linkedGameId: UUID?          // Reference to Gameboxd Game if imported
+    /// Console it was played on ("PlayStation 5"), when the platform says.
+    var console: String?
     
     init(
         id: UUID = UUID(),
@@ -139,7 +139,8 @@ struct ImportedGame: Identifiable, Codable, Hashable {
         achievementsEarned: Int = 0,
         achievementsTotal: Int = 0,
         isImportedToLibrary: Bool = false,
-        linkedGameId: UUID? = nil
+        linkedGameId: UUID? = nil,
+        console: String? = nil
     ) {
         self.id = id
         self.platform = platform
@@ -152,6 +153,7 @@ struct ImportedGame: Identifiable, Codable, Hashable {
         self.achievementsTotal = achievementsTotal
         self.isImportedToLibrary = isImportedToLibrary
         self.linkedGameId = linkedGameId
+        self.console = console
     }
     
     var formattedPlaytime: String {

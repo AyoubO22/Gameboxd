@@ -2,7 +2,7 @@
 //  MainTabView.swift
 //  Gameboxd
 //
-//  Main navigation: four tabs plus the iOS 26 search tab, on a Liquid Glass tab bar
+//  Main navigation: five tabs, Profile at the far right, on a Liquid Glass tab bar
 //
 
 import SwiftUI
@@ -27,17 +27,17 @@ struct MainTabView: View {
                 DiscoverView()
             }
 
+            Tab("Recherche", systemImage: "magnifyingglass", value: 2) {
+                SearchView()
+            }
+
             Tab("Journal", systemImage: "book.fill", value: 3) {
                 DiaryView()
             }
 
+            // Profile stays at the far right (no search role: it would detach search there).
             Tab("Profil", systemImage: "person.fill", value: 4) {
                 ProfileView()
-            }
-
-            // The search role detaches the tab into its own round button on the right.
-            Tab("Recherche", systemImage: "magnifyingglass", value: 2, role: .search) {
-                SearchView()
             }
         }
         .tint(.gbCoral)

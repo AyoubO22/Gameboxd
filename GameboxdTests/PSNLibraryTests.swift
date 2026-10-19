@@ -196,10 +196,13 @@ final class PSNLibraryTests: XCTestCase {
         store.importedGames = games
         store.fixPlayStationBacklog()
         XCTAssertEqual(store.myGames.first?.status, .platinum)
+        XCTAssertEqual(store.myGames.first?.completionPercentage, 100)
+        XCTAssertNotNil(store.myGames.first?.completedDate)
 
         store.myGames = []
         store.importedGames = games
         store.addImportedGamesToLibrary(store.importableGames())
         XCTAssertEqual(store.myGames.first?.status, .platinum)
+        XCTAssertEqual(store.myGames.first?.completionPercentage, 100)
     }
 }

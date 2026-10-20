@@ -21,6 +21,7 @@ struct SettingsView: View {
     @State private var showingImportError = false
     @State private var importErrorMessage = ""
     @State private var showingExportError = false
+    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = true
     
     var body: some View {
         List {
@@ -110,6 +111,10 @@ struct SettingsView: View {
             Section {
                 NavigationLink(destination: AboutView()) {
                     SettingsRow(icon: "info.circle.fill", title: "À propos", color: .gray)
+                }
+
+                Button { hasCompletedOnboarding = false } label: {
+                    SettingsRow(icon: "sparkles", title: "Revoir la présentation", color: .gbCoral)
                 }
                 
                 if let url = URL(string: "https://rawg.io") {

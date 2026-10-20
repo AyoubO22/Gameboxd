@@ -502,13 +502,16 @@ final class GameStore {
                 coverImageURL: new.coverImageURL, playtimeMinutes: new.playtimeMinutes, lastPlayed: new.lastPlayed,
                 achievementsEarned: new.achievementsEarned, achievementsTotal: new.achievementsTotal,
                 isImportedToLibrary: old.isImportedToLibrary, linkedGameId: old.linkedGameId, console: new.console,
-                storyCompleted: new.storyCompleted
+                storyCompleted: new.storyCompleted, platinumEarned: new.platinumEarned
             )
             guard let gameIndex = libraryIndex(forImportedAt: index) else { continue }
             let gameId = myGames[gameIndex].id
-            // The story trophy says it's finished: out of "À jouer" or "Abandonné".
-            if new.storyCompleted == true, [.wantToPlay, .shelved].contains(myGames[gameIndex].status) {
-                myGames[gameIndex].status = importedStatus(new)
+            // The platinum is the last word; the story trophy moves it out of "À jouer" or "Abandonné".
+            if new.platinumEarned == true, myGames[gameIndex].status != .platinum {
+                setImportedStatus(.platinum, of: gameIndex, from: new)
+                changedGames.insert(gameId)
+            } else if new.storyCompleted == true, [.wantToPlay, .shelved].contains(myGames[gameIndex].status) {
+                setImportedStatus(importedStatus(new), of: gameIndex, from: new)
                 changedGames.insert(gameId)
             }
             if new.playtimeMinutes > myGames[gameIndex].playTimeMinutes {
@@ -578,7 +581,9 @@ final class GameStore {
         let played = importedGame.platform == .playstation
             || importedGame.playtimeMinutes > 0 || importedGame.achievementsEarned > 0
         let monthAgo = Calendar.current.date(byAdding: .month, value: -1, to: Date()) ?? Date()
-        if importedGame.completionPercentage >= 100 {
+        if importedGame.platinumEarned == true {
+            return .platinum
+        } else if importedGame.completionPercentage >= 100 {
             return importedGame.platform == .playstation ? .platinum : .completed
         } else if importedGame.storyCompleted == true {
             return .completed
@@ -603,13 +608,23 @@ final class GameStore {
         return index
     }
 
+    /// A status the platform decided, with what updateGame adds by hand: a platinum is 100 %,
+    /// and a finished game gets a date (the last time it was played, not today).
+    private func setImportedStatus(_ status: GameStatus, of index: Int, from importedGame: ImportedGame) {
+        myGames[index].status = status
+        if status == .platinum { myGames[index].completionPercentage = 100 }
+        if status == .completed || status == .platinum, myGames[index].completedDate == nil {
+            myGames[index].completedDate = importedGame.lastPlayed
+        }
+    }
+
     /// PSN games added before importedStatus knew they were all played came in as "À jouer":
     /// sort those again. Games moved to another status by hand are left alone.
     func fixPlayStationBacklog() {
         var changed = false
         for importedIndex in importedGames.indices where importedGames[importedIndex].platform == .playstation {
             guard let index = libraryIndex(forImportedAt: importedIndex), myGames[index].status == .wantToPlay else { continue }
-            myGames[index].status = importedStatus(importedGames[importedIndex])
+            setImportedStatus(importedStatus(importedGames[importedIndex]), of: index, from: importedGames[importedIndex])
             changed = true
         }
         if changed { saveGames() }
@@ -636,6 +651,8 @@ final class GameStore {
             completionPercentage: importedGame.completionPercentage
         )
         if importedGame.platform == .steam { game.steamAppId = Int(importedGame.platformGameId) }
+        if status == .platinum { game.completionPercentage = 100 }
+        if status == .completed || status == .platinum { game.completedDate = importedGame.lastPlayed }
         return game
     }
     

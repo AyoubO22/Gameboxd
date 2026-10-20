@@ -86,10 +86,18 @@ struct ContentView: View {
         }
         #if DEBUG
         // Launch argument `-debugOpenGame "<title>"`: open that game's page, for simulator screenshots.
-        .onAppear {
-            if let title = UserDefaults.standard.string(forKey: "debugOpenGame") {
-                debugGame = store.myGames.first { $0.title == title }
+        // The demo shelf's covers arrive a while after launch: wait for this one's (up to 90 s), so
+        // the page, which keeps its own copy of the game, opens with its art.
+        .task {
+            guard let title = UserDefaults.standard.string(forKey: "debugOpenGame") else { return }
+            for _ in 0..<90 {
+                if let game = store.myGames.first(where: { $0.title == title }), !DemoShelf.isOn || game.boxArtURL?.isEmpty == false {
+                    debugGame = game
+                    return
+                }
+                try? await Task.sleep(for: .seconds(1))
             }
+            debugGame = store.myGames.first { $0.title == title }
         }
         .fullScreenCover(item: $debugGame) { game in
             NavigationStack { GameDetailView(game: game) }

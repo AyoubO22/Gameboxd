@@ -833,7 +833,8 @@ struct ShelfLibrary<Menu: View>: View {
         [
             Section(id: "playing", title: "En cours", games: games.filter { $0.status == .playing }),
             Section(id: "backlog", title: "À jouer", games: games.filter { $0.status == .wantToPlay || $0.status == .none }),
-            Section(id: "done", title: "Terminés", games: games.filter { $0.status == .completed || $0.status == .platinum }),
+            Section(id: "platinum", title: "Platinés", games: games.filter { $0.status == .platinum }),
+            Section(id: "done", title: "Terminés", games: games.filter { $0.status == .completed }),
             Section(id: "shelved", title: "Abandonnés", games: games.filter { $0.status == .shelved }),
         ].filter { !$0.games.isEmpty }
     }

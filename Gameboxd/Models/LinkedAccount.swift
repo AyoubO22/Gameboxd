@@ -129,6 +129,8 @@ struct ImportedGame: Identifiable, Codable, Hashable {
     var console: String?
     /// The trophy for finishing the story is earned (PlayStation), when the set has one.
     var storyCompleted: Bool?
+    /// The platinum trophy is earned (PlayStation), even if DLC trophies are still missing.
+    var platinumEarned: Bool?
     
     init(
         id: UUID = UUID(),
@@ -143,7 +145,8 @@ struct ImportedGame: Identifiable, Codable, Hashable {
         isImportedToLibrary: Bool = false,
         linkedGameId: UUID? = nil,
         console: String? = nil,
-        storyCompleted: Bool? = nil
+        storyCompleted: Bool? = nil,
+        platinumEarned: Bool? = nil
     ) {
         self.id = id
         self.platform = platform
@@ -158,6 +161,7 @@ struct ImportedGame: Identifiable, Codable, Hashable {
         self.linkedGameId = linkedGameId
         self.console = console
         self.storyCompleted = storyCompleted
+        self.platinumEarned = platinumEarned
     }
     
     var formattedPlaytime: String {

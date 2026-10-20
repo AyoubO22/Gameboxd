@@ -284,6 +284,8 @@ enum PSNLibrary {
     static func games(played: [PSNPlayedTitle], trophies: [PSNGameTitle], finishedSets: Set<String> = []) -> [ImportedGame] {
         // A game counts as finished if any of its sets (PS4 or PS5) has its story trophy.
         let finishedKeys = Set(trophies.filter { finishedSets.contains($0.npCommunicationId) }.map { Self.key($0.trophyTitleName) })
+        // Same for the platinum: DLC trophies keep a platinumed game under 100 %.
+        let platinumKeys = Set(trophies.filter { ($0.earnedTrophies?.platinum ?? 0) > 0 }.map { Self.key($0.trophyTitleName) })
 
         var trophiesByKey: [String: PSNGameTitle] = [:]
         for set in trophies {
@@ -316,7 +318,8 @@ enum PSNLibrary {
                 achievementsEarned: trophySet?.earnedTrophies?.total ?? 0,
                 achievementsTotal: trophySet?.definedTrophies?.total ?? 0,
                 console: consoles.contains("PlayStation 5") ? "PlayStation 5" : consoles.first,
-                storyCompleted: finishedKeys.contains(key) ? true : nil
+                storyCompleted: finishedKeys.contains(key) ? true : nil,
+                platinumEarned: platinumKeys.contains(key) ? true : nil
             )
         }
 
@@ -334,7 +337,8 @@ enum PSNLibrary {
                 achievementsEarned: best.earnedTrophies?.total ?? 0,
                 achievementsTotal: best.definedTrophies?.total ?? 0,
                 console: console(trophyPlatform: best.trophyTitlePlatform),
-                storyCompleted: finishedKeys.contains(key) ? true : nil
+                storyCompleted: finishedKeys.contains(key) ? true : nil,
+                platinumEarned: platinumKeys.contains(key) ? true : nil
             ))
         }
         return games

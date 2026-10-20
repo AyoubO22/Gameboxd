@@ -29,6 +29,12 @@ struct OnboardingView: View {
             .map { $0 }
     }
 
+    /// The welcome fan: games whose box art has arrived (the others show a screenshot until then).
+    private var fanGames: [Game] {
+        let withArt = choices.filter { !($0.boxArtURL ?? "").isEmpty }
+        return Array((withArt.count >= 3 ? withArt : choices).prefix(3))
+    }
+
     var body: some View {
         ZStack {
             Color.gbDark.ignoresSafeArea()
@@ -41,10 +47,13 @@ struct OnboardingView: View {
         }
         .animation(.smooth(duration: 0.45), value: step)
         .task {
-            guard choices.count < 9 else { return }
-            loading = true
-            await store.loadDiscoverData()
-            loading = false
+            if choices.count < 9 {
+                loading = true
+                await store.loadDiscoverData()
+                loading = false
+            }
+            // Cached Discover lists can still lack box art: fetch it so cases show their covers.
+            await store.fillDiscoverBoxArt()
         }
     }
 
@@ -53,7 +62,7 @@ struct OnboardingView: View {
     private var welcome: some View {
         VStack(spacing: DS.Spacing.lg) {
             Spacer()
-            CaseFan(games: Array(choices.prefix(3)))
+            CaseFan(games: fanGames)
                 .frame(height: 220)
             Text("Gameboxd")
                 .font(DS.Typography.largeTitle)

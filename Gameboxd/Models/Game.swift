@@ -439,6 +439,45 @@ struct UserProfile: Codable {
     var authProviderUserId: String // Provider-specific unique user ID
     var avatarURL: String?         // Profile picture URL (Google, etc.)
     var needsUsernameSetup: Bool   // Show username setup after first social login
+
+    // Personalisation
+    var themeHex: String?               // Profile colour; nil keeps the app's coral
+    var avatarKind: AvatarKind
+    var avatarGameId: UUID?             // Game whose cover is the avatar
+    var bannerGameId: UUID?             // Game whose art fills the top of the profile
+    var hiddenSections: [ProfileSection]
+
+    enum AvatarKind: String, Codable { case emoji, photo, game }
+
+    /// Profile sections the player can hide. The nameplate and the showcase always show.
+    enum ProfileSection: String, Codable, CaseIterable, Identifiable {
+        case year, stickers, lists
+        var id: Self { self }
+        var title: String {
+            switch self {
+            case .year: "Mon année"
+            case .stickers: "Album d'autocollants"
+            case .lists: "Mes listes"
+            }
+        }
+        var icon: String {
+            switch self {
+            case .year: "calendar"
+            case .stickers: "seal.fill"
+            case .lists: "list.bullet.rectangle"
+            }
+        }
+    }
+
+    /// Colours the player can give their profile, coral first.
+    static let themePalette = ["F2553C", "FF9F0A", "FFD60A", "30D158", "64D2FF", "0A84FF", "BF5AF2", "FF375F"]
+
+    static func themeName(_ hex: String) -> String {
+        let names = ["Corail", "Orange", "Or", "Vert", "Ciel", "Bleu", "Violet", "Rose"]
+        return themePalette.firstIndex(of: hex).map { names[$0] } ?? "Couleur"
+    }
+
+    var themeColor: Color { themeHex.map(Color.init(hex:)) ?? .gbCoral }
     
     init(
         username: String = "Gamer",
@@ -452,7 +491,12 @@ struct UserProfile: Codable {
         authProvider: String = "email",
         authProviderUserId: String = "",
         avatarURL: String? = nil,
-        needsUsernameSetup: Bool = false
+        needsUsernameSetup: Bool = false,
+        themeHex: String? = nil,
+        avatarKind: AvatarKind? = nil,
+        avatarGameId: UUID? = nil,
+        bannerGameId: UUID? = nil,
+        hiddenSections: [ProfileSection] = []
     ) {
         self.username = username
         self.bio = bio
@@ -466,6 +510,11 @@ struct UserProfile: Codable {
         self.authProviderUserId = authProviderUserId
         self.avatarURL = avatarURL
         self.needsUsernameSetup = needsUsernameSetup
+        self.themeHex = themeHex
+        self.avatarKind = avatarKind ?? (avatarURL == nil ? .emoji : .photo)
+        self.avatarGameId = avatarGameId
+        self.bannerGameId = bannerGameId
+        self.hiddenSections = hiddenSections
     }
     
     // Custom Decodable init so existing persisted profiles (without new fields) still load
@@ -483,6 +532,12 @@ struct UserProfile: Codable {
         authProviderUserId = try container.decodeIfPresent(String.self, forKey: .authProviderUserId) ?? ""
         avatarURL = try container.decodeIfPresent(String.self, forKey: .avatarURL)
         needsUsernameSetup = try container.decodeIfPresent(Bool.self, forKey: .needsUsernameSetup) ?? false
+        themeHex = try container.decodeIfPresent(String.self, forKey: .themeHex)
+        avatarKind = (try? container.decodeIfPresent(AvatarKind.self, forKey: .avatarKind)) ?? (avatarURL == nil ? .emoji : .photo)
+        avatarGameId = try container.decodeIfPresent(UUID.self, forKey: .avatarGameId)
+        bannerGameId = try container.decodeIfPresent(UUID.self, forKey: .bannerGameId)
+        hiddenSections = ((try? container.decodeIfPresent([String].self, forKey: .hiddenSections)) ?? [])
+            .compactMap(ProfileSection.init(rawValue:))
     }
 }
 

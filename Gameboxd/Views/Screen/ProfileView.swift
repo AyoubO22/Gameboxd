@@ -24,26 +24,29 @@ struct ProfileView: View {
 
                     ShowcaseSection(namespace: showcaseNamespace, rowWidth: page.size.width - DS.Spacing.md * 2)
 
-                    YearStorySection()
+                    if shows(.year) { YearStorySection() }
 
-                    StickerAlbumSection()
+                    if shows(.stickers) { StickerAlbumSection() }
 
                     ProfileNavigationSection()
 
-                    MyListsSection(showingLists: $showingLists)
+                    if shows(.lists) { MyListsSection(showingLists: $showingLists) }
                 }
                 .padding(.vertical)
                 .padding(.bottom, 90)
+                // Scrolls with the page, reaching up under the navigation bar.
+                .background(alignment: .top) { ProfileBanner().offset(y: -page.safeAreaInsets.top) }
             }
             }
             .background(Color.gbDark.ignoresSafeArea())
+            .tint(store.userProfile.themeColor)
             .navigationTitle("Profil")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     NavigationLink(destination: SettingsView()) {
                         Image(systemName: "gearshape.fill")
-                            .foregroundStyle(Color.accent)
+                            .foregroundStyle(.tint)
                     }
                     .accessibilityLabel("Réglages")
                 }
@@ -55,6 +58,44 @@ struct ProfileView: View {
                 ListsView()
             }
         }
+    }
+
+    private func shows(_ section: UserProfile.ProfileSection) -> Bool {
+        !store.userProfile.hiddenSections.contains(section)
+    }
+}
+
+// MARK: - Banner
+
+/// The art of the game the player chose, washed into the page behind their name.
+struct ProfileBanner: View {
+    @Environment(GameStore.self) private var store
+
+    private var url: URL? {
+        guard let id = store.userProfile.bannerGameId,
+              let game = store.myGames.first(where: { $0.id == id }) else { return nil }
+        // A screenshot is landscape like the banner; the cover is the fallback.
+        return game.screenshotURLs.first.flatMap(URL.init(string:)) ?? game.artURL
+    }
+
+    var body: some View {
+        let theme = store.userProfile.themeColor
+        ZStack {
+            if let url {
+                CachedAsyncImage(url: url) { $0.resizable().scaledToFill() } placeholder: { Color.clear }
+                    .frame(height: 300)
+                    .clipped()
+                    .overlay { theme.opacity(0.12).blendMode(.overlay) }
+            } else {
+                // No banner: a soft glow of the profile colour.
+                RadialGradient(colors: [theme.opacity(0.28), .clear], center: .topTrailing, startRadius: 0, endRadius: 320)
+            }
+        }
+        .frame(height: 300)
+        .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.35), .init(color: .clear, location: 1)],
+                             startPoint: .top, endPoint: .bottom))
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }
 
@@ -398,34 +439,66 @@ struct ProfileNameplate: View {
                         .font(DS.Typography.body)
                         .foregroundStyle(Color.textSecondary)
                 }
-                Button("Modifier le profil") { showingEditProfile = true }
+                Button("Personnaliser", systemImage: "paintbrush.fill") { showingEditProfile = true }
                     .font(DS.Typography.captionMedium)
-                    .foregroundStyle(Color.accent)
+                    .foregroundStyle(.tint)
                     .padding(.top, 4)
             }
             Spacer(minLength: 0)
-            avatar
+            ProfileAvatar(profile: profile, size: 72)
         }
         .padding(.horizontal)
+        // Room for the banner's art above the name.
+        .padding(.top, hasBanner ? 110 : 0)
     }
 
-    @ViewBuilder private var avatar: some View {
+    private var hasBanner: Bool {
+        profile.bannerGameId.map { id in store.myGames.contains { $0.id == id } } ?? false
+    }
+}
+
+/// The player's face on the page: an emoji, their account photo, or a game's cover.
+struct ProfileAvatar: View {
+    @Environment(GameStore.self) private var store
+    let profile: UserProfile
+    let size: CGFloat
+
+    private var gameArt: URL? {
+        guard let id = profile.avatarGameId else { return nil }
+        return store.myGames.first { $0.id == id }?.artURL
+    }
+
+    var body: some View {
         Group {
-            if let string = profile.avatarURL, let url = URL(string: string) {
-                CachedAsyncImage(url: url) { $0.resizable().scaledToFill() } placeholder: { emoji }
-            } else {
+            switch profile.avatarKind {
+            case .game where gameArt != nil:
+                CachedAsyncImage(url: gameArt) { $0.resizable().scaledToFill() } placeholder: { emoji }
+            case .photo where store.accountPhotoURL != nil:
+                CachedAsyncImage(url: store.accountPhotoURL) { $0.resizable().scaledToFill() } placeholder: { emoji }
+            default:
                 emoji
             }
         }
-        .frame(width: 64, height: 64)
-        .background(Color.gbCard)
+        .frame(width: size, height: size)
+        .background(profile.themeColor.gradient.opacity(0.35))
         .clipShape(Circle())
-        .overlay(Circle().stroke(Color.accent.opacity(0.5), lineWidth: 1.5))
+        .overlay(Circle().strokeBorder(profile.themeColor, lineWidth: max(2, size / 28)))
+        .shadow(color: profile.themeColor.opacity(0.4), radius: size / 8)
         .accessibilityHidden(true)
     }
 
     private var emoji: some View {
-        Text(profile.avatarEmoji).font(.system(size: 32))
+        Text(profile.avatarEmoji).font(.system(size: size * 0.5))
+    }
+}
+
+extension GameStore {
+    /// The sign-in photo, else the picture of a linked PlayStation or Steam account.
+    var accountPhotoURL: URL? {
+        ([userProfile.avatarURL] + linkedAccounts.map(\.avatarURL))
+            .lazy
+            .compactMap { $0.flatMap(URL.init(string:)) }
+            .first
     }
 }
 

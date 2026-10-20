@@ -65,17 +65,20 @@ struct GameboxdApp: App {
 
     var body: some Scene {
         WindowGroup {
-            if hasCompletedOnboarding {
+            // The app is built under the onboarding from the start, so the shelf (every case and
+            // its art) is ready when the player finishes: building it on that tap froze the app.
+            ZStack {
                 ContentView()
-                    .environment(store)
-                    .environment(timerManager)
-                    .preferredColorScheme(.dark)
-            } else {
-                OnboardingView(hasCompletedOnboarding: $hasCompletedOnboarding)
-                    .environment(store)
-                    .environment(timerManager)
-                    .preferredColorScheme(.dark)
+                    .accessibilityHidden(!hasCompletedOnboarding)
+                if !hasCompletedOnboarding {
+                    OnboardingView(hasCompletedOnboarding: $hasCompletedOnboarding)
+                        .transition(.opacity)
+                }
             }
+            .animation(.easeOut(duration: 0.3), value: hasCompletedOnboarding)
+            .environment(store)
+            .environment(timerManager)
+            .preferredColorScheme(.dark)
         }
         .onChange(of: scenePhase) { _, phase in
             // Saves are written in the background; make sure they hit disk

@@ -14,6 +14,8 @@ struct ContentView: View {
     @State private var toastAchievement: Achievement?
     @State private var achievementQueue: [Achievement] = []
     @State private var showingUsernameSetup = false
+    /// The app sits under the onboarding until it's done: nothing pops up over it before then.
+    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @Environment(\.scenePhase) private var scenePhase
     #if DEBUG
     @State private var debugGame: Game?
@@ -53,6 +55,9 @@ struct ContentView: View {
             }
         }
         .onChange(of: store.isLoggedIn) { _, _ in
+            checkUsernameSetup()
+        }
+        .onChange(of: hasCompletedOnboarding) { _, _ in
             checkUsernameSetup()
         }
         // Also on launch: if the app was killed mid-setup, isLoggedIn is already
@@ -120,7 +125,7 @@ struct ContentView: View {
     }
 
     func checkUsernameSetup() {
-        if store.isLoggedIn && store.userProfile.needsUsernameSetup {
+        if hasCompletedOnboarding && store.isLoggedIn && store.userProfile.needsUsernameSetup {
             showingUsernameSetup = true
         }
     }

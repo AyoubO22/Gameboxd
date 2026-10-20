@@ -198,8 +198,7 @@ struct OnboardingView: View {
     }
 
     private func finish() {
-        // No animation: animating the swap would lay the whole app out inside the
-        // transaction (every tab and shelf), which made the tap freeze.
+        // The app is already built underneath: this only fades the onboarding away.
         hasCompletedOnboarding = true
         UserDefaults.standard.set(true, forKey: "hasCompletedOnboarding")
     }

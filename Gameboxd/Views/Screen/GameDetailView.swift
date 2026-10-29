@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import TipKit
 
 struct GameDetailView: View {
     @Environment(GameStore.self) private var store
@@ -258,6 +259,15 @@ struct GameDetailHeader: View {
             GameBox3DView(game: game, height: 340)
                 // Rebuild the box when what's printed on it changes (not on every edit).
                 .id("\(game.platform)|\(game.description?.count ?? 0)|\(game.screenshotURLs.count)|\(game.boxArtURL ?? "")|\(game.ageRating ?? "")")
+                // Once the player has spun the box, the tip has done its job.
+                .simultaneousGesture(DragGesture(minimumDistance: 2).onEnded { _ in
+                    SpinCaseTip().invalidate(reason: .actionPerformed)
+                })
+
+            // Inline rather than a popover: a popover over the 3D box got in the way of spinning it.
+            TipView(SpinCaseTip())
+                .tipBackground(Color.gbCard)
+                .padding(.horizontal)
 
             VStack(spacing: 6) {
                 Text(game.title)

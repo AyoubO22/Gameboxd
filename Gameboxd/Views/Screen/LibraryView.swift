@@ -6,9 +6,11 @@
 //
 
 import SwiftUI
+import TipKit
 
 struct LibraryView: View {
     @Environment(GameStore.self) private var store
+    @Environment(\.selectTab) private var selectTab
     @State private var selectedFilter: GameStatus = .playing
     @State private var showingStats = false
     @State private var sortOption: SortOption = .title
@@ -213,12 +215,18 @@ struct LibraryView: View {
                     let query = searchText.trimmingCharacters(in: .whitespaces)
                     if games.isEmpty && !query.isEmpty {
                         EmptyState(icon: "magnifyingglass", title: "Aucun jeu ne correspond à « \(query) »",
-                                   message: "Pour l'ajouter à ta collection, cherche-le dans l'onglet Recherche.")
+                                   message: "Il n'est pas encore sur ton étagère.",
+                                   actionTitle: "Le chercher", action: { selectTab(2) })
                             .frame(minHeight: 420)
                     } else if games.isEmpty && viewStyle == .shelf {
-                        EmptyState(icon: "books.vertical", title: "Ton étagère est vide", message: "Cherche un jeu dans l'onglet Recherche pour poser ta première boîte.")
+                        EmptyState(icon: "books.vertical", title: "Ton étagère est vide", message: "Ajoute un jeu pour poser ta première boîte.",
+                                   actionTitle: "Ajouter un jeu", actionIcon: "plus", action: { selectTab(2) })
                             .frame(minHeight: 420)
                     } else if viewStyle == .shelf {
+                        TipView(ShelfTip())
+                            .tipBackground(Color.gbCard)
+                            .padding(.horizontal, DS.Spacing.md)
+                            .padding(.top, DS.Spacing.sm)
                         ShelfLibrary(games: games, namespace: shelfNamespace) { game in
                             GameContextMenu(game: game) { g in
                                 gameToDelete = g

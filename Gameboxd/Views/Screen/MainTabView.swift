@@ -41,6 +41,7 @@ struct MainTabView: View {
             }
         }
         .tint(.gbCoral)
+        .environment(\.selectTab) { tab in selectedTab = tab }
         .tabBarMinimizeBehavior(.onScrollDown)
         .modifier(SessionAccessoryModifier(isRunning: timerManager.isRunning, onStop: onStopSession))
     }

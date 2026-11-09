@@ -87,6 +87,14 @@ final class ImageCache {
         return image
     }
 
+    /// A cover host that hangs fails in seconds (then retries), instead of the system's 60 s.
+    private static let session: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 10
+        config.timeoutIntervalForResource = 20
+        return URLSession(configuration: config)
+    }()
+
     /// Covers are a few hundred KB; anything far bigger isn't a cover and isn't kept.
     private static let maxDownloadBytes = 8_000_000
 
@@ -96,7 +104,7 @@ final class ImageCache {
             if attempt > 0 {
                 try? await Task.sleep(nanoseconds: UInt64(500_000_000 * attempt))
             }
-            if let (data, response) = try? await URLSession.shared.data(from: Self.downloadURL(for: url)),
+            if let (data, response) = try? await Self.session.data(from: Self.downloadURL(for: url)),
                (response as? HTTPURLResponse)?.statusCode == 200,
                data.count <= Self.maxDownloadBytes,
                let image = await Task.detached(priority: .userInitiated, operation: { ImageCache.decode(data) }).value {

@@ -22,7 +22,7 @@ struct SearchView: View {
                     SearchEmptyStateView(searchText: "", onSuggestionTap: { suggestion in
                         searchText = suggestion
                     })
-                } else if store.searchResults.isEmpty && isPending {
+                } else if store.searchResults.isEmpty && (isPending || store.isSearching) {
                     // Typed, not answered yet: loading, never "no results".
                     VStack(spacing: 20) {
                         Spacer()
@@ -33,6 +33,14 @@ struct SearchView: View {
                             .font(DS.Typography.body)
                             .foregroundColor(.textSecondary)
                         Spacer()
+                    }
+                } else if store.searchResults.isEmpty && store.searchFailed {
+                    EmptyState(icon: "wifi.exclamationmark", title: "La recherche ne répond pas",
+                               message: "Le service de jeux est injoignable pour l'instant. Vérifie ta connexion ou réessaie dans un moment.",
+                               actionTitle: "Réessayer", actionIcon: "arrow.clockwise") {
+                        let retry = query
+                        searchTask?.cancel()
+                        searchTask = Task { await store.searchGamesOnline(query: retry) }
                     }
                 } else if store.searchResults.isEmpty {
                     SearchEmptyStateView(searchText: query)

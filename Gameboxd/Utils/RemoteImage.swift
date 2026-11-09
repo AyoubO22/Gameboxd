@@ -10,7 +10,7 @@
 import Foundation
 
 nonisolated enum RemoteImage {
-    /// Same rule as `public.is_allowed_image_url` in supabase/schema.sql: what the app
+    /// Same rule as the IMAGE pattern in server/pb_migrations: what the app
     /// sends must pass the database check, or the whole upload is refused.
     private static let pattern = #"^https://([a-z0-9-]+\.)*(rawg\.io|igdb\.com|steamstatic\.com|steampowered\.com|playstation\.com|playstation\.net)/"#
 

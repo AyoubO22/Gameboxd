@@ -2,18 +2,18 @@
 //  LibrarySync.swift
 //  Gameboxd
 //
-//  Mirrors your collection to Supabase (`library_games`) so friends can browse it, and
+//  Mirrors your collection to the server (`library_games`) so friends can browse it, and
 //  reads theirs. The phone stays the source of truth: the mirror is rebuilt from it.
 //
 
 import Foundation
-import Supabase
 import SwiftUI
 
 /// A game in someone's public collection.
 nonisolated struct RemoteLibraryGame: Codable, Identifiable, Equatable {
     let userId: UUID
     let gameId: UUID
+    /// 0 when the game has no RAWG id (the server stores no "missing" number).
     var rawgId: Int?
     var title: String
     var platform: String?
@@ -37,7 +37,7 @@ nonisolated struct RemoteLibraryGame: Codable, Identifiable, Equatable {
                         coverImageURL: coverURL, coverColor: .gray, rating: rating, status: gameStatus,
                         review: review ?? "", isSpoiler: isSpoiler, playTimeMinutes: playMinutes,
                         completionPercentage: completion, isFavorite: isFavorite, completedDate: completedAt,
-                        rawgId: rawgId, genres: genres)
+                        rawgId: rawgId == 0 ? nil : rawgId, genres: genres)
         game.boxArtURL = coverURL
         return game
     }
@@ -74,7 +74,7 @@ nonisolated struct RemoteLibraryGame: Codable, Identifiable, Equatable {
     @MainActor init(owner: UUID, game: Game) {
         userId = owner
         gameId = game.id
-        rawgId = game.rawgId
+        rawgId = game.rawgId ?? 0
         title = String(game.title.prefix(200))
         platform = game.platform.isEmpty ? nil : String(game.platform.prefix(60))
         releaseYear = game.releaseYear.isEmpty ? nil : String(game.releaseYear.prefix(10))
@@ -88,7 +88,8 @@ nonisolated struct RemoteLibraryGame: Codable, Identifiable, Equatable {
         playMinutes = max(game.playTimeMinutes, 0)
         completion = min(max(game.completionPercentage, 0), 100)
         isFavorite = game.isFavorite
-        completedAt = game.completedDate
+        // Whole seconds, as the server keeps them, so an unchanged game compares equal.
+        completedAt = game.completedDate.map { Date(timeIntervalSince1970: $0.timeIntervalSince1970.rounded(.down)) }
     }
 
     enum CodingKeys: String, CodingKey {
@@ -110,6 +111,14 @@ final class LibrarySync {
     static let shared = LibrarySync()
 
     private let account = AccountService.shared
+    private let backend = Backend.shared
+
+    /// What POST /api/gameboxd/library accepts (server/pb_hooks).
+    private nonisolated struct LibraryChange: Encodable {
+        var upsert: [RemoteLibraryGame] = []
+        var remove: [String] = []
+        var removeAll = false
+    }
     /// The collection to mirror, set by GameStore at launch.
     weak var store: GameStore?
 
@@ -135,13 +144,13 @@ final class LibrarySync {
     /// Sends the collection: upserts new or changed games, deletes the ones removed.
     /// Silent when signed out, private, or offline: it retries on the next change.
     func push(_ games: [Game]) async {
-        guard SocialService.shared.isSharing, let client = account.client, let me = account.profile?.id else { return }
+        guard SocialService.shared.isSharing, account.isSignedIn, let me = account.profile?.id else { return }
         let current = Dictionary(games.map { ($0.id, RemoteLibraryGame(owner: me, game: $0)) }, uniquingKeysWith: { a, _ in a })
         do {
             if !hasFullState {
                 // First push of the session: learn what's online, so deletions made while
                 // offline (or on an older version) are caught too.
-                let online: [RemoteLibraryGame] = try await client.from("library_games").select().eq("user_id", value: me).execute().value
+                let online = try await library(of: me)
                 lastSent = Dictionary(online.map { ($0.gameId, $0) }, uniquingKeysWith: { a, _ in a })
                 hasFullState = true
             }
@@ -150,13 +159,10 @@ final class LibrarySync {
             // account space, and the copy is what restores it (see `restore`).
             let removed = current.isEmpty ? [] : lastSent.keys.filter { current[$0] == nil }
             for batch in stride(from: 0, to: changed.count, by: 200).map({ Array(changed[$0..<min($0 + 200, changed.count)]) }) {
-                try await client.from("library_games").upsert(batch, onConflict: "user_id,game_id").execute()
+                try await backend.send("POST", "/api/gameboxd/library", body: LibraryChange(upsert: batch))
             }
             if !removed.isEmpty {
-                try await client.from("library_games").delete()
-                    .eq("user_id", value: me)
-                    .in("game_id", values: removed.map(\.uuidString))
-                    .execute()
+                try await backend.send("POST", "/api/gameboxd/library", body: LibraryChange(remove: removed.map(\.serverId)))
             }
             lastSent = current
         } catch {
@@ -168,8 +174,8 @@ final class LibrarySync {
 
     /// Takes your collection offline (profile made private, or account deleted).
     func removeAll() async {
-        guard let client = account.client, let me = account.profile?.id else { return }
-        _ = try? await client.from("library_games").delete().eq("user_id", value: me).execute().status
+        guard account.isSignedIn else { return }
+        try? await backend.send("POST", "/api/gameboxd/library", body: LibraryChange(removeAll: true))
         lastSent = [:]
         hasFullState = true
     }
@@ -190,12 +196,8 @@ final class LibrarySync {
 
     /// Someone's public collection, most recently finished first.
     func library(of user: UUID) async throws -> [RemoteLibraryGame] {
-        guard let client = account.client else { return [] }
-        return try await client.from("library_games")
-            .select()
-            .eq("user_id", value: user)
-            .order("updated_at", ascending: false)
-            .limit(10_000) // the database's per-player quota
-            .execute().value
+        guard account.isSignedIn else { return [] }
+        return try await backend.list("library_games", filter: "user_id = \(Backend.quoted(user.serverId))",
+                                      sort: "-updated_at", limit: 10_000) // the server's per-player quota
     }
 }

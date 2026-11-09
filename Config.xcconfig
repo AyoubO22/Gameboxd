@@ -8,8 +8,7 @@
 
 // Default empty value so $(RAWG_API_KEY) always resolves to a valid (empty) string.
 RAWG_API_KEY =
-SUPABASE_HOST =
-SUPABASE_ANON_KEY =
+SERVER_HOST =
 
 // Override with the real key when Secrets.xcconfig is present.
 #include? "Secrets.xcconfig"

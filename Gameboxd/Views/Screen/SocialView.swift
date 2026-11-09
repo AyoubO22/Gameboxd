@@ -3,7 +3,7 @@
 //  Gameboxd
 //
 //  Friends: the activity of the players you follow, finding players by pseudo, and a
-//  player's public page. Backed by Supabase (SocialService); needs an account.
+//  player's public page. Backed by the Gameboxd server (SocialService); needs an account.
 //
 
 import AuthenticationServices

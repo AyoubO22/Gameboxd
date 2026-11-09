@@ -23,9 +23,14 @@ final class ImageCache {
     private let cacheDirectory: URL
     
     private init() {
-        cache.countLimit = 200
-        cache.totalCostLimit = 50 * 1024 * 1024 // 50 MB
-        spineArts.totalCostLimit = 24 * 1024 * 1024
+        // A decoded cover is ~3 MB: 50 MB held about fifteen, so scrolling a real collection
+        // decoded the same covers from disk over and over (stutter, covers flashing in).
+        // An eighth of the phone's memory, capped at 256 MB, keeps a whole shelf around;
+        // NSCache still lets it go when the system runs short.
+        let budget = min(Int(ProcessInfo.processInfo.physicalMemory / 8), 256 * 1024 * 1024)
+        cache.countLimit = 600
+        cache.totalCostLimit = max(budget, 64 * 1024 * 1024)
+        spineArts.totalCostLimit = 48 * 1024 * 1024
         
         let paths = fileManager.urls(for: .cachesDirectory, in: .userDomainMask)
         cacheDirectory = paths[0].appendingPathComponent("GameboxdImageCache")

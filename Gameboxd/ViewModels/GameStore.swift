@@ -99,6 +99,7 @@ final class GameStore {
         guestStore = fileStore ?? .shared
         remembersAccount = fileStore == nil
         currentAccountId = saved
+        if fileStore == nil { PSNTokenStore.owner = saved }
         self.fileStore = .forAccount(saved, in: guestStore)
         isLoggedIn = UserDefaults.standard.bool(forKey: StorageKeys.isLoggedIn)
         loadAllData()
@@ -165,6 +166,7 @@ final class GameStore {
         fileStore = target
         currentAccountId = account
         if remembersAccount {
+            PSNTokenStore.owner = account
             if let account {
                 UserDefaults.standard.set(account.uuidString, forKey: Self.currentAccountKey)
             } else {
@@ -412,7 +414,11 @@ final class GameStore {
         } else if let npsso {
             try await psnService.signIn(npsso: npsso)
         }
+        // Sony takes a while to answer: if another account takes the phone meanwhile, the
+        // result must not land in its collection.
+        let accountAtStart = currentAccountId
         let (games, profile) = try await psnService.syncLibrary()
+        guard currentAccountId == accountAtStart else { throw CancellationError() }
         let account = LinkedAccount(
             platform: .playstation,
             platformUserId: profile.onlineId,
@@ -443,14 +449,17 @@ final class GameStore {
         var updated = 0
         var note: String?
         let existingIds = Set(importedGames.filter { $0.platform == account.platform }.map { $0.platformGameId })
+        let accountAtStart = currentAccountId
         
         switch account.platform {
         case .steam:
             let (games, _) = try await steamService.syncLibrary(steamId: account.platformUserId)
+            guard currentAccountId == accountAtStart else { throw CancellationError() }
             newGames = games.filter { !existingIds.contains($0.platformGameId) }
             
         case .playstation:
             let (games, profile) = try await psnService.syncLibrary()
+            guard currentAccountId == accountAtStart else { throw CancellationError() }
             newGames = games.filter { !existingIds.contains($0.platformGameId) }
             updated = refreshPlayStationGames(games)
             let check = psnService.lastStoryCheck

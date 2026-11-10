@@ -348,20 +348,49 @@ enum PSNLibrary {
 // MARK: - Token storage (Keychain, this device only)
 enum PSNTokenStore {
     private static let service = "com.gameboxd.psn"
-    private static let account = "tokens"
+    private static let legacyAccount = "tokens"
+    private static let legacyMovedKey = "gameboxd_psn_tokens_moved"
 
-    private static var query: [String: Any] {
+    /// The Gameboxd account whose PlayStation sign-in is in use (nil: no account), set by
+    /// GameStore. Each account keeps its own, so two accounts on one phone never sync
+    /// each other's PlayStation library.
+    static var owner: UUID?
+
+    private static func query(_ account: String) -> [String: Any] {
         [kSecClass as String: kSecClassGenericPassword,
          kSecAttrService as String: service,
          kSecAttrAccount as String: account]
     }
 
-    static func load() -> PSNTokens? {
+    private static var query: [String: Any] {
+        query(owner.map { "tokens-\($0.uuidString)" } ?? legacyAccount)
+    }
+
+    private static func data(_ query: [String: Any]) -> Data? {
         var request = query
         request[kSecReturnData as String] = true
         request[kSecMatchLimit as String] = kSecMatchLimitOne
         var result: AnyObject?
-        guard SecItemCopyMatching(request as CFDictionary, &result) == errSecSuccess, let data = result as? Data else { return nil }
+        guard SecItemCopyMatching(request as CFDictionary, &result) == errSecSuccess else { return nil }
+        return result as? Data
+    }
+
+    /// Before each account had its own, one sign-in served the whole phone: it goes, once,
+    /// to the first account that asks for it.
+    private static func claimLegacyTokens() {
+        guard owner != nil, !UserDefaults.standard.bool(forKey: legacyMovedKey), data(query) == nil,
+              let legacy = data(query(legacyAccount)) else { return }
+        var item = query
+        item[kSecValueData as String] = legacy
+        item[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        guard SecItemAdd(item as CFDictionary, nil) == errSecSuccess else { return }
+        SecItemDelete(query(legacyAccount) as CFDictionary)
+        UserDefaults.standard.set(true, forKey: legacyMovedKey)
+    }
+
+    static func load() -> PSNTokens? {
+        claimLegacyTokens()
+        guard let data = data(query) else { return nil }
         return try? JSONDecoder().decode(PSNTokens.self, from: data)
     }
 

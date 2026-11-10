@@ -23,9 +23,14 @@ final class ImageCache {
     private let cacheDirectory: URL
     
     private init() {
-        cache.countLimit = 200
-        cache.totalCostLimit = 50 * 1024 * 1024 // 50 MB
-        spineArts.totalCostLimit = 24 * 1024 * 1024
+        // A decoded cover is ~3 MB: 50 MB held about fifteen, so scrolling a real collection
+        // decoded the same covers from disk over and over (stutter, covers flashing in).
+        // An eighth of the phone's memory, capped at 256 MB, keeps a whole shelf around;
+        // NSCache still lets it go when the system runs short.
+        let budget = min(Int(ProcessInfo.processInfo.physicalMemory / 8), 256 * 1024 * 1024)
+        cache.countLimit = 600
+        cache.totalCostLimit = max(budget, 64 * 1024 * 1024)
+        spineArts.totalCostLimit = 48 * 1024 * 1024
         
         let paths = fileManager.urls(for: .cachesDirectory, in: .userDomainMask)
         cacheDirectory = paths[0].appendingPathComponent("GameboxdImageCache")
@@ -82,6 +87,14 @@ final class ImageCache {
         return image
     }
 
+    /// A cover host that hangs fails in seconds (then retries), instead of the system's 60 s.
+    private static let session: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 10
+        config.timeoutIntervalForResource = 20
+        return URLSession(configuration: config)
+    }()
+
     /// Covers are a few hundred KB; anything far bigger isn't a cover and isn't kept.
     private static let maxDownloadBytes = 8_000_000
 
@@ -91,7 +104,7 @@ final class ImageCache {
             if attempt > 0 {
                 try? await Task.sleep(nanoseconds: UInt64(500_000_000 * attempt))
             }
-            if let (data, response) = try? await URLSession.shared.data(from: Self.downloadURL(for: url)),
+            if let (data, response) = try? await Self.session.data(from: Self.downloadURL(for: url)),
                (response as? HTTPURLResponse)?.statusCode == 200,
                data.count <= Self.maxDownloadBytes,
                let image = await Task.detached(priority: .userInitiated, operation: { ImageCache.decode(data) }).value {

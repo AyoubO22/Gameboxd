@@ -158,7 +158,14 @@ class RAWGService: ObservableObject {
     @Published var isLoading = false
     @Published var error: String?
 
-    private let session = URLSession.shared
+    /// Gives up after a few seconds: when RAWG is down its gateway holds each request ~20 s
+    /// before a 522, and the app sat blank that long instead of saying so.
+    private let session: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 8
+        config.timeoutIntervalForResource = 15
+        return URLSession(configuration: config)
+    }()
     private let decoder: JSONDecoder = {
         let decoder = JSONDecoder()
         return decoder

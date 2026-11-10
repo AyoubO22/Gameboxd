@@ -829,14 +829,22 @@ struct ShelfLibrary<Menu: View>: View {
         let games: [Game]
     }
 
+    /// One pass over the collection (the bookcase is rebuilt at every change of any game).
     private var sections: [Section] {
-        [
-            Section(id: "playing", title: "En cours", games: games.filter { $0.status == .playing }),
-            Section(id: "backlog", title: "À jouer", games: games.filter { $0.status == .wantToPlay || $0.status == .none }),
-            Section(id: "platinum", title: "Platinés", games: games.filter { $0.status == .platinum }),
-            Section(id: "done", title: "Terminés", games: games.filter { $0.status == .completed }),
-            Section(id: "shelved", title: "Abandonnés", games: games.filter { $0.status == .shelved }),
-        ].filter { !$0.games.isEmpty }
+        let byBay = Dictionary(grouping: games) { game -> String in
+            switch game.status {
+            case .playing: "playing"
+            case .wantToPlay, .none: "backlog"
+            case .platinum: "platinum"
+            case .completed: "done"
+            case .shelved: "shelved"
+            }
+        }
+        let titles = [("playing", "En cours"), ("backlog", "À jouer"), ("platinum", "Platinés"),
+                      ("done", "Terminés"), ("shelved", "Abandonnés")]
+        return titles.compactMap { id, title in
+            byBay[id].map { Section(id: id, title: title, games: $0) }
+        }
     }
 
     var body: some View {

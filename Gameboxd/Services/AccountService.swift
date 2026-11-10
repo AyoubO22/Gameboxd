@@ -2,30 +2,13 @@
 //  AccountService.swift
 //  Gameboxd
 //
-//  Online accounts (Supabase): sign up with a unique pseudo, sign in, reset the
+//  Online accounts (Gameboxd server, see Backend): sign up with a unique pseudo, sign in, reset the
 //  password, sign out, delete the account. The collection itself stays on the phone.
 //
 
 import Foundation
-import Supabase
 
-enum SupabaseConfig {
-    /// SUPABASE_HOST / SUPABASE_ANON_KEY in Secrets.xcconfig. The host is stored without
-    /// "https://" because "//" starts a comment in .xcconfig files.
-    static var url: URL? {
-        guard let host = value("SUPABASE_HOST"), !host.isEmpty else { return nil }
-        return URL(string: "https://\(host)")
-    }
-    static var anonKey: String { value("SUPABASE_ANON_KEY") ?? "" }
-    static var isConfigured: Bool { url != nil && !anonKey.isEmpty }
-
-    private static func value(_ key: String) -> String? {
-        if let v = Bundle.main.object(forInfoDictionaryKey: key) as? String, !v.isEmpty { return v }
-        return ProcessInfo.processInfo.environment[key]
-    }
-}
-
-/// A player's public profile, as stored in `public.profiles`.
+/// A player's public profile, as stored on the `users` collection of the server.
 nonisolated struct RemoteProfile: Codable, Identifiable, Equatable {
     let id: UUID
     var username: String
@@ -35,7 +18,6 @@ nonisolated struct RemoteProfile: Codable, Identifiable, Equatable {
     /// Public 64-bit Steam id, set when the player links Steam (finds Steam friends).
     var steamId: String?
     /// "Profil public": while false, the server hides this player's collection and activity.
-    /// Optional so profiles still decode before supabase/schema.sql v4 is run.
     var isPublic: Bool?
 
     enum CodingKeys: String, CodingKey {
@@ -52,6 +34,7 @@ enum AccountError: LocalizedError {
     case usernameTaken
     case invalidUsername
     case confirmEmail
+    case noMailServer
     case message(String)
 
     var errorDescription: String? {
@@ -60,6 +43,7 @@ enum AccountError: LocalizedError {
         case .usernameTaken: "Ce pseudo est déjà pris."
         case .invalidUsername: "Le pseudo doit faire 3 à 20 caractères : lettres minuscules, chiffres ou _."
         case .confirmEmail: "Compte créé ! Confirme ton adresse avec le lien reçu par e-mail, puis connecte-toi."
+        case .noMailServer: "Le serveur Gameboxd n'envoie pas encore d'e-mails : la réinitialisation n'est pas disponible. Demande à la personne qui gère le serveur de changer ton mot de passe."
         case .message(let text): text
         }
     }
@@ -70,29 +54,25 @@ enum AccountError: LocalizedError {
 final class AccountService {
     static let shared = AccountService()
 
-    let client: SupabaseClient?
+    private let backend = Backend.shared
     /// The signed-in player's profile; nil when signed out (or playing without an account).
     private(set) var profile: RemoteProfile?
 
     var isSignedIn: Bool { profile != nil }
-
-    init() {
-        if let url = SupabaseConfig.url {
-            client = SupabaseClient(supabaseURL: url, supabaseKey: SupabaseConfig.anonKey)
-        } else {
-            client = nil
-        }
-    }
 
     /// Pseudo rule, mirrored by the database constraint.
     static func isValidUsername(_ name: String) -> Bool {
         name.range(of: "^[a-z0-9_]{3,20}$", options: .regularExpression) != nil
     }
 
-    /// Restores the saved session at launch (the SDK keeps it in the Keychain).
+    /// Restores the saved session at launch (the token is kept in the Keychain).
     func restore() async {
-        guard let client, let session = try? await client.auth.session else { return }
-        profile = try? await fetchProfile(id: session.user.id)
+        guard BackendConfig.isConfigured, backend.token != nil else { return }
+        do {
+            try await authenticate("auth-refresh", body: nil)
+        } catch let error as BackendError where error.status == 401 || error.status == 404 {
+            backend.token = nil // expired or account gone; offline keeps it for next launch
+        } catch {}
     }
 
     /// Reads the profile again (after the server changed it, e.g. a verified Steam link).
@@ -102,53 +82,52 @@ final class AccountService {
     }
 
     func signUp(email: String, password: String, username: String) async throws {
-        let client = try requireClient()
+        try requireServer()
         let name = username.lowercased()
         guard Self.isValidUsername(name) else { throw AccountError.invalidUsername }
         guard try await isUsernameAvailable(name) else { throw AccountError.usernameTaken }
         do {
-            let response = try await client.auth.signUp(email: email, password: password,
-                                                        data: ["username": .string(name)])
-            // With email confirmation on (Supabase's default) there's no session yet.
-            guard response.session != nil else { throw AccountError.confirmEmail }
-            profile = try await fetchProfile(id: response.user.id)
-        } catch let error as AccountError {
-            throw error
+            try await backend.send("POST", "/api/collections/users/records",
+                                   body: ["email": email, "password": password, "passwordConfirm": password, "username": name])
+            try await authenticate("auth-with-password", body: ["identity": email, "password": password])
         } catch {
             throw Self.translate(error)
         }
     }
 
     func signIn(email: String, password: String) async throws {
-        let client = try requireClient()
+        try requireServer()
         do {
-            let session = try await client.auth.signIn(email: email, password: password)
-            profile = try await fetchProfile(id: session.user.id)
+            try await authenticate("auth-with-password", body: ["identity": email, "password": password])
         } catch {
             throw Self.translate(error)
         }
     }
 
     func sendPasswordReset(email: String) async throws {
-        let client = try requireClient()
+        try requireServer()
         do {
-            try await client.auth.resetPasswordForEmail(email)
+            // The server answers "sent" even when it has no mail server: ask first.
+            let mail: MailStatus = try await backend.send("GET", "/api/gameboxd/mail-enabled")
+            guard mail.enabled else { throw AccountError.noMailServer }
+            try await backend.send("POST", "/api/collections/users/request-password-reset", body: ["email": email])
         } catch {
             throw Self.translate(error)
         }
     }
 
     func signOut() async {
-        try? await client?.auth.signOut()
+        backend.token = nil
         profile = nil
     }
 
-    /// Deletes the account and everything shared with it (profile, follows, activity).
-    /// The games on this phone are left alone.
+    /// Deletes the account and everything shared with it (profile, follows, activity,
+    /// library mirror). The games on this phone are left alone.
     func deleteAccount() async throws {
-        let client = try requireClient()
+        try requireServer()
+        guard let id = profile?.id else { return }
         do {
-            try await client.rpc("delete_account").execute()
+            try await backend.send("DELETE", "/api/collections/users/records/\(id.serverId)")
         } catch {
             throw Self.translate(error)
         }
@@ -158,12 +137,12 @@ final class AccountService {
     /// Shows or hides your collection and activity to other players. Applied right away on
     /// the phone, rolled back if the server refuses.
     func setPublic(_ value: Bool) async throws {
-        let client = try requireClient()
+        try requireServer()
         guard let id = profile?.id else { return }
         let previous = profile?.isPublic
         profile?.isPublic = value
         do {
-            try await client.from("profiles").update(["is_public": value]).eq("id", value: id).execute()
+            try await backend.send("PATCH", "/api/collections/users/records/\(id.serverId)", body: ["is_public": value])
         } catch {
             profile?.isPublic = previous
             throw Self.translate(error)
@@ -171,41 +150,53 @@ final class AccountService {
     }
 
     func isUsernameAvailable(_ name: String) async throws -> Bool {
-        let client = try requireClient()
-        return try await client.rpc("username_available", params: ["name": name.lowercased()]).execute().value
+        try requireServer()
+        let answer: Availability = try await backend.send("GET", "/api/gameboxd/username-available", query: ["name": name.lowercased()])
+        return answer.available
     }
 
     // MARK: - Helpers
 
-    private func requireClient() throws -> SupabaseClient {
-        guard let client else { throw AccountError.notConfigured }
-        return client
+    private nonisolated struct Availability: Decodable { let available: Bool }
+    private nonisolated struct MailStatus: Decodable { let enabled: Bool }
+    private nonisolated struct AuthAnswer: Decodable {
+        let token: String
+        let record: RemoteProfile
+    }
+
+    private func requireServer() throws {
+        guard BackendConfig.isConfigured else { throw AccountError.notConfigured }
+    }
+
+    /// Signs in (or refreshes the session) and keeps the token for the next launch.
+    private func authenticate(_ action: String, body: [String: String]?) async throws {
+        let answer: AuthAnswer = try await backend.send("POST", "/api/collections/users/\(action)", body: body)
+        backend.token = answer.token
+        profile = answer.record
     }
 
     private func fetchProfile(id: UUID) async throws -> RemoteProfile {
-        try await requireClient().from("profiles").select().eq("id", value: id).single().execute().value
+        try await backend.send("GET", "/api/collections/users/records/\(id.serverId)")
     }
 
-    /// Supabase answers in English; the app speaks French.
+    /// Server answers to French messages.
     static func translate(_ error: Error) -> AccountError {
-        let text = String(describing: error).lowercased()
-        if text.contains("invalid login credentials") || text.contains("invalid_credentials") {
-            return .message("E-mail ou mot de passe incorrect.")
+        if let error = error as? AccountError { return error }
+        if let error = error as? BackendError {
+            let fields = error.fields
+            let message = error.message.lowercased()
+            if fields["email"] == "validation_not_unique" { return .message("Un compte existe déjà avec cet e-mail.") }
+            if fields["username"] == "validation_not_unique" { return .usernameTaken }
+            if fields["username"] != nil || message.contains("reserved name") { return .invalidUsername }
+            if fields["email"] != nil { return .message("Cette adresse e-mail n'est pas valide.") }
+            if fields["password"] != nil { return .message("Mot de passe trop faible : 8 caractères minimum.") }
+            if message.contains("failed to authenticate") { return .message("E-mail ou mot de passe incorrect.") }
+            if error.status == 429 { return .message("Trop de tentatives. Réessaie dans quelques minutes.") }
+            return .message("Une erreur est survenue. Réessaie.")
         }
-        if text.contains("already registered") || text.contains("user_already_exists") {
-            return .message("Un compte existe déjà avec cet e-mail.")
-        }
-        if text.contains("email not confirmed") || text.contains("email_not_confirmed") {
-            return .message("Confirme d'abord ton adresse avec le lien reçu par e-mail.")
-        }
-        if text.contains("weak") || text.contains("password should be") {
-            return .message("Mot de passe trop faible : 8 caractères minimum, avec des lettres et des chiffres.")
-        }
-        if text.contains("rate limit") || text.contains("too many") {
-            return .message("Trop de tentatives. Réessaie dans quelques minutes.")
-        }
-        if (error as? URLError) != nil || text.contains("offline") || text.contains("network") {
-            return .message("Pas de connexion Internet.")
+        if error is URLError {
+            // The server runs on the Mac: off, asleep, or not on this Wi-Fi.
+            return .message("Serveur Gameboxd injoignable. Vérifie que le Mac est allumé et sur le même Wi‑Fi.")
         }
         return .message("Une erreur est survenue. Réessaie.")
     }

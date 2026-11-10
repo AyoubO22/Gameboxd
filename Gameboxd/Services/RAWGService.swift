@@ -201,15 +201,38 @@ class RAWGService: ObservableObject {
         return try decoder.decode(T.self, from: data)
     }
 
+    /// Set when RAWG fails, so the next few minutes go straight to IGDB instead of
+    /// waiting for RAWG's timeout on every shelf and every letter typed.
+    private var rawgDownUntil = Date.distantPast
+
+    /// RAWG first; IGDB (through the Gameboxd server) when RAWG has no key, is down,
+    /// or failed a moment ago. The RAWG error is kept when IGDB can't help either.
+    private func withIGDBFallback(_ igdb: () async throws -> [RAWGGame],
+                                  _ rawg: () async throws -> [RAWGGame]) async throws -> [RAWGGame] {
+        if hasValidAPIKey, Date() >= rawgDownUntil {
+            do {
+                return try await rawg()
+            } catch {
+                if error is CancellationError || (error as? URLError)?.code == .cancelled { throw error }
+                rawgDownUntil = Date().addingTimeInterval(120)
+                guard IGDBService.shared.isConfigured, let games = try? await igdb(), !games.isEmpty else { throw error }
+                return games
+            }
+        }
+        guard IGDBService.shared.isConfigured else { return [] }
+        return try await igdb()
+    }
+
     private func dateRange(from start: Date, to end: Date) -> String {
         "\(Self.apiDateFormatter.string(from: start)),\(Self.apiDateFormatter.string(from: end))"
     }
     
     // MARK: - Search Games
     func searchGames(query: String, page: Int = 1, pageSize: Int = 20) async throws -> [RAWGGame] {
-        guard hasValidAPIKey else { return [] }
-        let response: RAWGGameResponse = try await fetch("/games", ["search": query, "page": "\(page)", "page_size": "\(pageSize)"])
-        return response.results
+        try await withIGDBFallback({ try await IGDBCatalog.search(query, page: page, pageSize: pageSize) }) {
+            let response: RAWGGameResponse = try await fetch("/games", ["search": query, "page": "\(page)", "page_size": "\(pageSize)"])
+            return response.results
+        }
     }
     
     // MARK: - Get Game Details
@@ -238,33 +261,37 @@ class RAWGService: ObservableObject {
     
     // MARK: - Get Trending Games
     func getTrendingGames(page: Int = 1) async throws -> [RAWGGame] {
-        guard hasValidAPIKey,
-              let start = Calendar.current.date(byAdding: .month, value: -1, to: Date()) else { return [] }
-        let response: RAWGGameResponse = try await fetch("/games", ["dates": dateRange(from: start, to: Date()), "ordering": "-added", "page": "\(page)", "page_size": "20", "exclude_additions": "true"])
-        return response.results
+        guard let start = Calendar.current.date(byAdding: .month, value: -1, to: Date()) else { return [] }
+        return try await withIGDBFallback({ try await IGDBCatalog.shelf(.trending, page: page) }) {
+            let response: RAWGGameResponse = try await fetch("/games", ["dates": dateRange(from: start, to: Date()), "ordering": "-added", "page": "\(page)", "page_size": "20", "exclude_additions": "true"])
+            return response.results
+        }
     }
     
     // MARK: - Get New Releases
     func getNewReleases(page: Int = 1) async throws -> [RAWGGame] {
-        guard hasValidAPIKey,
-              let start = Calendar.current.date(byAdding: .month, value: -2, to: Date()) else { return [] }
-        let response: RAWGGameResponse = try await fetch("/games", ["dates": dateRange(from: start, to: Date()), "ordering": "-released", "page": "\(page)", "page_size": "20", "exclude_additions": "true"])
-        return response.results
+        guard let start = Calendar.current.date(byAdding: .month, value: -2, to: Date()) else { return [] }
+        return try await withIGDBFallback({ try await IGDBCatalog.shelf(.newReleases, page: page) }) {
+            let response: RAWGGameResponse = try await fetch("/games", ["dates": dateRange(from: start, to: Date()), "ordering": "-released", "page": "\(page)", "page_size": "20", "exclude_additions": "true"])
+            return response.results
+        }
     }
     
     // MARK: - Get Top Rated
     func getTopRated(page: Int = 1) async throws -> [RAWGGame] {
-        guard hasValidAPIKey else { return [] }
-        let response: RAWGGameResponse = try await fetch("/games", ["ordering": "-rating", "page": "\(page)", "page_size": "20", "exclude_additions": "true", "metacritic": "80,100"])
-        return response.results
+        try await withIGDBFallback({ try await IGDBCatalog.shelf(.topRated, page: page) }) {
+            let response: RAWGGameResponse = try await fetch("/games", ["ordering": "-rating", "page": "\(page)", "page_size": "20", "exclude_additions": "true", "metacritic": "80,100"])
+            return response.results
+        }
     }
     
     // MARK: - Get Upcoming Games
     func getUpcomingGames(page: Int = 1) async throws -> [RAWGGame] {
-        guard hasValidAPIKey,
-              let end = Calendar.current.date(byAdding: .year, value: 1, to: Date()) else { return [] }
-        let response: RAWGGameResponse = try await fetch("/games", ["dates": dateRange(from: Date(), to: end), "ordering": "released", "page": "\(page)", "page_size": "20", "exclude_additions": "true"])
-        return response.results
+        guard let end = Calendar.current.date(byAdding: .year, value: 1, to: Date()) else { return [] }
+        return try await withIGDBFallback({ try await IGDBCatalog.shelf(.upcoming, page: page) }) {
+            let response: RAWGGameResponse = try await fetch("/games", ["dates": dateRange(from: Date(), to: end), "ordering": "released", "page": "\(page)", "page_size": "20", "exclude_additions": "true"])
+            return response.results
+        }
     }
     
     // MARK: - One entry per game
@@ -329,7 +356,7 @@ extension RAWGGame {
             status: .none,
             review: "",
             playTime: "",
-            rawgId: id,
+            rawgId: id > 0 ? id : nil, // IGDB stand-ins have negative ids (IGDBCatalog)
             genres: genreList,
             metacriticScore: metacritic,
             estimatedPlaytime: playtime,

@@ -9,12 +9,11 @@
 //  Setup:
 //  1. Get a Steam Web API Key from https://steamcommunity.com/dev/apikey
 //  2. Store it as the STEAM_API_KEY secret of the `steam` Edge Function
-//     (supabase/functions/steam), never in the app
+//     (server/pb_hooks, steam route), never in the app
 //  3. User needs a public Steam profile
 //
 
 import Foundation
-import Supabase
 
 // MARK: - Steam Configuration
 /// Steam's public art for a game (no key needed): the key art and store screenshots.
@@ -40,8 +39,8 @@ enum SteamStore {
 }
 
 struct SteamConfig {
-    /// The Steam Web API key lives in the `steam` Edge Function; the app only needs Supabase.
-    static var isConfigured: Bool { SupabaseConfig.isConfigured }
+    /// The Steam Web API key lives on the Gameboxd server; the app only needs its address.
+    static var isConfigured: Bool { BackendConfig.isConfigured }
 }
 
 // MARK: - Steam API Response Models
@@ -289,31 +288,28 @@ class SteamService {
     
     // MARK: - Helpers
 
-    /// Calls the Steam Web API through the `steam` Edge Function, which holds the key and
+    /// Calls the Steam Web API through the server's `steam` route, which holds the key and
     /// checks the input (17-digit ids, plain vanity names).
     fileprivate func call<T: Decodable>(_ request: SteamRequest) async throws -> T {
-        guard let client = AccountService.shared.client else { throw SteamServiceError.notConfigured }
         do {
-            return try await client.functions.invoke(
-                "steam",
-                options: FunctionInvokeOptions(body: request),
-                decoder: JSONDecoder()
-            )
-        } catch FunctionsError.httpError(let code, _) {
-            switch code {
+            return try await Backend.shared.send("POST", "/api/gameboxd/steam", body: request)
+        } catch let error as BackendError {
+            switch error.status {
             case 400: throw SteamServiceError.invalidSteamId
             case 403: throw SteamServiceError.profilePrivate
             case 429: throw SteamServiceError.rateLimited
             case 404, 503: throw SteamServiceError.notConfigured
-            default: throw SteamServiceError.networkError("Code HTTP \(code)")
+            default: throw SteamServiceError.networkError("Code HTTP \(error.status)")
             }
+        } catch AccountError.notConfigured {
+            throw SteamServiceError.notConfigured
         } catch let error as DecodingError {
             throw SteamServiceError.decodingError(error.localizedDescription)
         }
     }
 }
 
-/// What the `steam` Edge Function accepts (see supabase/functions/steam).
+/// What the server's `steam` route accepts (see server/pb_hooks/lib.js).
 nonisolated private struct SteamRequest: Encodable {
     let method: String
     var value: String?

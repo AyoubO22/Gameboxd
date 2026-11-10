@@ -2,7 +2,7 @@
 //  AuthView.swift
 //  Gameboxd
 //
-//  Sign in / sign up with an online account (Supabase), or carry on without one:
+//  Sign in / sign up with an online account (Gameboxd server), or carry on without one:
 //  the collection lives on the phone either way; the account adds the social side.
 //
 
@@ -221,7 +221,7 @@ struct AuthView: View {
         store.switchAccount(to: profile.id, claimGuestData: isNewAccount)
         store.userProfile.username = profile.displayName ?? profile.username
         store.userProfile.email = trimmedEmail
-        store.userProfile.authProvider = "supabase"
+        store.userProfile.authProvider = "gameboxd"
         store.userProfile.authProviderUserId = profile.id.uuidString
         store.userProfile.needsUsernameSetup = false
         store.setLoggedIn(true)

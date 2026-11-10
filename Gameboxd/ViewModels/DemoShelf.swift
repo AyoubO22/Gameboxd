@@ -27,7 +27,7 @@ enum DemoShelf {
         return store
     }
 
-    /// Portrait covers from IGDB (Supabase function, keys from Secrets.xcconfig), applied in one
+    /// Portrait covers from IGDB (through the Gameboxd server, keys kept there), applied in one
     /// go and never saved: a save runs the achievement check, whose toasts would cover the shelf.
     private static func fillCovers(in store: GameStore) async {
         var found: [UUID: String] = [:]

@@ -7,14 +7,13 @@
 //
 
 import Foundation
-import Supabase
 
 final class IGDBService {
     static let shared = IGDBService()
 
-    // The Twitch client secret lives in the `igdb` Edge Function (supabase/functions/igdb),
-    // never in the app. Without Supabase configured the app keeps RAWG images.
-    var isConfigured: Bool { SupabaseConfig.isConfigured }
+    // The Twitch client secret lives on the Gameboxd server (server/pb_hooks, igdb route),
+    // never in the app. Without a server configured the app keeps RAWG images.
+    var isConfigured: Bool { BackendConfig.isConfigured }
 
     private var cache: [String: URL?] = [:]
 
@@ -159,13 +158,8 @@ final class IGDBService {
 
     // MARK: - HTTP
 
-    /// Runs an IGDB query through the `igdb` Edge Function, which holds the credentials.
-    private func post<T: Decodable>(_ endpoint: String, body: String) async throws -> T {
-        guard let client = AccountService.shared.client else { throw URLError(.userAuthenticationRequired) }
-        return try await client.functions.invoke(
-            "igdb",
-            options: FunctionInvokeOptions(body: ["endpoint": endpoint, "query": body]),
-            decoder: JSONDecoder()
-        )
+    /// Runs an IGDB query through the server's `igdb` route, which holds the credentials.
+    func post<T: Decodable>(_ endpoint: String, body: String) async throws -> T {
+        try await Backend.shared.send("POST", "/api/gameboxd/igdb", body: ["endpoint": endpoint, "query": body])
     }
 }

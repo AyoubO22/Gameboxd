@@ -37,6 +37,7 @@ enum SharedDataProvider {
         static let yearlyGoalTarget      = "widget_yearly_goal_target"
         static let backlogGames          = "widget_backlog_games"
         static let totalPlayTimeMinutes  = "widget_total_playtime"
+        static let snapshot              = "widget_snapshot"
     }
 
     // MARK: - Shared Model
@@ -56,6 +57,15 @@ enum SharedDataProvider {
         let playTimeMinutes: Int
         /// Raw string value of ``GameStatus`` (e.g. "En cours", "À jouer").
         let status: String
+    }
+
+    /// Everything the widgets show, to tell whether a save changed any of it.
+    private struct Snapshot: Codable {
+        let currentGame: WidgetGame?
+        let yearlyCompleted: Int
+        let yearlyTarget: Int
+        let backlogGames: [WidgetGame]
+        let totalPlayTimeMinutes: Int
     }
 
     // MARK: - Write (called from the main app)
@@ -80,6 +90,16 @@ enum SharedDataProvider {
         totalPlayTimeMinutes: Int
     ) {
         guard let defaults = UserDefaults(suiteName: suiteName) else { return }
+
+        // Called after every save of the collection, but iOS only grants a widget a few
+        // dozen reloads a day: reload only when what the widgets show has changed.
+        let snapshot = Snapshot(currentGame: currentGame, yearlyCompleted: yearlyCompleted, yearlyTarget: yearlyTarget,
+                                backlogGames: backlogGames, totalPlayTimeMinutes: totalPlayTimeMinutes)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        let fingerprint = try? encoder.encode(snapshot)
+        if let fingerprint, fingerprint == defaults.data(forKey: Keys.snapshot) { return }
+        defaults.set(fingerprint, forKey: Keys.snapshot)
 
         // Current game — store only when present; clear the key when absent so
         // the widget shows the "no game" empty state rather than stale data.

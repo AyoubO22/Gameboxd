@@ -37,7 +37,6 @@
 | Steam | ⚠️ Real REST client, through the Gameboxd server's `steam` route (Steam Web API key stays on the server) |
 | PlayStation, Google sign-in | ⚠️ Stubs that show the intended API shape |
 | Social feed | ⚠️ Local demo data, no backend yet |
-| `Docker/` | ⚠️ Deployment sketch for a future backend, which isn't in this repo |
 
 ## Getting started
 

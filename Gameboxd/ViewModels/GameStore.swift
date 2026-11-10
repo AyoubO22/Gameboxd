@@ -32,6 +32,10 @@ final class GameStore {
     var isLoadingTopRated = false
     var isLoadingUpcoming = false
     var isSearching = false
+    /// The last search failed (RAWG unreachable), so "no results" would be a lie.
+    var searchFailed = false
+    /// Discover couldn't load anything and has nothing cached to show.
+    var discoverUnavailable = false
     
     var achievements: [Achievement] = []
     var customTags: [CustomTag] = []
@@ -669,12 +673,14 @@ final class GameStore {
     // MARK: - API Methods
     
     func loadDiscoverData() async {
+        discoverUnavailable = false // the shelves show their loading state while retrying
         await withTaskGroup(of: Void.self) { group in
             group.addTask { @MainActor in await self.fetchTrendingGames() }
             group.addTask { @MainActor in await self.fetchNewReleases() }
             group.addTask { @MainActor in await self.fetchTopRated() }
             group.addTask { @MainActor in await self.fetchUpcomingGames() }
         }
+        discoverUnavailable = trendingGames.isEmpty && newReleases.isEmpty && topRated.isEmpty && upcomingGames.isEmpty
         guard !trendingGames.isEmpty || !newReleases.isEmpty else { return }
         discoverCacheDate = Date()
         saveDiscoverCache()
@@ -810,6 +816,7 @@ final class GameStore {
         guard !query.isEmpty else {
             searchResults = []
             searchedQuery = ""
+            searchFailed = false
             isSearching = false
             return
         }
@@ -819,8 +826,15 @@ final class GameStore {
             // A slower, older request must not overwrite newer results.
             guard query == latestSearchQuery else { return }
             searchResults = games.map { $0.toGame() }
+            searchFailed = false
         } catch {
             print("Error searching: \(error)")
+            guard query == latestSearchQuery else { return }
+            // Typing a new letter cancels the request: that isn't RAWG being down.
+            if (error as? URLError)?.code != .cancelled, !(error is CancellationError) {
+                searchResults = []
+                searchFailed = true
+            }
         }
         guard query == latestSearchQuery else { return }
         searchedQuery = query

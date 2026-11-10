@@ -34,6 +34,13 @@ struct DiscoverView: View {
                 VStack(alignment: .leading, spacing: DS.Spacing.xl) {
                     if !RAWGService.shared.hasValidAPIKey {
                         APIKeyWarningView()
+                    } else if store.discoverUnavailable && store.trendingGames.isEmpty {
+                        EmptyState(icon: "wifi.exclamationmark", title: "Les rayons sont vides pour l'instant",
+                                   message: "Le service de jeux ne répond pas. Ta collection reste disponible ; réessaie dans un moment.",
+                                   actionTitle: "Réessayer", actionIcon: "arrow.clockwise") {
+                            Task { await store.loadDiscoverData() }
+                        }
+                        .frame(minHeight: 360)
                     }
 
                     if let featured = store.trendingGames.first {

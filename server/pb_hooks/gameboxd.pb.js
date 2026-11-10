@@ -39,6 +39,22 @@ onRecordUpdateRequest((e) => {
   e.next();
 }, "users");
 
+// A private profile keeps its Steam account to itself: other players get the profile
+// (pseudo, name, avatar) without the Steam id.
+onRecordEnrich((e) => {
+  const viewer = e.requestInfo && e.requestInfo.auth;
+  const isOwner = viewer && viewer.id === e.record.id;
+  const isAdmin = viewer && viewer.isSuperuser();
+  if (!e.record.getBool("is_public") && !isOwner && !isAdmin) e.record.hide("steam_id");
+  e.next();
+}, "users");
+
+// Can the server send e-mail? Without a mail server (Settings › Mail settings in the
+// admin console) a password reset link would never arrive, and the app says so.
+routerAdd("GET", "/api/gameboxd/mail-enabled", (e) => {
+  return e.json(200, { enabled: $app.settings().smtp.enabled === true });
+});
+
 // ── Flood limits: one account can't bury everyone's feed ─────────────────────
 
 onRecordCreateRequest((e) => {

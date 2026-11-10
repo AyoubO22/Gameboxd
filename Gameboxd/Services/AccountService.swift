@@ -34,6 +34,7 @@ enum AccountError: LocalizedError {
     case usernameTaken
     case invalidUsername
     case confirmEmail
+    case noMailServer
     case message(String)
 
     var errorDescription: String? {
@@ -42,6 +43,7 @@ enum AccountError: LocalizedError {
         case .usernameTaken: "Ce pseudo est déjà pris."
         case .invalidUsername: "Le pseudo doit faire 3 à 20 caractères : lettres minuscules, chiffres ou _."
         case .confirmEmail: "Compte créé ! Confirme ton adresse avec le lien reçu par e-mail, puis connecte-toi."
+        case .noMailServer: "Le serveur Gameboxd n'envoie pas encore d'e-mails : la réinitialisation n'est pas disponible. Demande à la personne qui gère le serveur de changer ton mot de passe."
         case .message(let text): text
         }
     }
@@ -105,6 +107,9 @@ final class AccountService {
     func sendPasswordReset(email: String) async throws {
         try requireServer()
         do {
+            // The server answers "sent" even when it has no mail server: ask first.
+            let mail: MailStatus = try await backend.send("GET", "/api/gameboxd/mail-enabled")
+            guard mail.enabled else { throw AccountError.noMailServer }
             try await backend.send("POST", "/api/collections/users/request-password-reset", body: ["email": email])
         } catch {
             throw Self.translate(error)
@@ -153,6 +158,7 @@ final class AccountService {
     // MARK: - Helpers
 
     private nonisolated struct Availability: Decodable { let available: Bool }
+    private nonisolated struct MailStatus: Decodable { let enabled: Bool }
     private nonisolated struct AuthAnswer: Decodable {
         let token: String
         let record: RemoteProfile

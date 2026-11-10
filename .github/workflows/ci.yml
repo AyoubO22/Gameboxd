@@ -74,6 +74,25 @@ jobs:
           path: TestResults.xcresult
           retention-days: 7
 
+  server:
+    name: Server rules
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Same PocketBase version as the README installs on the Mac.
+      - name: Download PocketBase
+        working-directory: server
+        run: |
+          curl -sSL -o pb.zip https://github.com/pocketbase/pocketbase/releases/download/v0.40.6/pocketbase_0.40.6_linux_amd64.zip
+          unzip -q pb.zip pocketbase && rm pb.zip
+
+      - name: Check migrations, hooks and access rules
+        working-directory: server
+        run: ./smoke-test.sh
+
   swiftlint:
     name: SwiftLint
     runs-on: macos-15

@@ -63,6 +63,8 @@ cp .env.example .env   # IGDB_CLIENT_ID, IGDB_CLIENT_SECRET, STEAM_API_KEY, STEA
 
 Then set `SERVER_HOST = <your Mac's name>.local:8090` in `Secrets.xcconfig` (System Settings → General → Sharing shows the name). The iPhone reaches the server only while the Mac is awake and on the same Wi-Fi. The admin dashboard is at http://localhost:8090/_/.
 
+The server limits sign-in attempts and proxy calls per address and backs its database up every day at 13:00 (`server/pb_data/backups`, last 7 kept); both are set by `server/pb_migrations/2_hardening.js`. It speaks plain http: use it on a Wi-Fi you trust, or put it behind [Tailscale](https://tailscale.com) to reach it encrypted from anywhere. "Mot de passe oublié" needs a mail server (admin dashboard → Settings → Mail settings). `server/smoke-test.sh` checks the migrations, hooks and access rules against a throwaway server; CI runs it.
+
 `STEAM_LINK_SECRET` is any long random string (`openssl rand -hex 32`). The Steam sign-in route puts a player's Steam id on their profile only after they sign in through Steam, so nobody can claim someone else's account.
 
 Then open `Gameboxd.xcodeproj`, pick an iPhone simulator and run.

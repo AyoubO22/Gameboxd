@@ -41,10 +41,23 @@ final class Backend {
     private let session = URLSession(configuration: .default)
 
     /// Auth token of the signed-in player (nil when signed out).
+    /// Read from the Keychain once, then kept in memory: every request needs it.
     var token: String? {
-        get { TokenStore.load() }
-        set { if let newValue { TokenStore.save(newValue) } else { TokenStore.clear() } }
+        get {
+            if !tokenLoaded {
+                cachedToken = TokenStore.load()
+                tokenLoaded = true
+            }
+            return cachedToken
+        }
+        set {
+            cachedToken = newValue
+            tokenLoaded = true
+            if let newValue { TokenStore.save(newValue) } else { TokenStore.clear() }
+        }
     }
+    private var cachedToken: String?
+    private var tokenLoaded = false
 
     // MARK: - Requests
 

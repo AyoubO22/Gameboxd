@@ -250,10 +250,16 @@ enum PSNLibrary {
 
     static func date(_ string: String?) -> Date? {
         guard let string else { return nil }
-        let precise = ISO8601DateFormatter()
-        precise.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return precise.date(from: string) ?? ISO8601DateFormatter().date(from: string)
+        return preciseDate.date(from: string) ?? plainDate.date(from: string)
     }
+
+    // Made once: an import reads hundreds of dates.
+    private static let preciseDate: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+    private static let plainDate = ISO8601DateFormatter()
 
     /// One game per title: the PS4 and PS5 versions of a game add up their play time,
     /// trophies come from the matching trophy set, and trophy sets with no play record

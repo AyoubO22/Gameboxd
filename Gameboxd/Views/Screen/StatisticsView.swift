@@ -242,13 +242,18 @@ struct ChartContainer: View {
 // MARK: - Games Per Month Chart
 struct GamesPerMonthChart: View {
     let games: [Game]
+
+    private static let monthFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM"
+        return formatter
+    }()
     
     /// The last 6 calendar months, oldest first, matched on year and month so
     /// games from other years never land in the same-named month.
     var monthlyData: [(month: String, count: Int)] {
         let calendar = Calendar.current
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "MMM"
+        let dateFormatter = Self.monthFormatter
         
         return (0..<6).reversed().compactMap { offset in
             guard let date = calendar.date(byAdding: .month, value: -offset, to: Date()) else { return nil }

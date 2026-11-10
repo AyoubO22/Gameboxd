@@ -129,6 +129,8 @@ final class LibrarySync {
     /// What was last sent, to upload only what changed.
     private var lastSent: [UUID: RemoteLibraryGame] = [:]
     private var hasFullState = false
+    /// Bumped when the account changes, so work started for the previous one stops.
+    private var generation = 0
 
     /// Called after every save of the collection. Waits for a pause (2 s) so a burst of
     /// edits makes one upload.
@@ -145,31 +147,60 @@ final class LibrarySync {
     /// Silent when signed out, private, or offline: it retries on the next change.
     func push(_ games: [Game]) async {
         guard SocialService.shared.isSharing, account.isSignedIn, let me = account.profile?.id else { return }
+        // The uploads wait on the network: if the account changes meanwhile (`reset`), this
+        // push stops and leaves the next account's state alone.
+        let run = generation
         let current = Dictionary(games.map { ($0.id, RemoteLibraryGame(owner: me, game: $0)) }, uniquingKeysWith: { a, _ in a })
         do {
             if !hasFullState {
                 // First push of the session: learn what's online, so deletions made while
                 // offline (or on an older version) are caught too.
                 let online = try await library(of: me)
+                guard run == generation else { return }
                 lastSent = Dictionary(online.map { ($0.gameId, $0) }, uniquingKeysWith: { a, _ in a })
                 hasFullState = true
             }
             let changed = current.values.filter { lastSent[$0.gameId] != $0 }
-            // An empty phone never wipes the online copy: that's a new phone or a fresh
-            // account space, and the copy is what restores it (see `restore`).
-            let removed = current.isEmpty ? [] : lastSent.keys.filter { current[$0] == nil }
+            let removed = Self.removals(current: Set(current.keys), online: Set(lastSent.keys), reconciled: Self.isReconciled(me))
             for batch in stride(from: 0, to: changed.count, by: 200).map({ Array(changed[$0..<min($0 + 200, changed.count)]) }) {
                 try await backend.send("POST", "/api/gameboxd/library", body: LibraryChange(upsert: batch))
+                guard run == generation else { return }
             }
             if !removed.isEmpty {
                 try await backend.send("POST", "/api/gameboxd/library", body: LibraryChange(remove: removed.map(\.serverId)))
+                guard run == generation else { return }
             }
-            lastSent = current
+            // Games left online on purpose (not reconciled yet) stay known as online.
+            lastSent = lastSent.filter { current[$0.key] == nil && !removed.contains($0.key) }.merging(current) { _, new in new }
         } catch {
             #if DEBUG
             print("LibrarySync: push failed: \(error)")
             #endif
         }
+    }
+
+    /// Games to delete online: those online that the phone no longer has. Only once this
+    /// phone has been reconciled with the online copy (`restore`): before that, a game
+    /// missing here is a new phone that hasn't received it yet, not a deletion.
+    nonisolated static func removals(current: Set<UUID>, online: Set<UUID>, reconciled: Bool) -> Set<UUID> {
+        reconciled ? online.subtracting(current) : []
+    }
+
+    // MARK: - Reconciled accounts
+    // An account is "reconciled" on this phone once the phone has seen its online copy (and
+    // taken it, if the phone was empty). From then on the phone is the source of truth, so
+    // emptying the collection empties the online copy too, instead of it coming back.
+
+    private static let reconciledKey = "gameboxd_library_reconciled"
+
+    static func isReconciled(_ account: UUID) -> Bool {
+        (UserDefaults.standard.stringArray(forKey: reconciledKey) ?? []).contains(account.uuidString)
+    }
+
+    static func setReconciled(_ account: UUID, _ value: Bool) {
+        var ids = (UserDefaults.standard.stringArray(forKey: reconciledKey) ?? []).filter { $0 != account.uuidString }
+        if value { ids.append(account.uuidString) }
+        UserDefaults.standard.set(ids, forKey: reconciledKey)
     }
 
     /// Takes your collection offline (profile made private, or account deleted).
@@ -183,15 +214,19 @@ final class LibrarySync {
     /// Forget what was sent (sign-out): the next account starts from what's online.
     func reset() {
         pending?.cancel()
+        generation += 1
         lastSent = [:]
         hasFullState = false
     }
 
-    /// Brings the account's online collection back to an empty phone.
+    /// Brings the account's online collection back to an empty phone (a new phone, a
+    /// reinstall), once: after that, an empty collection is the player's choice.
     func restore(into store: GameStore) async {
-        guard store.myGames.isEmpty, let me = account.profile?.id,
-              let online = try? await library(of: me), !online.isEmpty else { return }
-        store.restoreFromCloud(online.map(\.asGame))
+        guard let me = account.profile?.id, !Self.isReconciled(me) else { return }
+        let run = generation
+        guard let online = try? await library(of: me), run == generation, store.currentAccountId == me else { return }
+        if store.myGames.isEmpty, !online.isEmpty { store.restoreFromCloud(online.map(\.asGame)) }
+        Self.setReconciled(me, true)
     }
 
     /// Someone's public collection, most recently finished first.

@@ -23,4 +23,27 @@ final class LibrarySyncTests: XCTestCase {
         XCTAssertEqual(remote.completion, 100)
         XCTAssertTrue(remote.isSpoiler)
     }
+
+    func testEmptyingTheCollectionEmptiesTheOnlineCopyOnceReconciled() {
+        let online: Set<UUID> = [UUID(), UUID()]
+        // A phone that knows the online copy: what it no longer has is deleted, all of it too.
+        XCTAssertEqual(LibrarySync.removals(current: [], online: online, reconciled: true), online)
+        let kept = online.first!
+        XCTAssertEqual(LibrarySync.removals(current: [kept], online: online, reconciled: true), online.subtracting([kept]))
+    }
+
+    func testANewPhoneNeverDeletesWhatItHasNotReceivedYet() {
+        let online: Set<UUID> = [UUID(), UUID()]
+        XCTAssertTrue(LibrarySync.removals(current: [], online: online, reconciled: false).isEmpty)
+        XCTAssertTrue(LibrarySync.removals(current: [UUID()], online: online, reconciled: false).isEmpty)
+    }
+
+    func testReconciledIsRememberedPerAccount() {
+        let account = UUID()
+        XCTAssertFalse(LibrarySync.isReconciled(account))
+        LibrarySync.setReconciled(account, true)
+        XCTAssertTrue(LibrarySync.isReconciled(account))
+        LibrarySync.setReconciled(account, false)
+        XCTAssertFalse(LibrarySync.isReconciled(account))
+    }
 }

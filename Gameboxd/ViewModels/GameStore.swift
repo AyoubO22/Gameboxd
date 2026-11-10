@@ -193,6 +193,7 @@ final class GameStore {
 
     func deleteLocalData(forAccount id: UUID) {
         FileStore.forAccount(id, in: guestStore).removeAll()
+        LibrarySync.setReconciled(id, false)
     }
 
     func flush() { fileStore.flush() }
@@ -1689,6 +1690,9 @@ final class GameStore {
             fileStore.remove(key: key)
         }
         
+        // The online copy empties too; otherwise it would bring the games back.
+        LibrarySync.shared.schedule(myGames)
+
         // Recreate the default lists and achievements
         loadGameLists()
         initializeAchievements()

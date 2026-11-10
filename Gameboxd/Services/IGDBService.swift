@@ -159,7 +159,7 @@ final class IGDBService {
     // MARK: - HTTP
 
     /// Runs an IGDB query through the server's `igdb` route, which holds the credentials.
-    private func post<T: Decodable>(_ endpoint: String, body: String) async throws -> T {
+    func post<T: Decodable>(_ endpoint: String, body: String) async throws -> T {
         try await Backend.shared.send("POST", "/api/gameboxd/igdb", body: ["endpoint": endpoint, "query": body])
     }
 }
